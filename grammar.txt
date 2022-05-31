@@ -1,0 +1,14 @@
+type mod: 'const'
+type: <type mod>* 'int' | 'char'
+type or array: <type> | '[' <type> ']'
+
+declaration: <name> ':' <type or array>
+parameter list: <declaration> (',' <declaration>)*
+
+statement: <return> | <block>
+block: '{' <statement>* '}'
+return: 'return' <expression> ';'
+
+expression: <number>
+
+function: <name> '(' <parameter list> ')' ':' <type or array> '{' <block> '}'
