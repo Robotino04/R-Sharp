@@ -1,7 +1,16 @@
 #include "R-Sharp/Tokenizer.hpp"
-#include "R-Sharp/Logging.hpp"
 
-Tokenizer::Tokenizer(std::string const& source) : source(source), currentPosition(0) {
+#include <fstream>
+#include <sstream>
+
+Tokenizer::Tokenizer(std::string const& filename): currentPosition(0), line(1), column(1), numErrors(0), filename(filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        Fatal("Could not open file: \"", filename, "\"");
+    }
+    std::stringstream ss;
+    ss << file.rdbuf();
+    source = ss.str();
 }
 
 bool Tokenizer::isDone() const {
@@ -15,6 +24,12 @@ char Tokenizer::getNextChar() const{
     return source[currentPosition + 1];
 }
 char Tokenizer::advance(){
+    if (getCurrentChar() == '\n') {
+        line++;
+        column = 1;
+    } else {
+        column++;
+    }
     currentPosition++;
     return getCurrentChar();
 }
@@ -129,14 +144,16 @@ Token Tokenizer::nextToken(){
                     token.type = TokenType_MultilineComment;
                     token.value = advanceUntil("*/"); 
                     if (isDone()){
-                        Error("Unterminated multiline comment");
+                        logError("Unterminated multiline comment");
                     }
-                    advance(); // consume the '*'
-                    advance(); // consume the '/'
+                    else{
+                        advance(); // consume the '*'
+                        advance(); // consume the '/'
+                    }
                     break;
                 
                 default:
-                    Error("Division is not yet supported!");
+                    logError("Division is not yet supported!");
                     break;
             }
             break;
@@ -147,9 +164,9 @@ Token Tokenizer::nextToken(){
                 return nextToken();
             }
             else{
-                Error("Unexpected character '", c, "'");
+                logError("Unexpected character '", c, "'");
             }
-            token.type = TokenType_None;
+            advance();
             break;
     }
 
@@ -158,10 +175,18 @@ Token Tokenizer::nextToken(){
 
 
 std::vector<Token> Tokenizer::tokenize(){
-    LoggingContext("Tokenizer");
     std::vector<Token> tokens;
     while (!isDone()) {
         tokens.push_back(nextToken());
+    }
+    if (numErrors){
+        if (numErrors == 1) {
+            Error("There was 1 error in the file!");
+        }
+        else {
+            Error("There were ", numErrors, " errors in the file!");
+        }
+        return {};
     }
     return tokens;
 }
