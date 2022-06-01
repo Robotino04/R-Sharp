@@ -83,6 +83,10 @@ template<typename ...Args>
 inline void Log(Args&& ...args){
     Internals::printToStream(std::clog, Internals::colorBrightBlue, "[LOG]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
 }
+template<typename ...Args>
+inline void Print(Args&& ...args){
+    Internals::printToStream(std::cout, args..., '\n');
+}
 
 #define CONCAT(a, b) CONCAT_INNER(a, b)
 #define CONCAT_INNER(a, b) a ## b
