@@ -102,20 +102,7 @@ int main(int argc, const char** argv) {
         }
     }
 
-    std::ifstream inputFile(inputFilename);
-
-    if (!inputFile.is_open()) {
-        Error("Could not open input file: \"", inputFilename, "\"");
-        return 1;
-    }
-
-    std::string source;
-    std::string line;
-    while (std::getline(inputFile, line)) {
-        source += line + "\n";
-    }
-
-    Tokenizer tokenizer(source);
+    Tokenizer tokenizer(inputFilename);
     std::vector<Token> tokens = tokenizer.tokenize();
 
     for (auto const& token : tokens){
