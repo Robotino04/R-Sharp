@@ -6,184 +6,236 @@
 #include <string>
 #include <memory>
 
-class AstNode;
-class AstProgram;
-class AstFunction;
-class AstBlock;
-class AstStatement;
-class AstExpression;
-class AstVariable;
-class AstReturn;
-class AstNumber;
-class AstType;
-class AstTypeModifier;
-class AstArray;
-class AstParameterList;
+struct AstNode;
+struct AstProgram;
+struct AstFunction;
+struct AstBlock;
+struct AstStatement;
+struct AstExpression;
+struct AstVariableDeclaration;
+struct AstReturn;
+struct AstInteger;
+struct AstType;
+struct AstBuiltinType;
+struct AstTypeModifier;
+struct AstArray;
+struct AstParameterList;
 
-class AstNode{
-    public:
-        virtual ~AstNode() = default;
-
-        virtual std::string toString() const = 0;
-
-        void printTree(std::string prefix="", bool isTail=true) const;
-
-        virtual std::vector<std::shared_ptr<AstNode>> getChildren() const {return {};}
+enum class AstNodeType {
+    PROGRAM,
+    FUNCTION,
+    BLOCK,
+    VARIABLE_DECLARATION,
+    RETURN,
+    INTEGER,
+    BUILTIN_TYPE,
+    TYPE_MODIFIER,
+    ARRAY,
+    PARAMETER_LIST,
 };
 
-class AstProgram : public AstNode{
-    public:
-        std::string toString() const override{return "Program";}
+struct AstNode{
+    virtual ~AstNode() = default;
 
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            std::vector<std::shared_ptr<AstNode>> children;
-            children.reserve(functions.size());
-            for (int i = 0; i < functions.size(); i++) {
-                children.push_back(std::static_pointer_cast<AstNode>(functions.at(i)));
-            }
-            return children;
+    virtual std::string toString() const = 0;
+
+    void printTree(std::string prefix="", bool isTail=true) const{
+        std::string nodeConnection = isTail ? "└── " : "├── ";
+        Print(prefix, nodeConnection, toString());
+
+        auto const& children = getChildren();
+        for (int i = 0; i < children.size(); i++) {
+            std::string newPrefix = prefix + (isTail ? "    " : "│   ");
+            children.at(i)->printTree(newPrefix, i == children.size()-1);
         }
-    
-    public:
-        std::vector<std::shared_ptr<AstFunction>> functions;
+    }
+
+    virtual void generateCCode(std::string& output){output += "!!!Unimplemented Node!!!";}
+
+    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const {return {};}
+
+    virtual AstNodeType getType() const = 0;
 };
 
-class AstFunction : public AstNode{
-    public:
-        AstFunction(std::string name): name(name){}
-        std::string toString() const override{return "Function: " + name;}
+struct AstProgram : public AstNode{
+    std::string toString() const override{return "Program";}
 
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            return {std::static_pointer_cast<AstNode>(body), std::static_pointer_cast<AstNode>(parameters)};
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        std::vector<std::shared_ptr<AstNode>> children;
+        children.reserve(functions.size());
+        for (int i = 0; i < functions.size(); i++) {
+            children.push_back(std::static_pointer_cast<AstNode>(functions.at(i)));
         }
-    
-    public:
-        std::string name;
+        return children;
+    }
 
-        std::shared_ptr<AstBlock> body;
-        std::shared_ptr<AstParameterList> parameters;
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::PROGRAM;}
+
+    std::vector<std::shared_ptr<AstFunction>> functions;
+};
+
+struct AstFunction : public AstNode{
+    AstFunction() = default;
+    AstFunction(std::string name): name(name){}
+    std::string toString() const override{return "Function: " + name;}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(parameters), std::static_pointer_cast<AstNode>(returnType), std::static_pointer_cast<AstNode>(body)};
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::FUNCTION;}
+
+    std::string name;
+
+    std::shared_ptr<AstParameterList> parameters;
+    std::shared_ptr<AstType> returnType;
+    std::shared_ptr<AstBlock> body;
 };
 
 
-class AstStatement : public AstNode{
-    public:
-        virtual ~AstStatement() = default;
+struct AstStatement : public AstNode{
+    virtual ~AstStatement() = default;
 };
 
-class AstBlock : public AstStatement{
-    // children are statements
-    public:
-        std::string toString() const override{return "Block";}
+struct AstBlock : public AstStatement{
+    std::string toString() const override{return "Block";}
 
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            std::vector<std::shared_ptr<AstNode>> children;
-            children.reserve(statements.size());
-            for (int i = 0; i < statements.size(); i++) {
-                children.push_back(std::static_pointer_cast<AstNode>(statements.at(i)));
-            }
-            return children;
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        std::vector<std::shared_ptr<AstNode>> children;
+        children.reserve(statements.size());
+        for (int i = 0; i < statements.size(); i++) {
+            children.push_back(std::static_pointer_cast<AstNode>(statements.at(i)));
         }
-    
-    public:
-        std::vector<std::shared_ptr<AstStatement>> statements;
+        return children;
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::BLOCK;}
+
+    std::vector<std::shared_ptr<AstStatement>> statements;
 };
 
-class AstReturn : public AstStatement{
-    public:
-        std::string toString() const override{return "Return";}
+struct AstReturn : public AstStatement{
+    std::string toString() const override{return "Return";}
 
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            return {std::static_pointer_cast<AstNode>(value)};
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(value)};
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::RETURN;}
+
+    std::shared_ptr<AstExpression> value;
+};
+
+struct AstExpression : public AstNode{
+    virtual ~AstExpression() = default;
+};
+
+struct AstInteger : public AstExpression{
+    AstInteger() = default;
+    AstInteger(double value): value(value){}
+    std::string toString() const override{return "Int: " + std::to_string(value);}
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::INTEGER;}
+
+    int value;
+};
+
+struct AstVariableDeclaration : public AstNode{
+    AstVariableDeclaration() = default;
+    AstVariableDeclaration(std::string name): name(name){}
+    std::string toString() const override{return "Variable: " + name;}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(type)};
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::VARIABLE_DECLARATION;}
+
+    std::string name;
+
+    std::shared_ptr<AstType> type;
+};
+
+struct AstType : public AstNode{
+    virtual ~AstType(){};
+
+    std::vector<std::shared_ptr<AstTypeModifier>> modifiers;
+};
+
+struct AstBuiltinType : public AstType{
+    AstBuiltinType() = default;
+    AstBuiltinType(std::string name): name(name){}
+    std::string toString() const override{return "Builtin Type: " + name;}
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::BUILTIN_TYPE;}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        std::vector<std::shared_ptr<AstNode>> children;
+        children.reserve(modifiers.size());
+        for (int i = 0; i < modifiers.size(); i++) {
+            children.push_back(std::static_pointer_cast<AstNode>(modifiers.at(i)));
         }
+        return children;
+    }
 
-    public:
-        std::shared_ptr<AstExpression> value;
+    std::string name;
 };
 
-class AstExpression : public AstNode{
-    public:
-        virtual ~AstExpression() = default;
+struct AstTypeModifier : public AstNode{
+    AstTypeModifier() = default;
+    AstTypeModifier(std::string name): name(name){}
+    std::string toString() const override{return "TypeModifier: " + name;}
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::TYPE_MODIFIER;}
+
+    std::string name;
 };
 
-class AstNumber : public AstExpression{
-    public:
-        AstNumber(double value): value(value){}
-        std::string toString() const override{return "Number: " + std::to_string(value);}
+struct AstParameterList : public AstNode{
+    std::string toString() const override{return "Parameters";}
 
-    public:
-        double value;
-};
-
-class AstVariable : public AstNode{
-    public:
-        AstVariable(std::string name): name(name){}
-        std::string toString() const override{return "Variable: " + name;}
-
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            return {std::static_pointer_cast<AstNode>(type)};
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        std::vector<std::shared_ptr<AstNode>> children;
+        children.reserve(parameters.size());
+        for (int i = 0; i < parameters.size(); i++) {
+            children.push_back(std::static_pointer_cast<AstNode>(parameters.at(i)));
         }
+        return children;
+    }
 
-    public:
-        std::string name;
+    virtual void generateCCode(std::string& output) override;
 
-        std::shared_ptr<AstType> type;
+    AstNodeType getType() const override{return AstNodeType::PARAMETER_LIST;}
+
+    std::vector<std::shared_ptr<AstVariableDeclaration>> parameters;
 };
 
-class AstType : public AstNode{
-    public:
-        AstType(): name(""){}
-        AstType(std::string name): name(name){}
-        std::string toString() const override{return "Type: " + name;}
+struct AstArray : public AstType{
+    std::string toString() const override{return "Array";}
 
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            std::vector<std::shared_ptr<AstNode>> children;
-            children.reserve(modifiers.size());
-            for (int i = 0; i < modifiers.size(); i++) {
-                children.push_back(std::static_pointer_cast<AstNode>(modifiers.at(i)));
-            }
-            return children;
-        }
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(type)};
+    }
 
-    public:
-        std::string name;
+    virtual void generateCCode(std::string& output) override;
 
-        std::vector<std::shared_ptr<AstTypeModifier>> modifiers;
-};
+    AstNodeType getType() const override{return AstNodeType::ARRAY;}
 
-class AstTypeModifier : public AstNode{
-    public:
-        AstTypeModifier(std::string name): name(name){}
-        std::string toString() const override{return "TypeModifier: " + name;}
-
-    public:
-        std::string name;
-};
-
-class AstParameterList : public AstNode{
-    public:
-        std::string toString() const override{return "Parameters";}
-
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            std::vector<std::shared_ptr<AstNode>> children;
-            children.reserve(parameters.size());
-            for (int i = 0; i < parameters.size(); i++) {
-                children.push_back(std::static_pointer_cast<AstNode>(parameters.at(i)));
-            }
-            return children;
-        }
-    
-    public:
-        std::vector<std::shared_ptr<AstVariable>> parameters;
-};
-
-class AstArray : public AstType{
-    public:
-        std::string toString() const override{return "Array";}
-
-        std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-            return {std::static_pointer_cast<AstNode>(type)};
-        }
-    
-    public:
-        std::shared_ptr<AstType> type;
+    std::shared_ptr<AstType> type;
 };

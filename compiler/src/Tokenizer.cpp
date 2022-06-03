@@ -46,7 +46,8 @@ std::string Tokenizer::advanceUntil(std::string str){
 Token Tokenizer::nextToken(){
     Token token;
     if (isDone()) {
-        token.type = TokenType_EndOfFile;
+        token.type = TokenType::EndOfFile;
+        token.line = line; token.column = column;
         return token;
     }
     char c = getCurrentChar();
@@ -54,6 +55,7 @@ Token Tokenizer::nextToken(){
         case 'a'...'z':
         case 'A'...'Z':
         case '_':
+            token.line = line; token.column = column;
             while (!isDone() && (
                 (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
@@ -62,18 +64,22 @@ Token Tokenizer::nextToken(){
                 token.value += c;
                 c = advance();
             }
-            if (token.value == "const") {
-                token.type = TokenType_TypeModifier;
+            if(token.value == "int" || token.value == "char"){
+                token.type = TokenType::Typename;
+            }
+            else if (token.value == "const") {
+                token.type = TokenType::TypeModifier;
             }
             else if(token.value == "return") {
-                token.type = TokenType_Return;
+                token.type = TokenType::Return;
             }
             else {
-                token.type = TokenType_ID;
+                token.type = TokenType::ID;
             }
             break;
         case '0'...'9':
-            token.type = TokenType_Number;
+            token.line = line; token.column = column;
+            token.type = TokenType::Number;
             while (!isDone() && (
                 (c >= '0' && c <= '9') ||
                 c == '.')) {
@@ -82,66 +88,77 @@ Token Tokenizer::nextToken(){
             }
             break;
         case ';':
-            token.type = TokenType_Semicolon;
+            token.line = line; token.column = column;
+            token.type = TokenType::Semicolon;
             token.value = c;
             advance();
             break;
         case ':':
-            token.type = TokenType_Colon;
+            token.line = line; token.column = column;
+            token.type = TokenType::Colon;
             token.value = c;
             advance();
             break;
         case ',':
-            token.type = TokenType_Comma;
+            token.line = line; token.column = column;
+            token.type = TokenType::Comma;
             token.value = c;
             advance();
             break;
         case '(':
-            token.type = TokenType_OpenParenthesis;
+            token.line = line; token.column = column;
+            token.type = TokenType::LeftParen;
             token.value = c;
             advance();
             break;
         case ')':
-            token.type = TokenType_CloseParenthesis;
+            token.line = line; token.column = column;
+            token.type = TokenType::RightParen;
             token.value = c;
             advance();
             break;
         case '[':
-            token.type = TokenType_OpenBracket;
+            token.line = line; token.column = column;
+            token.type = TokenType::LeftBracket;
             token.value = c;
             advance();
             break;
         case ']':
-            token.type = TokenType_CloseBracket;
+            token.line = line; token.column = column;
+            token.type = TokenType::RightBracket;
             token.value = c;
             advance();
             break;
         case '{':
-            token.type = TokenType_OpenBrace;
+            token.line = line; token.column = column;
+            token.type = TokenType::LeftBrace;
             token.value = c;
             advance();
             break;
         case '}':
-            token.type = TokenType_CloseBrace;
+            token.line = line; token.column = column;
+            token.type = TokenType::RightBrace;
             token.value = c;
             advance();
             break;
         case '*':
-            token.type = TokenType_Star;
+            token.line = line; token.column = column;
+            token.type = TokenType::Star;
             token.value = c;
             advance();
             break;
         case '/':
+            token.line = line; token.column = column;
             advance();
             switch (getCurrentChar()) {
                 case '/':
                     advance();  // consume the second '/'
-                    token.type = TokenType_Comment;
+                    token.type = TokenType::Comment;
                     token.value = advanceUntil("\n");
                     break;
                 case '*':
                     advance();
-                    token.type = TokenType_MultilineComment;
+                    token.type = TokenType::MultilineComment;
                     token.value = advanceUntil("*/"); 
                     if (isDone()){
                         logError("Unterminated multiline comment");
@@ -159,6 +176,7 @@ Token Tokenizer::nextToken(){
             break;
             
         default:
+            token.line = line; token.column = column;
             if (std::isspace(c)) {
                 while (!isDone() && std::isspace(c = advance()));
                 return nextToken();

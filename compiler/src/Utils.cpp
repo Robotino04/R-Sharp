@@ -15,3 +15,18 @@ std::string escapeString(std::string const& str) {
     }
     return result;
 }
+
+std::vector<Token> cleanTokens(std::vector<Token> const& tokens) {
+    std::vector<Token> result;
+    for (auto const& token : tokens) {
+        switch (token.type) {
+            case TokenType::Comment:
+            case TokenType::MultilineComment:
+                break;
+            default:
+                result.push_back(token);
+                break;
+        }
+    }
+    return result;
+}
