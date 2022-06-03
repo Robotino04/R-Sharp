@@ -14,8 +14,8 @@ type mod: 'const'
 type: <type mod>* 'int' | 'char'
 type or array: <type> | '[' <type> ']'
 
-declaration: <name> ':' <type or array>
-parameter list: <declaration> (',' <declaration>)*
+variable: <name> ':' <type or array>
+parameter list: <variable> (',' <variable>)*
 
 
 

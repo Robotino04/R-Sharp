@@ -7,6 +7,8 @@
 #include "R-Sharp/Tokenizer.hpp"
 #include "R-Sharp/Token.hpp"
 #include "R-Sharp/AstNodes.hpp"
+#include "R-Sharp/Parser.hpp"
+#include "R-Sharp/Utils.hpp"
 
 void printHelp(const char* programName) {
     std::cout << "Usage: " << programName << " [options] [input file]" << std::endl;
@@ -27,40 +29,40 @@ std::string tokensToString(std::vector<Token> const& tokens) {
     int braceCount = 0;
     for (auto const& token : tokens) {
         switch (token.type) {
-            case TokenType::TokenType_OpenBrace: braceCount++; break;
-            case TokenType::TokenType_CloseBrace: braceCount--; break;
+            case TokenType::LeftBrace: braceCount++; break;
+            case TokenType::RightBrace: braceCount--; break;
             default: break;
         }
         if (!ss.str().empty() && ss.str().back() == '\n') {
             indent(ss, braceCount);
         }
         switch (token.type) {
-            case TokenType::TokenType_ID: ss << token.value; break;
-            case TokenType::TokenType_Number: ss << token.value; break;
-            case TokenType::TokenType_Typename: ss << token.value << " "; break;
-            case TokenType::TokenType_TypeModifier: ss << token.value << " "; break;
-            case TokenType::TokenType_Semicolon: ss << token.value << "\n"; break;
-            case TokenType::TokenType_Colon: ss << token.value << " "; break;
-            case TokenType::TokenType_Comma: ss << token.value << " "; break;
-            case TokenType::TokenType_OpenParenthesis: ss << token.value; break;
-            case TokenType::TokenType_CloseParenthesis: ss << token.value; break;
-            case TokenType::TokenType_OpenBracket: ss << token.value; break;
-            case TokenType::TokenType_CloseBracket: ss << token.value; break;
-            case TokenType::TokenType_OpenBrace: ss << token.value << "\n"; break;
-            case TokenType::TokenType_CloseBrace: ss << token.value; break;
-            case TokenType::TokenType_Star: ss << token.value; break;
-            case TokenType::TokenType_Comment: ss << "//" << token.value << "\n"; break;
-            case TokenType::TokenType_MultilineComment: ss << "/*" << token.value << "*/\n"; break;
+            case TokenType::ID: ss << token.value; break;
+            case TokenType::Number: ss << token.value; break;
+            case TokenType::Typename: ss << token.value << " "; break;
+            case TokenType::TypeModifier: ss << token.value << " "; break;
+            case TokenType::Semicolon: ss << token.value << "\n"; break;
+            case TokenType::Colon: ss << token.value << " "; break;
+            case TokenType::Comma: ss << token.value << " "; break;
+            case TokenType::LeftParen: ss << token.value; break;
+            case TokenType::RightParen: ss << token.value; break;
+            case TokenType::LeftBracket: ss << token.value; break;
+            case TokenType::RightBracket: ss << token.value; break;
+            case TokenType::LeftBrace: ss << token.value << "\n"; break;
+            case TokenType::RightBrace: ss << token.value; break;
+            case TokenType::Star: ss << token.value; break;
+            case TokenType::Comment: ss << "//" << token.value << "\n"; break;
+            case TokenType::MultilineComment: ss << "/*" << token.value << "*/\n"; break;
 
-            case TokenType::TokenType_Return: ss << token.value << " "; break;
+            case TokenType::Return: ss << token.value << " "; break;
             default: break;
         }
     }
 
     for (auto const& token : tokens) {
         switch (token.type) {
-            case TokenType::TokenType_OpenBrace: braceCount++; break;
-            case TokenType::TokenType_CloseBrace: braceCount--; break;
+            case TokenType::LeftBrace: braceCount++; break;
+            case TokenType::RightBrace: braceCount--; break;
             default: break;
         }
     }
@@ -103,49 +105,88 @@ int main(int argc, const char** argv) {
         }
     }
 
-    Tokenizer tokenizer(inputFilename);
-    std::vector<Token> tokens = tokenizer.tokenize();
+    std::vector<Token> tokens;
+    std::shared_ptr<AstProgram> ast;
+    std::string C_Source;
 
-    for (auto const& token : tokens){
-        Print(token);
+    Print("--------------| Tokenizing |--------------");
+    {
+        Tokenizer tokenizer(inputFilename);
+        tokens = tokenizer.tokenize();
+
+        for (auto const& token : tokens){
+            Print(token);
+        }
+
+        tokens = cleanTokens(tokens);
     }
-    Print("Reconstructed source:\n", tokensToString(tokens));
 
-    Print("----------------------------------------");
+    Print("--------------| Correct tree |--------------");
+    {
+        auto ret = std::make_shared<AstReturn>();
+        ret->value = std::make_shared<AstInteger>(0);
 
-    auto ret = std::make_shared<AstReturn>();
-    ret->value = std::make_shared<AstNumber>(0);
+        auto mainBlock = std::make_shared<AstBlock>();
+        mainBlock->statements.push_back(ret);
 
-    auto mainBlock = std::make_shared<AstBlock>();
-    mainBlock->statements.push_back(ret);
+        auto const_char_ = std::make_shared<AstBuiltinType>("char");
+        auto const_ = std::make_shared<AstTypeModifier>("const");
+        const_char_->modifiers.push_back(const_);
 
-    auto const_char_ = std::make_shared<AstType>("char");
-    auto const_ = std::make_shared<AstTypeModifier>("const");
-    const_char_->modifiers.push_back(const_);
+        auto arr1 = std::make_shared<AstArray>();
+        arr1->type = const_char_;
+        auto arr2 = std::make_shared<AstArray>();
+        arr2->type = arr1;
 
-    auto arr1 = std::make_shared<AstArray>();
-    arr1->type = const_char_;
-    auto arr2 = std::make_shared<AstArray>();
-    arr2->type = arr1;
+        auto argc_ = std::make_shared<AstVariableDeclaration>("argc");
+        auto argv_ = std::make_shared<AstVariableDeclaration>("argv");
 
-    auto argc_ = std::make_shared<AstVariable>("argc");
-    auto argv_ = std::make_shared<AstVariable>("argv");
+        argc_->type = std::make_shared<AstBuiltinType>("int");
+        argv_->type = arr2;
 
-    argc_->type = std::make_shared<AstType>("int");
-    argv_->type = arr2;
+        auto parameters = std::make_shared<AstParameterList>();
+        parameters->parameters.push_back(argc_);
+        parameters->parameters.push_back(argv_);
 
-    auto parameters = std::make_shared<AstParameterList>();
-    parameters->parameters.push_back(argc_);
-    parameters->parameters.push_back(argv_);
+        auto mainFn = std::make_shared<AstFunction>("main");
+        mainFn->parameters = parameters;
+        mainFn->body = mainBlock;
+        mainFn->returnType = std::make_shared<AstBuiltinType>("int");
 
-    auto mainFn = std::make_shared<AstFunction>("main");
-    mainFn->parameters = parameters;
-    mainFn->body = mainBlock;
+        AstProgram program;
+        program.functions.push_back(mainFn);
 
-    AstProgram program;
-    program.functions.push_back(mainFn);
+        program.printTree();
+    }
 
-    program.printTree();
+
+    Print("--------------| Parsed tree |--------------");
+    {
+        Parser parser = Parser(tokens, inputFilename);
+        ast = parser.parse();
+        ast->printTree();
+    }
+
+    Print("--------------| Generated code |--------------");
+    {
+        ast->generateCCode(C_Source);
+        Print(C_Source);
+    }
+
+    std::ofstream outputFile(outputFilename + ".c");
+    outputFile << C_Source;
+    outputFile.close();
+
+    Print("--------------| Compiling using gcc |--------------");
+    std::string command = "gcc " + outputFilename + ".c -o " + outputFilename;
+    int success = system(command.c_str());
+    if (success != 0) {
+        Error("Compilation failed");
+        return 1;
+    }
+    else {
+        Print("Compilation successful");
+    }
 
     return 0;
 }
