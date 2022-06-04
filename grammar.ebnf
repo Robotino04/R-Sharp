@@ -1,26 +1,23 @@
-program = <function>*
+program = {<function>}
 
-function = <name> '(' [<parameter list>] ')' ':' <type or array> '{' <block> '}'
+function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> '{' <block> '}'
 
 block = '{' {<statement>} '}'
 
 return = 'return' <expression> ';'
 statement = <return> | <block>
 
-expression = <term> {('+' | '-') <expression>}
+expression = <logical-and-exp> {'||' <logical-and-exp>}
+logical-and-exp = <equality-exp> {'&&' <equality-ex>}
+equality-exp = <relational-exp> {('==' | '!=') <relational-exp>}
+relational-exp = <additive-exp> {('<' | '>' | '<=' | '>=') <additive-exp>}
+additive-exp = <term> {('+' | '-') <term>}
 term = <factor> {('*' | '/') <factor>}
 factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor>
 
-type mod = 'const'
-type = {<type mod>} ('int' | 'char')
-type or array = <type> | '[' <type> ']'
+type-mod = 'const'
+type = {<type-mod>} ('int' | 'char')
+type-or-array = <type> | '[' <type> ']'
 
-variable = <name> ':' <type or array>
-parameter list = <variable> {',' <variable>} 
-
-
-
-
-
-
-
+variable = <name> ':' <type-or-array>
+parameter-list = <variable> {',' <variable>}

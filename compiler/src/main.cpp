@@ -119,45 +119,6 @@ int main(int argc, const char** argv) {
         tokens = cleanTokens(tokens);
     }
 
-    Print("--------------| Correct tree |--------------");
-    {
-        auto ret = std::make_shared<AstReturn>();
-        ret->value = std::make_shared<AstInteger>(0);
-
-        auto mainBlock = std::make_shared<AstBlock>();
-        mainBlock->statements.push_back(ret);
-
-        auto const_char_ = std::make_shared<AstBuiltinType>("char");
-        auto const_ = std::make_shared<AstTypeModifier>("const");
-        const_char_->modifiers.push_back(const_);
-
-        auto arr1 = std::make_shared<AstArray>();
-        arr1->type = const_char_;
-        auto arr2 = std::make_shared<AstArray>();
-        arr2->type = arr1;
-
-        auto argc_ = std::make_shared<AstVariableDeclaration>("argc");
-        auto argv_ = std::make_shared<AstVariableDeclaration>("argv");
-
-        argc_->type = std::make_shared<AstBuiltinType>("int");
-        argv_->type = arr2;
-
-        auto parameters = std::make_shared<AstParameterList>();
-        parameters->parameters.push_back(argc_);
-        parameters->parameters.push_back(argv_);
-
-        auto mainFn = std::make_shared<AstFunction>("main");
-        mainFn->parameters = parameters;
-        mainFn->body = mainBlock;
-        mainFn->returnType = std::make_shared<AstBuiltinType>("int");
-
-        AstProgram program;
-        program.functions.push_back(mainFn);
-
-        program.printTree();
-    }
-
-
     Print("--------------| Parsed tree |--------------");
     {
         Parser parser = Parser(tokens, inputFilename);
