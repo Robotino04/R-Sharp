@@ -169,10 +169,10 @@ Token Tokenizer::nextToken(){
         else SIMPLE_TOKEN("||", TokenType::DoublePipe)
         else SIMPLE_TOKEN("==", TokenType::EqualEqual)
         else SIMPLE_TOKEN("!=", TokenType::NotEqual)
-        else SIMPLE_TOKEN("<", TokenType::LessThan)
         else SIMPLE_TOKEN("<=", TokenType::LessThanEqual)
-        else SIMPLE_TOKEN(">", TokenType::GreaterThan)
         else SIMPLE_TOKEN(">=", TokenType::GreaterThanEqual)
+        else SIMPLE_TOKEN("<", TokenType::LessThan)
+        else SIMPLE_TOKEN(">", TokenType::GreaterThan)
 
         else SIMPLE_TOKEN('!', TokenType::Bang)
         else SIMPLE_TOKEN('~', TokenType::Tilde)
