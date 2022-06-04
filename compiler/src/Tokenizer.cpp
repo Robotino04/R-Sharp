@@ -77,9 +77,12 @@ Token Tokenizer::nextToken(){
                 token.type = TokenType::ID;
             }
             break;
+        case '-':
         case '0'...'9':
             token.line = line; token.column = column;
             token.type = TokenType::Number;
+            token.value += c;
+            c = advance();
             while (!isDone() && (
                 (c >= '0' && c <= '9') ||
                 c == '.')) {
