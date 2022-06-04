@@ -69,17 +69,40 @@ void AstParameterList::generateCCode(std::string& output){
     output += ")";
 }
 
-void AstNegation::generateCCode(std::string& output){
-    output += "-";
+void AstUnary::generateCCode(std::string& output){
+    output += "(";
+    switch (type) {
+        case AstUnary::Type::Negate:
+            output += "-";
+            break;
+        case AstUnary::Type::LogicalNot:
+            output += "!";
+            break;
+        case AstUnary::Type::BinaryNot:
+            output += "~";
+            break;
+    }
     value->generateCCode(output);
+    output += ")";
 }
 
-void AstLogicalNot::generateCCode(std::string& output){
-    output += "!";
-    value->generateCCode(output);
-}
-
-void AstBitwiseNot::generateCCode(std::string& output){
-    output += "~";
-    value->generateCCode(output);
+void AstBinary::generateCCode(std::string& output){
+    output += "(";
+    left->generateCCode(output);
+    switch (type){
+        case AstBinary::Type::Add:
+            output += "+";
+            break;
+        case AstBinary::Type::Subtract:
+            output += "-";
+            break;
+        case AstBinary::Type::Multiply:
+            output += "*";
+            break;
+        case AstBinary::Type::Divide:
+            output += "/";
+            break;
+    }
+    right->generateCCode(output);
+    output += ")";
 }

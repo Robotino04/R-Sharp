@@ -20,15 +20,18 @@ class Parser{
         bool match(TokenType type) const;
         bool match(TokenType type, std::string value) const;
         bool match(std::vector<TokenType> types) const;
+        bool matchAny(std::vector<TokenType> types) const;
 
         bool match(int offset, TokenType type) const;
         bool match(int offset,TokenType type, std::string value) const;
         bool match(int offset,std::vector<TokenType> types) const;
+        bool matchAny(int offset,std::vector<TokenType> types) const;
 
         Token consume();
         Token consume(TokenType type);
         Token consume(TokenType type, std::string value);
         Token consume(std::vector<TokenType> types);
+        Token consumeAny(std::vector<TokenType> types);
 
         bool isAtEnd(int offset = 0) const;
 
@@ -54,7 +57,6 @@ class Parser{
         std::shared_ptr<AstFunction> parseFunction();
         std::shared_ptr<AstBlock> parseBlock();
         std::shared_ptr<AstStatement> parseStatement();
-        std::shared_ptr<AstExpression> parseExpression();
         std::shared_ptr<AstVariableDeclaration> parseVariable();
         std::shared_ptr<AstReturn> parseReturn();
         std::shared_ptr<AstInteger> parseNumber();
@@ -63,8 +65,8 @@ class Parser{
         std::shared_ptr<AstTypeModifier> parseTypeModifier();
         std::shared_ptr<AstArray> parseArray();
         std::shared_ptr<AstParameterList> parseParameterList();
-        std::shared_ptr<AstUnary> parseUnary();
-        std::shared_ptr<AstNegation> parseNegation();
-        std::shared_ptr<AstLogicalNot> parseLogicalNot();
-        std::shared_ptr<AstBitwiseNot> parseBitwiseNot();
+
+        std::shared_ptr<AstExpression> parseExpression();
+        std::shared_ptr<AstExpression> parseTerm();
+        std::shared_ptr<AstExpression> parseFactor();
 };
