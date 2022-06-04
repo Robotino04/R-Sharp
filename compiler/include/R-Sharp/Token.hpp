@@ -4,27 +4,41 @@
 
 enum class TokenType{
     None,                       // 
+    EndOfFile,                  // "\0"
+
+    Comment,                    // "//" | "/*" ... "*/"
     ID,                         // [a-zA-Z_][a-zA-Z0-9_]*
     Number,                     // [0-9]+
     Typename,                   // "int" | "char"
     TypeModifier,               // "const"
+
     Semicolon,                  // ";"
     Colon,                      // ":"
     Comma,                      // ","
+
     LeftParen,                  // "("
     RightParen,                 // ")"
     LeftBracket,                // "["
     RightBracket,               // "]"
     LeftBrace,                  // "{"
     RightBrace,                 // "}"
-    Star,                       // "*"
-    Comment,                    // "//" | "/*" ... "*/"
-    EndOfFile,                  // "\0"
-    Minus,                      // "-"
+
     ExclamationPoint,           // "!"
     Tilde,                      // "~"
+
     Plus,                       // "+"
+    Minus,                      // "-"
+    Star,                       // "*"
     Slash,                      // "/"
+
+    DoubleAmpersand,            // "&&"
+    DoublePipe,                 // "||"
+    EqualEqual,                 // "=="
+    NotEqual,                   // "!="
+    LessThan,                   // "<"
+    LessThanEqual,              // "<="
+    GreaterThan,                // ">"
+    GreaterThanEqual,           // ">="
 
     Return,                     // "return"
 
