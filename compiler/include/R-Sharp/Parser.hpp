@@ -35,6 +35,8 @@ class Parser{
         Token getCurrentToken() const;
         Token getToken(int offset) const;
 
+        void testErrorLimit() const;
+
 
         template<typename... Args>
         void logError(Args... args) const{
@@ -42,6 +44,7 @@ class Parser{
             numErrors++;
         }
 
+        const int maxErrors = 20;
         mutable int numErrors = 0;
         std::string filename;
 
@@ -60,4 +63,8 @@ class Parser{
         std::shared_ptr<AstTypeModifier> parseTypeModifier();
         std::shared_ptr<AstArray> parseArray();
         std::shared_ptr<AstParameterList> parseParameterList();
+        std::shared_ptr<AstUnary> parseUnary();
+        std::shared_ptr<AstNegation> parseNegation();
+        std::shared_ptr<AstLogicalNot> parseLogicalNot();
+        std::shared_ptr<AstBitwiseNot> parseBitwiseNot();
 };

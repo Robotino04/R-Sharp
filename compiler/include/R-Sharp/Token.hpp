@@ -21,10 +21,14 @@ enum class TokenType{
     Comment,                  // "//"
     MultilineComment,         // "/*" .* "*/"
     EndOfFile,                // "\0"
+    Minus,                    // "-"
+    ExclamationPoint,        // "!"
+    Tilde,                    // "~"
 
     Return,                   // "return"
 
     Identifier = ID,
+    Bang = ExclamationPoint,
 };
 
 struct Token{

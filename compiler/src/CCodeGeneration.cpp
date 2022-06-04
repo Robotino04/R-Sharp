@@ -68,3 +68,18 @@ void AstParameterList::generateCCode(std::string& output){
     }
     output += ")";
 }
+
+void AstNegation::generateCCode(std::string& output){
+    output += "-";
+    value->generateCCode(output);
+}
+
+void AstLogicalNot::generateCCode(std::string& output){
+    output += "!";
+    value->generateCCode(output);
+}
+
+void AstBitwiseNot::generateCCode(std::string& output){
+    output += "~";
+    value->generateCCode(output);
+}

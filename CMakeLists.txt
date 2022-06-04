@@ -14,5 +14,10 @@ add_executable(compilerTester "tests/compilerTester.cpp")
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
-add_valiadtive_test(return0)
-add_valiadtive_test(return42)
+
+file(GLOB_RECURSE RSHARP_TESTS "tests/*.rs")
+
+foreach(test_file ${RSHARP_TESTS})
+    get_filename_component(test_name ${test_file}, NAME_WLE)
+    add_valiadtive_test(${test_name})
+endforeach()

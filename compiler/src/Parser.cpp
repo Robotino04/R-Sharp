@@ -83,7 +83,15 @@ Token Parser::getToken(int offset) const{
     return tokens[currentTokenIndex + offset];
 }
 
+
+void Parser::testErrorLimit() const{
+    if (numErrors > maxErrors) {
+        Fatal("Too many errors");
+    }
+}
+
 std::shared_ptr<AstProgram> Parser::parseProgram() {
+    testErrorLimit();
     while (!isAtEnd()) {
         program->functions.push_back(parseFunction());
     }
@@ -91,6 +99,7 @@ std::shared_ptr<AstProgram> Parser::parseProgram() {
 }
 
 std::shared_ptr<AstFunction> Parser::parseFunction() {
+    testErrorLimit();
     std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
     function->name = consume(TokenType::ID).value;
     function->parameters = parseParameterList();
@@ -100,6 +109,7 @@ std::shared_ptr<AstFunction> Parser::parseFunction() {
     return function;
 }
 std::shared_ptr<AstBlock> Parser::parseBlock() {
+    testErrorLimit();
     std::shared_ptr<AstBlock> block = std::make_shared<AstBlock>();
     consume(TokenType::LeftBrace);
     while (!match(TokenType::RightBrace)) {
@@ -110,6 +120,7 @@ std::shared_ptr<AstBlock> Parser::parseBlock() {
 }
 
 std::shared_ptr<AstStatement> Parser::parseStatement() {
+    testErrorLimit();
     if (match(TokenType::LeftBrace)) {
         return parseBlock();
     }
@@ -142,6 +153,7 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
 }
 
 std::shared_ptr<AstReturn> Parser::parseReturn() {
+    testErrorLimit();
     std::shared_ptr<AstReturn> returnStatement = std::make_shared<AstReturn>();
     consume(TokenType::Return);
     returnStatement->value = parseExpression();
@@ -150,16 +162,65 @@ std::shared_ptr<AstReturn> Parser::parseReturn() {
 }
 
 std::shared_ptr<AstExpression> Parser::parseExpression() {
-    return parseNumber();
+    testErrorLimit();
+    switch (getCurrentToken().type){
+        case TokenType::Minus:
+        case TokenType::Tilde:
+        case TokenType::ExclamationPoint:
+            return parseUnary();
+        case TokenType::Number:
+            return parseNumber();
+        default:
+            logError("Expected expression but got ", getCurrentToken());
+            return nullptr;
+    }
+}
+
+std::shared_ptr<AstUnary> Parser::parseUnary() {
+    testErrorLimit();
+    switch (getCurrentToken().type){
+        case TokenType::Minus: return parseNegation();
+        case TokenType::Tilde: return parseBitwiseNot();
+        case TokenType::ExclamationPoint: return parseLogicalNot();
+        default:
+            logError("Expected unary operator but got ", getCurrentToken());
+            return nullptr;
+    }
+}
+
+std::shared_ptr<AstNegation> Parser::parseNegation() {
+    testErrorLimit();
+    std::shared_ptr<AstNegation> negation = std::make_shared<AstNegation>();
+    consume(TokenType::Minus);
+    negation->value = parseExpression();
+    return negation;
+}
+
+std::shared_ptr<AstBitwiseNot> Parser::parseBitwiseNot() {
+    testErrorLimit();
+    std::shared_ptr<AstBitwiseNot> bitwiseNot = std::make_shared<AstBitwiseNot>();
+    consume(TokenType::Tilde);
+    bitwiseNot->value = parseExpression();
+    return bitwiseNot;
+}
+
+std::shared_ptr<AstLogicalNot> Parser::parseLogicalNot() {
+    testErrorLimit();
+    std::shared_ptr<AstLogicalNot> logicalNot = std::make_shared<AstLogicalNot>();
+    consume(TokenType::ExclamationPoint);
+    logicalNot->value = parseExpression();
+    return logicalNot;
 }
 
 std::shared_ptr<AstInteger> Parser::parseNumber() {
+    testErrorLimit();
     std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>();
     number->value = std::stoi(consume(TokenType::Number).value);
     return number;
 }
 
 std::shared_ptr<AstVariableDeclaration> Parser::parseVariable() {
+    testErrorLimit();
     std::shared_ptr<AstVariableDeclaration> variable = std::make_shared<AstVariableDeclaration>();
     variable->name = consume(TokenType::Identifier).value;
     consume(TokenType::Colon);
@@ -168,6 +229,7 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariable() {
 }
 
 std::shared_ptr<AstType> Parser::parseType() {
+    testErrorLimit();
     std::vector<std::shared_ptr<AstTypeModifier>> typeModifiers;
     while (match(TokenType::TypeModifier)) {
         typeModifiers.push_back(parseTypeModifier());
@@ -189,18 +251,21 @@ std::shared_ptr<AstType> Parser::parseType() {
 }
 
 std::shared_ptr<AstBuiltinType> Parser::parseBuiltinType() {
+    testErrorLimit();
     std::shared_ptr<AstBuiltinType> type = std::make_shared<AstBuiltinType>();
     type->name = consume(TokenType::Typename).value;
     return type;
 }
 
 std::shared_ptr<AstTypeModifier> Parser::parseTypeModifier() {
+    testErrorLimit();
     std::shared_ptr<AstTypeModifier> typeModifier = std::make_shared<AstTypeModifier>();
     typeModifier->name = consume(TokenType::TypeModifier).value;
     return typeModifier;
 }
 
 std::shared_ptr<AstParameterList> Parser::parseParameterList() {
+    testErrorLimit();
     std::shared_ptr<AstParameterList> parameterList = std::make_shared<AstParameterList>();
     consume(TokenType::LeftParen);
     while (!match(TokenType::RightParen)) {
@@ -214,6 +279,7 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
 }
 
 std::shared_ptr<AstArray> Parser::parseArray() {
+    testErrorLimit();
     std::shared_ptr<AstArray> array = std::make_shared<AstArray>();
     consume(TokenType::LeftBracket);
     array->type = parseType();

@@ -50,6 +50,11 @@ Token Tokenizer::nextToken(){
         token.line = line; token.column = column;
         return token;
     }
+
+    if (numErrors > 20){
+        Fatal("Too many errors");
+    }
+
     char c = getCurrentChar();
     switch (c) {
         case 'a'...'z':
@@ -77,15 +82,30 @@ Token Tokenizer::nextToken(){
                 token.type = TokenType::ID;
             }
             break;
+        case '!':
+            token.line = line; token.column = column;
+            token.type = TokenType::ExclamationPoint;
+            token.value = c;
+            advance();
+            break;
+        case '~':
+            token.line = line; token.column = column;
+            token.type = TokenType::Tilde;
+            token.value = c;
+            advance();
+            break;
         case '-':
+            token.line = line; token.column = column;
+            token.type = TokenType::Minus;
+            token.value = c;
+            advance();
+            break;
         case '0'...'9':
             token.line = line; token.column = column;
             token.type = TokenType::Number;
-            token.value += c;
+            token.value = c;
             c = advance();
-            while (!isDone() && (
-                (c >= '0' && c <= '9') ||
-                c == '.')) {
+            while (!isDone() && (c >= '0' && c <= '9')) {
                 token.value += c;
                 c = advance();
             }
