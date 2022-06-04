@@ -13,7 +13,7 @@ main(argc: int, argv: [[const char]]): int{
     
     /*
     test comment with multiple lines.
-    it also contains some R# code
+    it too contains some R# code
 
     main(argc: int, argv: [[const char]]): int{
         return 0;
