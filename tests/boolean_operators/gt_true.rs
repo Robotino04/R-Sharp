@@ -2,6 +2,6 @@
 return: 1
 */
 
-main(): {
+main(): int {
     return 1 > 0;
 }
