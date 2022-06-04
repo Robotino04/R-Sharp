@@ -67,8 +67,13 @@ int main(int argc, char** argv) {
     auto result = exec(command);
     std::cout << "Compiler output: " << result.output;
     if (result.returnCode != 0) {
-        std::cout << "Compiler return code: " << result.returnCode << std::endl;
-        return 1;
+        if (inputFile.find("skip_on_failure") != std::string::npos) {
+            std::cout << " (skipped)" << std::endl;
+        }
+        else{
+            std::cout << "Compiler return code: " << result.returnCode << std::endl;
+            return 1;
+        }
     }
 
     result = exec(outputDir + "/" + filename);
@@ -84,6 +89,11 @@ int main(int argc, char** argv) {
 
             std::cout << "Expected return value: " << expectedReturnValue;
             if (result.returnCode != expectedReturnValue) {
+                // if the input file contains "skip_on_failure" then we skip the test
+                if (inputFile.find("skip_on_failure") != std::string::npos) {
+                    std::cout << " (skipped)" << std::endl;
+                    continue;
+                }
                 std::cout << " - FAILED (It was " << result.returnCode << ")" << std::endl;
                 return 1;
             }
