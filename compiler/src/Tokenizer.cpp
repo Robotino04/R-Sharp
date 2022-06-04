@@ -153,21 +153,35 @@ Token Tokenizer::nextToken(){
         COMPLEX_SET_TOKEN(validIdentifierBegin, validIdentifierChars, TokenType::Identifier)
         else ENCLOSING_TOKEN("//", "\n", TokenType::Comment)
         else ENCLOSING_TOKEN("/*", "*/", TokenType::Comment)
+
+        else SIMPLE_TOKEN(';', TokenType::Semicolon)
+        else SIMPLE_TOKEN(',', TokenType::Comma)
+        else SIMPLE_TOKEN(':', TokenType::Colon)
+
+        else SIMPLE_TOKEN('(', TokenType::LeftParen)
+        else SIMPLE_TOKEN(')', TokenType::RightParen)
+        else SIMPLE_TOKEN('[', TokenType::LeftBracket)
+        else SIMPLE_TOKEN(']', TokenType::RightBracket)
+        else SIMPLE_TOKEN('{', TokenType::LeftBrace)
+        else SIMPLE_TOKEN('}', TokenType::RightBrace)
+
         else SIMPLE_TOKEN('!', TokenType::Bang)
         else SIMPLE_TOKEN('~', TokenType::Tilde)
+
         else SIMPLE_TOKEN('+', TokenType::Plus)
         else SIMPLE_TOKEN('-', TokenType::Minus)
         else SIMPLE_TOKEN('*', TokenType::Star)
         else SIMPLE_TOKEN('/', TokenType::Slash)
-        else SIMPLE_TOKEN(';', TokenType::Semicolon)
-        else SIMPLE_TOKEN(',', TokenType::Comma)
-        else SIMPLE_TOKEN(':', TokenType::Colon)
-        else SIMPLE_TOKEN('(', TokenType::LeftParen)
-        else SIMPLE_TOKEN(')', TokenType::RightParen)
-        else SIMPLE_TOKEN('{', TokenType::LeftBrace)
-        else SIMPLE_TOKEN('}', TokenType::RightBrace)
-        else SIMPLE_TOKEN('[', TokenType::LeftBracket)
-        else SIMPLE_TOKEN(']', TokenType::RightBracket)
+        
+        else SIMPLE_TOKEN("&&", TokenType::DoubleAmpersand)
+        else SIMPLE_TOKEN("||", TokenType::DoublePipe)
+        else SIMPLE_TOKEN('==', TokenType::EqualEqual)
+        else SIMPLE_TOKEN('!=', TokenType::NotEqual)
+        else SIMPLE_TOKEN('<', TokenType::LessThan)
+        else SIMPLE_TOKEN('<=', TokenType::LessThanEqual)
+        else SIMPLE_TOKEN('>', TokenType::GreaterThan)
+        else SIMPLE_TOKEN('>=', TokenType::GreaterThanEqual)
+
 
         else SET_TOKEN(numbers, TokenType::Number)
         else if (std::isspace(getCurrentChar())) { consume(); }
