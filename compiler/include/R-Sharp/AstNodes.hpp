@@ -32,6 +32,9 @@ enum class AstNodeType {
     TYPE_MODIFIER,
     ARRAY,
     PARAMETER_LIST,
+    NEGATION,
+    LOGICAL_NOT,
+    BITWISE_NOT,
 };
 
 struct AstNode{
@@ -137,6 +140,53 @@ struct AstReturn : public AstStatement{
 struct AstExpression : public AstNode{
     virtual ~AstExpression() = default;
 };
+
+struct AstUnary : public AstExpression{
+    virtual ~AstUnary() = default;
+};
+
+struct AstNegation : public AstUnary{
+    std::string toString() const override{return "Negative";}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(value)};
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::NEGATION;}
+
+    std::shared_ptr<AstExpression> value;
+};
+
+struct AstLogicalNot : public AstUnary{
+    std::string toString() const override{return "Logical Not";}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(value)};
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::LOGICAL_NOT;}
+
+    std::shared_ptr<AstExpression> value;
+};
+
+struct AstBitwiseNot : public AstUnary{
+    std::string toString() const override{return "Bitwise Not";}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        return {std::static_pointer_cast<AstNode>(value)};
+    }
+
+    virtual void generateCCode(std::string& output) override;
+
+    AstNodeType getType() const override{return AstNodeType::BITWISE_NOT;}
+
+    std::shared_ptr<AstExpression> value;
+};
+
 
 struct AstInteger : public AstExpression{
     AstInteger() = default;

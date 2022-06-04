@@ -26,6 +26,9 @@ namespace std{
             case TokenType::Comment: return "Comment";
             case TokenType::MultilineComment: return "MultilineComment";
             case TokenType::EndOfFile: return "EOF";
+            case TokenType::Minus: return "Minus";
+            case TokenType::ExclamationPoint: return "ExclamationPoint";
+            case TokenType::Tilde: return "Tilde";
 
             case TokenType::Return: return "Return";
             default: return "Unknown";

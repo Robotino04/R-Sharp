@@ -5,14 +5,25 @@
 #include <memory>
 #include <functional>
 
+constexpr int getExitStatus(int status) {
+    return (int8_t)WEXITSTATUS(status);
+}
+
 struct CommandResult {
     int returnCode;
     std::string output;
 };
 
+template<typename T>
+void printBits(T const& value) {
+    for (int i = sizeof(T) * 8 - 1; i >= 0; i--) {
+        std::cout << ((value >> i) & 1);
+    }
+}
+
 void linked_pclose(int& returnCode, FILE *__stream){
     if (__stream) {
-        returnCode = WEXITSTATUS(pclose(__stream));
+        returnCode = getExitStatus(pclose(__stream));
     }
 }
 

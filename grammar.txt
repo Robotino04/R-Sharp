@@ -7,8 +7,9 @@ block: '{' <statement>* '}'
 return: 'return' <expression> ';'
 statement: <return> | <block>
 
-expression: <number>
+expression: <number> | <unary operator>
 
+unary operator: '-' <expression> | '!' <expression> | ~ <expression>
 
 type mod: 'const'
 type: <type mod>* 'int' | 'char'
