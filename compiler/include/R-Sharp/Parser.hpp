@@ -14,9 +14,6 @@ class Parser{
         std::shared_ptr<AstProgram> parse();
 
     private:
-        std::vector<Token> tokens;
-        int currentTokenIndex = 0;
-
         bool match(TokenType type) const;
         bool match(TokenType type, std::string value) const;
         bool match(std::vector<TokenType> types) const;
@@ -31,7 +28,7 @@ class Parser{
         Token consume(TokenType type);
         Token consume(TokenType type, std::string value);
         Token consume(std::vector<TokenType> types);
-        Token consumeAny(std::vector<TokenType> types);
+        Token consumeAnyOne(std::vector<TokenType> types);
 
         bool isAtEnd(int offset = 0) const;
 
@@ -40,14 +37,16 @@ class Parser{
 
         void testErrorLimit() const;
 
-
         template<typename... Args>
         void logError(Args... args) const{
             Error(filename, ":", getCurrentToken().line, ":", getCurrentToken().column, ":\t", args...);
             numErrors++;
         }
 
-        const int maxErrors = 20;
+        std::vector<Token> tokens;
+        int currentTokenIndex = 0;
+
+        static const int maxErrors = 20;
         mutable int numErrors = 0;
         std::string filename;
 

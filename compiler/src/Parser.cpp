@@ -78,7 +78,7 @@ Token Parser::consume(std::vector<TokenType> types){
     }
     return getCurrentToken();
 }
-Token Parser::consumeAny(std::vector<TokenType> types){
+Token Parser::consumeAnyOne(std::vector<TokenType> types){
     for (TokenType type : types) {
         if (match(type)) {
             return consume();
@@ -196,7 +196,7 @@ std::shared_ptr<AstExpression> Parser::parseExpression() {
     auto term = parseTerm();
 
     while (matchAny({TokenType::Plus, TokenType::Minus})) {
-        Token operatorToken = consumeAny({TokenType::Plus, TokenType::Minus});
+        Token operatorToken = consumeAnyOne({TokenType::Plus, TokenType::Minus});
         auto next_term = parseTerm();
 
         term = std::make_shared<AstBinary>(term, toBinaryOperator(operatorToken.type), next_term);
@@ -209,7 +209,7 @@ std::shared_ptr<AstExpression> Parser::parseTerm() {
     auto factor = parseFactor();
 
     while (matchAny({TokenType::Star, TokenType::Slash})) {
-        Token operatorToken = consumeAny({TokenType::Star, TokenType::Slash});
+        Token operatorToken = consumeAnyOne({TokenType::Star, TokenType::Slash});
         auto next_factor = parseFactor();
 
         factor = std::make_shared<AstBinary>(factor, toBinaryOperator(operatorToken.type), next_factor);
@@ -227,7 +227,7 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
         return expression;
     }
     else if (matchAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde})) {
-        Token operatorToken = consumeAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde});
+        Token operatorToken = consumeAnyOne({TokenType::Bang, TokenType::Minus, TokenType::Tilde});
         auto factor = parseFactor();
         return std::make_shared<AstUnary>(toUnaryOperator(operatorToken.type), factor);
     }

@@ -51,8 +51,7 @@ std::string tokensToString(std::vector<Token> const& tokens) {
             case TokenType::LeftBrace: ss << token.value << "\n"; break;
             case TokenType::RightBrace: ss << token.value; break;
             case TokenType::Star: ss << token.value; break;
-            case TokenType::Comment: ss << "//" << token.value << "\n"; break;
-            case TokenType::MultilineComment: ss << "/*" << token.value << "*/\n"; break;
+            case TokenType::Comment: ss << "/*" << token.value << "*/"; break;
 
             case TokenType::Return: ss << token.value << " "; break;
             default: break;
