@@ -24,7 +24,6 @@ namespace std{
             case TokenType::RightBrace: return "CloseBrace";
             case TokenType::Star: return "Star";
             case TokenType::Comment: return "Comment";
-            case TokenType::MultilineComment: return "MultilineComment";
             case TokenType::EndOfFile: return "EOF";
             case TokenType::Minus: return "Minus";
             case TokenType::ExclamationPoint: return "ExclamationPoint";

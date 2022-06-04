@@ -5,7 +5,7 @@
 enum class TokenType{
     None,                       // 
     ID,                         // [a-zA-Z_][a-zA-Z0-9_]*
-    Number,                     // [0-9]+(\.[0-9]+)?
+    Number,                     // [0-9]+
     Typename,                   // "int" | "char"
     TypeModifier,               // "const"
     Semicolon,                  // ";"
@@ -18,8 +18,7 @@ enum class TokenType{
     LeftBrace,                  // "{"
     RightBrace,                 // "}"
     Star,                       // "*"
-    Comment,                    // "//"
-    MultilineComment,           // "/*" .* "*/"
+    Comment,                    // "//" | "/*" ... "*/"
     EndOfFile,                  // "\0"
     Minus,                      // "-"
     ExclamationPoint,           // "!"
@@ -37,6 +36,11 @@ struct Token{
     Token(): type(TokenType::None), value(""), line(0), column(0){}
     Token(TokenType type, std::string value, int line, int column)
         : type(type), value(value), line(line), column(column){}
+    Token(TokenType type, char value, int line, int column)
+        : type(type), line(line), column(column)
+    {
+        this->value = value;
+    }
     Token(TokenType type, std::string value) : type(type), value(value), line(0), column(0){}
     TokenType type;
     std::string value = "";
