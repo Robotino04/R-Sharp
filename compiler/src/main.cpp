@@ -86,17 +86,16 @@ int main(int argc, const char** argv) {
             return 0;
         } else if (arg == "-o" || arg == "--output") {
             if (i+1 < argc) {
-                Log("Output file: ", argv[i+1]);
                 outputFilename = argv[i+1];
+                i++;
             } else {
-                Log("Missing output file");
+                Error("Missing output file");
                 return 1;
             }
         } else {
             // test if it is a filename
             std::ifstream testFile(arg);
             if (testFile.is_open()) {
-                Log("Input file: ", arg);
                 inputFilename = arg;
             } else {
                 Error("Invalid argument: ", arg);
