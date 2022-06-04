@@ -81,6 +81,9 @@ void AstUnary::generateCCode(std::string& output){
         case AstUnary::Type::BinaryNot:
             output += "~";
             break;
+        default:
+            Fatal("Invalid unary operator ", std::to_string(type));
+            break;
     }
     value->generateCCode(output);
     output += ")";
@@ -101,6 +104,36 @@ void AstBinary::generateCCode(std::string& output){
             break;
         case AstBinary::Type::Divide:
             output += "/";
+            break;
+
+        case AstBinary::Type::Equal:
+            output += "==";
+            break;
+        case AstBinary::Type::NotEqual:
+            output += "!=";
+            break;
+        case AstBinary::Type::LessThan:
+            output += "<";
+            break;
+        case AstBinary::Type::LessThanOrEqual:
+            output += "<=";
+            break;
+        case AstBinary::Type::GreaterThan:
+            output += ">";
+            break;
+        case AstBinary::Type::GreaterThanOrEqual:
+            output += ">=";
+            break;
+
+        case AstBinary::Type::LogicalAnd:
+            output += "&&";
+            break;
+        case AstBinary::Type::LogicalOr:
+            output += "||";
+            break;
+
+        default:
+            Fatal("Invalid binary operator ", std::to_string(type));
             break;
     }
     right->generateCCode(output);
