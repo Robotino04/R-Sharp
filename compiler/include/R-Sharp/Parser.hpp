@@ -66,6 +66,10 @@ class Parser{
         std::shared_ptr<AstParameterList> parseParameterList();
 
         std::shared_ptr<AstExpression> parseExpression();
+        std::shared_ptr<AstExpression> parseLogicalAndExp();
+        std::shared_ptr<AstExpression> parseEqualityExp();
+        std::shared_ptr<AstExpression> parseRelationalExp();
+        std::shared_ptr<AstExpression> parseAdditiveExp();
         std::shared_ptr<AstExpression> parseTerm();
         std::shared_ptr<AstExpression> parseFactor();
 };

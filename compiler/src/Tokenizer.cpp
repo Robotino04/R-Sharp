@@ -164,6 +164,15 @@ Token Tokenizer::nextToken(){
         else SIMPLE_TOKEN(']', TokenType::RightBracket)
         else SIMPLE_TOKEN('{', TokenType::LeftBrace)
         else SIMPLE_TOKEN('}', TokenType::RightBrace)
+        
+        else SIMPLE_TOKEN("&&", TokenType::DoubleAmpersand)
+        else SIMPLE_TOKEN("||", TokenType::DoublePipe)
+        else SIMPLE_TOKEN("==", TokenType::EqualEqual)
+        else SIMPLE_TOKEN("!=", TokenType::NotEqual)
+        else SIMPLE_TOKEN("<", TokenType::LessThan)
+        else SIMPLE_TOKEN("<=", TokenType::LessThanEqual)
+        else SIMPLE_TOKEN(">", TokenType::GreaterThan)
+        else SIMPLE_TOKEN(">=", TokenType::GreaterThanEqual)
 
         else SIMPLE_TOKEN('!', TokenType::Bang)
         else SIMPLE_TOKEN('~', TokenType::Tilde)
@@ -172,15 +181,6 @@ Token Tokenizer::nextToken(){
         else SIMPLE_TOKEN('-', TokenType::Minus)
         else SIMPLE_TOKEN('*', TokenType::Star)
         else SIMPLE_TOKEN('/', TokenType::Slash)
-        
-        else SIMPLE_TOKEN("&&", TokenType::DoubleAmpersand)
-        else SIMPLE_TOKEN("||", TokenType::DoublePipe)
-        else SIMPLE_TOKEN('==', TokenType::EqualEqual)
-        else SIMPLE_TOKEN('!=', TokenType::NotEqual)
-        else SIMPLE_TOKEN('<', TokenType::LessThan)
-        else SIMPLE_TOKEN('<=', TokenType::LessThanEqual)
-        else SIMPLE_TOKEN('>', TokenType::GreaterThan)
-        else SIMPLE_TOKEN('>=', TokenType::GreaterThanEqual)
 
 
         else SET_TOKEN(numbers, TokenType::Number)

@@ -135,6 +135,17 @@ struct AstBinary : public AstExpression{
         Subtract,
         Multiply,
         Divide,
+
+        Equal,
+        NotEqual,
+        LessThan,
+        LessThanOrEqual,
+        GreaterThan,
+        GreaterThanOrEqual,
+
+        LogicalAnd,
+        LogicalOr,
+        
         None,
     };
     AstBinary(std::shared_ptr<AstExpression> left, Type type, std::shared_ptr<AstExpression> right)

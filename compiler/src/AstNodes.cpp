@@ -12,7 +12,7 @@ void AstNode::printTree(std::string prefix, bool isTail) const{
     }
 }
 std::vector<std::shared_ptr<AstNode>> AstNode::getChildren() const {return {};}
-void AstNode::generateCCode(std::string& output){output += "!!!Unimplemented Node!!!";}
+void AstNode::generateCCode(std::string& output){Fatal("Unimplemented Node!"); output += "!!!Unimplemented Node!!!";}
 
 
 std::vector<std::shared_ptr<AstNode>> AstProgram::getChildren() const {
@@ -139,6 +139,25 @@ AstBinary::Type toBinaryOperator(TokenType type){
             return AstBinary::Type::Multiply;
         case TokenType::Slash:
             return AstBinary::Type::Divide;
+        
+        case TokenType::EqualEqual:
+            return AstBinary::Type::Equal;
+        case TokenType::NotEqual:
+            return AstBinary::Type::NotEqual;
+        case TokenType::LessThan:
+            return AstBinary::Type::LessThan;
+        case TokenType::GreaterThan:
+            return AstBinary::Type::GreaterThan;
+        case TokenType::LessThanEqual:
+            return AstBinary::Type::LessThanOrEqual;
+        case TokenType::GreaterThanEqual:
+            return AstBinary::Type::GreaterThanOrEqual;
+        
+        case TokenType::DoubleAmpersand:
+            return AstBinary::Type::LogicalAnd;
+        case TokenType::DoublePipe:
+            return AstBinary::Type::LogicalOr;
+
         default:
             Fatal("Invalid binary operator");
             return AstBinary::Type::None;
@@ -160,6 +179,17 @@ namespace std{
             case AstBinary::Type::Subtract: return "Subtract";
             case AstBinary::Type::Multiply: return "Multiply";
             case AstBinary::Type::Divide: return "Divide";
+
+            case AstBinary::Type::Equal: return "Equal";
+            case AstBinary::Type::NotEqual: return "NotEqual";
+            case AstBinary::Type::LessThan: return "LessThan";
+            case AstBinary::Type::GreaterThan: return "GreaterThan";
+            case AstBinary::Type::LessThanOrEqual: return "LessThanOrEqual";
+            case AstBinary::Type::GreaterThanOrEqual: return "GreaterThanOrEqual";
+
+            case AstBinary::Type::LogicalAnd: return "LogicalAnd";
+            case AstBinary::Type::LogicalOr: return "LogicalOr";
+
             default: return "Unknown";
         }
     }

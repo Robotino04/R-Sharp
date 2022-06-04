@@ -154,30 +154,9 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
     if (match(TokenType::LeftBrace)) {
         return parseBlock();
     }
-    // if (match(TokenType::TokenType_If)) {
-    //     return parseIf();
-    // }
-    // if (match(TokenType::TokenType_While)) {
-    //     return parseWhile();
-    // }
-    // if (match(TokenType::TokenType_For)) {
-    //     return parseFor();
-    // }
-    // if (match(TokenType::TokenType_Break)) {
-    //     return parseBreak();
-    // }
-    // if (match(TokenType::TokenType_Continue)) {
-    //     return parseContinue();
-    // }
     if (match(TokenType::Return)) {
         return parseReturn();
     }
-    // if (match(TokenType::LeftParen)) {
-    //     return parseExpression();
-    // }
-    // if (match(TokenType::Identifier)) {
-    //     return parseAssignment();
-    // }
     logError("Expected statement but got ", getCurrentToken());
     return nullptr;
 }
@@ -192,6 +171,58 @@ std::shared_ptr<AstReturn> Parser::parseReturn() {
 }
 
 std::shared_ptr<AstExpression> Parser::parseExpression() {
+    testErrorLimit();
+    auto andExp = parseLogicalAndExp();
+
+    while (match(TokenType::DoublePipe)) {
+        Token operatorToken = consume(TokenType::DoublePipe);
+        auto next_andExp = parseLogicalAndExp();
+
+        andExp = std::make_shared<AstBinary>(andExp, toBinaryOperator(operatorToken.type), next_andExp);
+    }
+    return andExp;
+}
+
+std::shared_ptr<AstExpression> Parser::parseLogicalAndExp() {
+    testErrorLimit();
+    auto equalityExp = parseEqualityExp();
+
+    while (match(TokenType::DoubleAmpersand)) {
+        Token operatorToken = consume(TokenType::DoubleAmpersand);
+        auto next_equalityExp = parseEqualityExp();
+
+        equalityExp = std::make_shared<AstBinary>(equalityExp, toBinaryOperator(operatorToken.type), next_equalityExp);
+    }
+    return equalityExp;
+}
+
+std::shared_ptr<AstExpression> Parser::parseEqualityExp() {
+    testErrorLimit();
+    auto relationalExp = parseRelationalExp();
+
+    while (matchAny({TokenType::EqualEqual, TokenType::NotEqual})) {
+        Token operatorToken = consumeAnyOne({TokenType::EqualEqual, TokenType::NotEqual});
+        auto next_relationalExp = parseRelationalExp();
+
+        relationalExp = std::make_shared<AstBinary>(relationalExp, toBinaryOperator(operatorToken.type), next_relationalExp);
+    }
+    return relationalExp;
+}
+
+std::shared_ptr<AstExpression> Parser::parseRelationalExp() {
+    testErrorLimit();
+    auto additiveExp = parseAdditiveExp();
+
+    while (matchAny({TokenType::GreaterThan, TokenType::GreaterThanEqual, TokenType::LessThan, TokenType::LessThanEqual})) {
+        Token operatorToken = consumeAnyOne({TokenType::GreaterThan, TokenType::GreaterThanEqual, TokenType::LessThan, TokenType::LessThanEqual});
+        auto next_additiveExp = parseAdditiveExp();
+
+        additiveExp = std::make_shared<AstBinary>(additiveExp, toBinaryOperator(operatorToken.type), next_additiveExp);
+    }
+    return additiveExp;
+}
+
+std::shared_ptr<AstExpression> Parser::parseAdditiveExp() {
     testErrorLimit();
     auto term = parseTerm();
 
