@@ -35,7 +35,7 @@ CommandResult exec(std::string const& cmd) {
     auto custom_pclose = std::bind(linked_pclose, std::ref(result.returnCode), _1);
 
     {
-        std::shared_ptr<FILE> pipe(popen(cmd.c_str(), "r"), custom_pclose);
+        std::shared_ptr<FILE> pipe(popen((cmd + " 2>&1").c_str(), "r"), custom_pclose);
         if (!pipe) {
             throw std::runtime_error("popen() failed!");
         }
