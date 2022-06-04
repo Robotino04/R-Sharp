@@ -100,6 +100,12 @@ Token Tokenizer::nextToken(){
             token.value = c;
             advance();
             break;
+        case '+':
+            token.line = line; token.column = column;
+            token.type = TokenType::Plus;
+            token.value = c;
+            advance();
+            break;
         case '0'...'9':
             token.line = line; token.column = column;
             token.type = TokenType::Number;
@@ -193,7 +199,8 @@ Token Tokenizer::nextToken(){
                     break;
                 
                 default:
-                    logError("Division is not yet supported!");
+                    token.type = TokenType::Slash;
+                    token.value = c;
                     break;
             }
             break;

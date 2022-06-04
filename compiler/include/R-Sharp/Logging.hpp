@@ -69,7 +69,7 @@ namespace Internals{
 template<typename ...Args>
 inline void Fatal(Args&& ...args){
     Internals::printToStream(std::cerr, Internals::colorRed, "[ERROR]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
-    throw std::runtime_error("Error is logged");
+    exit(1);
 }
 template<typename ...Args>
 inline void Error(Args&& ...args){

@@ -1,0 +1,26 @@
+program = <function>*
+
+function = <name> '(' [<parameter list>] ')' ':' <type or array> '{' <block> '}'
+
+block = '{' {<statement>} '}'
+
+return = 'return' <expression> ';'
+statement = <return> | <block>
+
+expression = <term> {('+' | '-') <expression>}
+term = <factor> {('*' | '/') <factor>}
+factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor>
+
+type mod = 'const'
+type = {<type mod>} ('int' | 'char')
+type or array = <type> | '[' <type> ']'
+
+variable = <name> ':' <type or array>
+parameter list = <variable> {',' <variable>} 
+
+
+
+
+
+
+

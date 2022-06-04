@@ -22,17 +22,33 @@ bool Parser::match(std::vector<TokenType> types) const{
     }
     return false;
 }
+bool Parser::matchAny(std::vector<TokenType> types) const{
+    for (TokenType type : types) {
+        if (match(type)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 bool Parser::match(int offset, TokenType type) const{
     return !isAtEnd(offset) && getToken(offset).type == type;
 }
-bool Parser::match(int offset,TokenType type, std::string value) const{
+bool Parser::match(int offset, TokenType type, std::string value) const{
     return !isAtEnd(offset) && getToken(offset).type == type && getToken(offset).value == value;
 }
-bool Parser::match(int offset,std::vector<TokenType> types) const{
+bool Parser::match(int offset, std::vector<TokenType> types) const{
     if (isAtEnd(offset + types.size()-1)) return false;
     for (int i = 0; i < types.size(); i++) {
         if (getToken(offset + i).type == types[i]) return true;
+    }
+    return false;
+}
+bool Parser::matchAny(int offset, std::vector<TokenType> types) const{
+    for (TokenType type : types) {
+        if (match(offset, type)) {
+            return true;
+        }
     }
     return false;
 }
@@ -60,6 +76,20 @@ Token Parser::consume(std::vector<TokenType> types){
         }
         consume();
     }
+    return getCurrentToken();
+}
+Token Parser::consumeAny(std::vector<TokenType> types){
+    for (TokenType type : types) {
+        if (match(type)) {
+            return consume();
+        }
+    }
+    std::string error = "Expected one of ";
+    for (int i = 0; i < types.size(); i++) {
+        error += std::to_string(types[i]);
+        if (i != types.size()-1) error += ", ";
+    }
+    logError(error, " but got ", getCurrentToken());
     return getCurrentToken();
 }
 
@@ -163,53 +193,50 @@ std::shared_ptr<AstReturn> Parser::parseReturn() {
 
 std::shared_ptr<AstExpression> Parser::parseExpression() {
     testErrorLimit();
-    switch (getCurrentToken().type){
-        case TokenType::Minus:
-        case TokenType::Tilde:
-        case TokenType::ExclamationPoint:
-            return parseUnary();
-        case TokenType::Number:
-            return parseNumber();
-        default:
-            logError("Expected expression but got ", getCurrentToken());
-            return nullptr;
+    auto term = parseTerm();
+
+    while (matchAny({TokenType::Plus, TokenType::Minus})) {
+        Token operatorToken = consumeAny({TokenType::Plus, TokenType::Minus});
+        auto next_term = parseTerm();
+
+        term = std::make_shared<AstBinary>(term, toBinaryOperator(operatorToken.type), next_term);
     }
+    return term;
 }
 
-std::shared_ptr<AstUnary> Parser::parseUnary() {
+std::shared_ptr<AstExpression> Parser::parseTerm() {
     testErrorLimit();
-    switch (getCurrentToken().type){
-        case TokenType::Minus: return parseNegation();
-        case TokenType::Tilde: return parseBitwiseNot();
-        case TokenType::ExclamationPoint: return parseLogicalNot();
-        default:
-            logError("Expected unary operator but got ", getCurrentToken());
-            return nullptr;
+    auto factor = parseFactor();
+
+    while (matchAny({TokenType::Star, TokenType::Slash})) {
+        Token operatorToken = consumeAny({TokenType::Star, TokenType::Slash});
+        auto next_factor = parseFactor();
+
+        factor = std::make_shared<AstBinary>(factor, toBinaryOperator(operatorToken.type), next_factor);
     }
+    return factor;
 }
 
-std::shared_ptr<AstNegation> Parser::parseNegation() {
+std::shared_ptr<AstExpression> Parser::parseFactor() {
     testErrorLimit();
-    std::shared_ptr<AstNegation> negation = std::make_shared<AstNegation>();
-    consume(TokenType::Minus);
-    negation->value = parseExpression();
-    return negation;
-}
-
-std::shared_ptr<AstBitwiseNot> Parser::parseBitwiseNot() {
-    testErrorLimit();
-    std::shared_ptr<AstBitwiseNot> bitwiseNot = std::make_shared<AstBitwiseNot>();
-    consume(TokenType::Tilde);
-    bitwiseNot->value = parseExpression();
-    return bitwiseNot;
-}
-
-std::shared_ptr<AstLogicalNot> Parser::parseLogicalNot() {
-    testErrorLimit();
-    std::shared_ptr<AstLogicalNot> logicalNot = std::make_shared<AstLogicalNot>();
-    consume(TokenType::ExclamationPoint);
-    logicalNot->value = parseExpression();
-    return logicalNot;
+    
+    if (match(TokenType::LeftParen)) {
+        consume(TokenType::LeftParen);
+        auto expression = parseExpression();
+        consume(TokenType::RightParen);
+        return expression;
+    }
+    else if (matchAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde})) {
+        Token operatorToken = consumeAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde});
+        auto factor = parseFactor();
+        return std::make_shared<AstUnary>(toUnaryOperator(operatorToken.type), factor);
+    }
+    else if (match(TokenType::Number))
+        return parseNumber();
+    else{
+        logError("Expected expression but got ", getCurrentToken());
+        return nullptr;
+    }
 }
 
 std::shared_ptr<AstInteger> Parser::parseNumber() {

@@ -65,8 +65,8 @@ int main(int argc, char** argv) {
 
     std::cout << "Compiling: " << command << std::endl;
     auto result = exec(command);
+    std::cout << "Compiler output: " << result.output;
     if (result.returnCode != 0) {
-        std::cout << "Compiler output: " << result.output;
         std::cout << "Compiler return code: " << result.returnCode << std::endl;
         return 1;
     }

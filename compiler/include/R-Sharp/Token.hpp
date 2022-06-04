@@ -3,29 +3,31 @@
 #include <string>
 
 enum class TokenType{
-    None,                     // 
-    ID,                       // [a-zA-Z_][a-zA-Z0-9_]*
-    Number,                   // [0-9]+(\.[0-9]+)?
-    Typename,                 // "int" | "char"
-    TypeModifier,             // "const"
-    Semicolon,                // ";"
-    Colon,                    // ":"
-    Comma,                    // ","
-    LeftParen,                // "("
-    RightParen,               // ")"
-    LeftBracket,              // "["
-    RightBracket,             // "]"
-    LeftBrace,                // "{"
-    RightBrace,               // "}"
-    Star,                     // "*"
-    Comment,                  // "//"
-    MultilineComment,         // "/*" .* "*/"
-    EndOfFile,                // "\0"
-    Minus,                    // "-"
-    ExclamationPoint,        // "!"
-    Tilde,                    // "~"
+    None,                       // 
+    ID,                         // [a-zA-Z_][a-zA-Z0-9_]*
+    Number,                     // [0-9]+(\.[0-9]+)?
+    Typename,                   // "int" | "char"
+    TypeModifier,               // "const"
+    Semicolon,                  // ";"
+    Colon,                      // ":"
+    Comma,                      // ","
+    LeftParen,                  // "("
+    RightParen,                 // ")"
+    LeftBracket,                // "["
+    RightBracket,               // "]"
+    LeftBrace,                  // "{"
+    RightBrace,                 // "}"
+    Star,                       // "*"
+    Comment,                    // "//"
+    MultilineComment,           // "/*" .* "*/"
+    EndOfFile,                  // "\0"
+    Minus,                      // "-"
+    ExclamationPoint,           // "!"
+    Tilde,                      // "~"
+    Plus,                       // "+"
+    Slash,                      // "/"
 
-    Return,                   // "return"
+    Return,                     // "return"
 
     Identifier = ID,
     Bang = ExclamationPoint,
