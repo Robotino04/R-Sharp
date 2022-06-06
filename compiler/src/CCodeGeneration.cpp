@@ -56,6 +56,21 @@ void AstTypeModifier::generateCCode(std::string& output){
 void AstVariableDeclaration::generateCCode(std::string& output){
     type->generateCCode(output);
     output += " " + name;
+    if (value){
+        output += " = ";
+        value->generateCCode(output);
+    }
+    output += ";";
+}
+
+void AstVariableAccess::generateCCode(std::string& output){
+    output += name;
+}
+
+void AstVariableAssignment::generateCCode(std::string& output){
+    output += "(" + name + " = ";
+    value->generateCCode(output);
+    output += ")";
 }
 
 void AstParameterList::generateCCode(std::string& output){
@@ -67,6 +82,11 @@ void AstParameterList::generateCCode(std::string& output){
         }
     }
     output += ")";
+}
+
+void AstExpressionStatement::generateCCode(std::string& output){
+    expression->generateCCode(output);
+    output += ";";
 }
 
 void AstUnary::generateCCode(std::string& output){

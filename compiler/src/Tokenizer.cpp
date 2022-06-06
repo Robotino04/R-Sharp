@@ -182,6 +182,8 @@ Token Tokenizer::nextToken(){
         else SIMPLE_TOKEN('*', TokenType::Star)
         else SIMPLE_TOKEN('/', TokenType::Slash)
 
+        else SIMPLE_TOKEN('=', TokenType::Assign)
+
 
         else SET_TOKEN(numbers, TokenType::Number)
         else if (std::isspace(getCurrentChar())) { consume(); }
