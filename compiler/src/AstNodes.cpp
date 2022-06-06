@@ -54,6 +54,12 @@ std::vector<std::shared_ptr<AstNode>> AstReturn::getChildren() const {
 AstNodeType AstReturn::getType() const {return AstNodeType::RETURN;}
 std::string AstReturn::toString() const {return "Return";}
 
+AstNodeType AstExpressionStatement::getType() const {return AstNodeType::EXPRESSION_STATEMENT;}
+std::string AstExpressionStatement::toString() const {return "ExpressionStatement";}
+std::vector<std::shared_ptr<AstNode>> AstExpressionStatement::getChildren() const {
+    return {std::static_pointer_cast<AstNode>(expression)};
+}
+
 
 std::vector<std::shared_ptr<AstNode>> AstUnary::getChildren() const {
     return {std::static_pointer_cast<AstNode>(value)};
@@ -72,6 +78,15 @@ std::string AstBinary::toString() const {return "Binary " + std::to_string(type)
 AstNodeType AstInteger::getType() const {return AstNodeType::INTEGER;}
 std::string AstInteger::toString() const {return "Int: " + std::to_string(value);}
 
+
+AstNodeType AstVariableAccess::getType() const {return AstNodeType::VARIABLE_ACCESS;}
+std::string AstVariableAccess::toString() const {return "VariableAccess: " + name;}
+
+AstNodeType AstVariableAssignment::getType() const {return AstNodeType::VARIABLE_ASSIGNMENT;}
+std::string AstVariableAssignment::toString() const {return "VariableAssignment: " + name;}
+std::vector<std::shared_ptr<AstNode>> AstVariableAssignment::getChildren() const {
+    return {std::static_pointer_cast<AstNode>(value)};
+}
 
 std::vector<std::shared_ptr<AstNode>> AstVariableDeclaration::getChildren() const {
     return {std::static_pointer_cast<AstNode>(type)};

@@ -5,19 +5,22 @@ function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> '{' <block> '}'
 block = '{' {<statement>} '}'
 
 return = 'return' <expression> ';'
-statement = <return> | <block>
+statement = <return> | <block> | <declaration> | <expression> ';'
 
-expression = <logical-and-exp> {'||' <logical-and-exp>}
+expression = <assignment> | <logical-or-exp>
+logical-or-exp = <logical-and-exp> {'||' <logical-and-exp>}
 logical-and-exp = <equality-exp> {'&&' <equality-ex>}
 equality-exp = <relational-exp> {('==' | '!=') <relational-exp>}
 relational-exp = <additive-exp> {('<' | '>' | '<=' | '>=') <additive-exp>}
 additive-exp = <term> {('+' | '-') <term>}
 term = <factor> {('*' | '/') <factor>}
-factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor>
+factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor> | <name>
 
 type-mod = 'const'
 type = {<type-mod>} ('int' | 'char')
 type-or-array = <type> | '[' <type> ']'
 
-variable = <name> ':' <type-or-array>
-parameter-list = <variable> {',' <variable>}
+parameter-list = <name> ':' <type-or-array> {',' <variable>}
+
+declaration = <name> ':' <type-or-array> ['=' <expression>] ';'
+assignment = <name> '=' <expression>

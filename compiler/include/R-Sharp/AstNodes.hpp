@@ -14,9 +14,12 @@ struct AstBlock;
 struct AstStatement;
 struct AstReturn;
 struct AstExpression;
+struct AstExpressionStatement;
 struct AstUnary;
 struct AstBinary;
 struct AstInteger;
+struct AstVariableAccess;
+struct AstVariableAssignment;
 struct AstVariableDeclaration;
 struct AstType;
 struct AstBuiltinType;
@@ -29,7 +32,6 @@ enum class AstNodeType {
     PROGRAM,
     FUNCTION,
     BLOCK,
-    VARIABLE_DECLARATION,
     RETURN,
     INTEGER,
     BUILTIN_TYPE,
@@ -39,6 +41,12 @@ enum class AstNodeType {
 
     UNARY,
     BINARY,
+
+    EXPRESSION_STATEMENT,
+
+    VARIABLE_DECLARATION,
+    VARIABLE_ACCESS,
+    VARIABLE_ASSIGNMENT,
 };
 
 struct AstNode{
@@ -108,6 +116,19 @@ struct AstExpression : public AstNode{
     virtual ~AstExpression() = default;
 };
 
+struct AstExpressionStatement : public AstStatement{
+    AstExpressionStatement() = default;
+    AstExpressionStatement(std::shared_ptr<AstExpression> expression): expression(expression){}
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override;
+    AstNodeType getType() const override;
+    std::string toString() const override;
+
+    void generateCCode(std::string& output) override;
+
+    std::shared_ptr<AstExpression> expression;
+};
+
 struct AstUnary : public AstExpression{
     enum class Type{
         Negate,
@@ -175,7 +196,34 @@ struct AstInteger : public AstExpression{
     int value;
 };
 
-struct AstVariableDeclaration : public AstNode{
+struct AstVariableAccess : public AstExpression{
+    AstVariableAccess() = default;
+    AstVariableAccess(std::string name): name(name){}
+
+    AstNodeType getType() const override;
+    std::string toString() const override;
+
+    void generateCCode(std::string& output) override;
+
+    std::string name;
+};
+
+struct AstVariableAssignment : public AstExpression{
+    AstVariableAssignment() = default;
+    AstVariableAssignment(std::string name, std::shared_ptr<AstExpression> value)
+        : name(name), value(value){}
+    
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override;
+    AstNodeType getType() const override;
+    std::string toString() const override;
+
+    void generateCCode(std::string& output) override;
+
+    std::string name;
+    std::shared_ptr<AstExpression> value;
+};
+
+struct AstVariableDeclaration : public AstStatement{
     AstVariableDeclaration() = default;
     AstVariableDeclaration(std::string name): name(name){}
 
@@ -187,6 +235,7 @@ struct AstVariableDeclaration : public AstNode{
 
     std::string name;
     std::shared_ptr<AstType> type;
+    std::shared_ptr<AstExpression> value;
 };
 
 struct AstType : public AstNode{

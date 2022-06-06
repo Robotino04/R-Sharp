@@ -42,6 +42,8 @@ enum class TokenType{
 
     Return,                     // "return"
 
+    Assign,                     // "="
+
     Identifier = ID,
     Bang = ExclamationPoint,
 };

@@ -18,9 +18,9 @@ bool Parser::match(TokenType type, std::string value) const{
 bool Parser::match(std::vector<TokenType> types) const{
     if (isAtEnd(types.size()-1)) return false;
     for (int i = 0; i < types.size(); i++) {
-        if (getToken(i).type == types[i]) return true;
+        if (getToken(i).type != types[i]) return false;
     }
-    return false;
+    return true;
 }
 bool Parser::matchAny(std::vector<TokenType> types) const{
     for (TokenType type : types) {
@@ -40,9 +40,9 @@ bool Parser::match(int offset, TokenType type, std::string value) const{
 bool Parser::match(int offset, std::vector<TokenType> types) const{
     if (isAtEnd(offset + types.size()-1)) return false;
     for (int i = 0; i < types.size(); i++) {
-        if (getToken(offset + i).type == types[i]) return true;
+        if (getToken(offset + i).type != types[i]) return false;
     }
-    return false;
+    return true;
 }
 bool Parser::matchAny(int offset, std::vector<TokenType> types) const{
     for (TokenType type : types) {
@@ -154,11 +154,17 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
     if (match(TokenType::LeftBrace)) {
         return parseBlock();
     }
-    if (match(TokenType::Return)) {
+    else if (match(TokenType::Return)) {
         return parseReturn();
     }
-    logError("Expected statement but got ", getCurrentToken());
-    return nullptr;
+    else if (match({TokenType::ID, TokenType::Colon})){
+        return parseVariableDeclaration();
+    }
+    else{
+        auto exp = parseExpression();
+        consume(TokenType::Semicolon);
+        return std::make_shared<AstExpressionStatement>(exp);
+    }
 }
 
 std::shared_ptr<AstReturn> Parser::parseReturn() {
@@ -172,6 +178,17 @@ std::shared_ptr<AstReturn> Parser::parseReturn() {
 
 std::shared_ptr<AstExpression> Parser::parseExpression() {
     testErrorLimit();
+    
+    if (match({TokenType::ID, TokenType::Assign})){
+        return parseVariableAssignment();
+    }
+    else{
+        return parseLogicalOrExp();
+    }
+}
+
+std::shared_ptr<AstExpression> Parser::parseLogicalOrExp() {
+    testErrorLimit();
     auto andExp = parseLogicalAndExp();
 
     while (match(TokenType::DoublePipe)) {
@@ -182,6 +199,7 @@ std::shared_ptr<AstExpression> Parser::parseExpression() {
     }
     return andExp;
 }
+
 
 std::shared_ptr<AstExpression> Parser::parseLogicalAndExp() {
     testErrorLimit();
@@ -264,6 +282,9 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
     }
     else if (match(TokenType::Number))
         return parseNumber();
+    else if (match(TokenType::ID)){
+        return std::make_shared<AstVariableAccess>(consume(TokenType::ID).value);
+    }
     else{
         logError("Expected expression but got ", getCurrentToken());
         return nullptr;
@@ -277,12 +298,34 @@ std::shared_ptr<AstInteger> Parser::parseNumber() {
     return number;
 }
 
-std::shared_ptr<AstVariableDeclaration> Parser::parseVariable() {
+std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
+    testErrorLimit();
+
+    std::shared_ptr<AstVariableAccess> variableAccess = std::make_shared<AstVariableAccess>();
+    variableAccess->name = consume(TokenType::ID).value;
+    return variableAccess;
+}
+
+std::shared_ptr<AstVariableAssignment> Parser::parseVariableAssignment() {
+    testErrorLimit();
+    std::shared_ptr<AstVariableAssignment> variableAssignment = std::make_shared<AstVariableAssignment>();
+    variableAssignment->name = consume(TokenType::ID).value;
+    consume(TokenType::Assign);
+    variableAssignment->value = parseExpression();
+    return variableAssignment;
+}
+
+std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
     testErrorLimit();
     std::shared_ptr<AstVariableDeclaration> variable = std::make_shared<AstVariableDeclaration>();
     variable->name = consume(TokenType::Identifier).value;
     consume(TokenType::Colon);
     variable->type = parseType();
+    if (match(TokenType::Assign)) {
+        consume(TokenType::Assign);
+        variable->value = parseExpression();
+    }
+    consume(TokenType::Semicolon);
     return variable;
 }
 
@@ -327,7 +370,7 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
     std::shared_ptr<AstParameterList> parameterList = std::make_shared<AstParameterList>();
     consume(TokenType::LeftParen);
     while (!match(TokenType::RightParen)) {
-        parameterList->parameters.push_back(parseVariable());
+        parameterList->parameters.push_back(parseVariableDeclaration());
         if (!match(TokenType::RightParen)) {
             consume(TokenType::Comma);
         }
