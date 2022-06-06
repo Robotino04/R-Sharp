@@ -56,7 +56,6 @@ class Parser{
         std::shared_ptr<AstFunction> parseFunction();
         std::shared_ptr<AstBlock> parseBlock();
         std::shared_ptr<AstStatement> parseStatement();
-        std::shared_ptr<AstVariableDeclaration> parseVariable();
         std::shared_ptr<AstReturn> parseReturn();
         std::shared_ptr<AstInteger> parseNumber();
         std::shared_ptr<AstType> parseType();
@@ -67,9 +66,14 @@ class Parser{
 
         std::shared_ptr<AstExpression> parseExpression();
         std::shared_ptr<AstExpression> parseLogicalAndExp();
+        std::shared_ptr<AstExpression> parseLogicalOrExp();
         std::shared_ptr<AstExpression> parseEqualityExp();
         std::shared_ptr<AstExpression> parseRelationalExp();
         std::shared_ptr<AstExpression> parseAdditiveExp();
         std::shared_ptr<AstExpression> parseTerm();
         std::shared_ptr<AstExpression> parseFactor();
+
+        std::shared_ptr<AstVariableDeclaration> parseVariableDeclaration();
+        std::shared_ptr<AstVariableAccess> parseVariableAccess();
+        std::shared_ptr<AstVariableAssignment> parseVariableAssignment();
 };

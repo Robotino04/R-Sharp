@@ -47,6 +47,8 @@ namespace std{
             case TokenType::GreaterThanEqual: return "GreaterThanEqual";
 
             case TokenType::Return: return "Return";
+
+            case TokenType::Assign: return "Assign";
             default:
                 Fatal("Unknown token type: ", type);
                 return "Unknown";
