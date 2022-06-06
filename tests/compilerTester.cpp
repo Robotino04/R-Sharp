@@ -5,6 +5,67 @@
 #include <memory>
 #include <functional>
 
+struct ExecutionResults{
+    bool failed = false;
+    bool skipped = false;
+    int returnValue = 0;
+};
+
+ExecutionResults parseExpectations(std::string filename){
+    ExecutionResults validations;
+    std::ifstream input(filename);
+    
+    std::string line;
+    int lineNumber = 0;
+    while (std::getline(input, line)) {
+        lineNumber++;
+        if (line.find("*/") != std::string::npos) {
+            std::cout << "No further validation required" << std::endl;
+            continue;
+        }
+        if (line.find("/*") != std::string::npos) continue;
+
+
+        if (line.find(":") == std::string::npos) {
+            std::cout << "Error: no validation present on line " << lineNumber << std::endl;
+        }
+
+
+        if (line.find("return: ") != std::string::npos) {
+            // extract the return value
+            validations.returnValue = std::stoi(line.substr(line.find(": ") + 2));
+        }
+        else if (line.find("fail: ") != std::string::npos) {
+            // the program is expected to fail
+            validations.failed = std::stoi(line.substr(line.find(": ") + 2));
+        }
+        else if (line.find("skip: ") != std::string::npos) {
+            // the program should be ignored until the missing features are implemented
+            validations.skipped = std::stoi(line.substr(line.find(": ") + 2));
+        }
+    }
+
+    return validations;
+}
+
+bool validate(ExecutionResults real, ExecutionResults expected){
+    bool isValid = true;
+    std::cout << "Validation";
+    if (real.failed != expected.failed) {
+        std::cout << " - FAILED\n expected program to fail" << std::endl;
+        isValid = false;
+    }
+    if (real.returnValue != expected.returnValue) {
+        std::cout << " - FAILED\n expected return value: " << expected.returnValue << std::endl;
+        isValid = false;
+    }
+
+    if (isValid) {
+        std::cout << " - PASSED" << std::endl;
+    }
+    return isValid;
+}
+
 constexpr int getExitStatus(int status) {
     return (int8_t)WEXITSTATUS(status);
 }
@@ -47,7 +108,6 @@ CommandResult exec(std::string const& cmd) {
 }
 
 int main(int argc, char** argv) {
-    
     if (argc < 4) {
         std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir>" << std::endl;
         return 1;
@@ -57,55 +117,43 @@ int main(int argc, char** argv) {
     std::string inputFile = argv[2];
     std::string outputDir = argv[3];
 
+    
+    ExecutionResults expectedResults = parseExpectations(inputFile);
+
     // get the filename without the directory and extension
     std::string filename = inputFile.substr(inputFile.find_last_of("/") + 1);
     filename = filename.substr(0, filename.find_last_of("."));
 
     std::string command = compilerPath + " -o " + outputDir + "/" + filename +  " " + inputFile;
 
+    ExecutionResults realResults;
+
     std::cout << "Compiling: " << command << std::endl;
-    auto result = exec(command);
-    std::cout << "Compiler output: " << result.output;
-    if (result.returnCode != 0) {
-        if (inputFile.find("skip_on_failure") != std::string::npos) {
-            std::cout << " (skipped)" << std::endl;
-        }
-        else{
-            std::cout << "Compiler return code: " << result.returnCode << std::endl;
-            return 1;
-        }
+    auto compilerResult = exec(command);
+
+    if (compilerResult.returnCode != 0) {
+        realResults.failed = true;
     }
 
-    result = exec(outputDir + "/" + filename);
+    if (!realResults.failed){
+        auto programResult = exec(outputDir + "/" + filename);
 
-    std::cout << "Validating result: " << std::endl;
-    std::ifstream input(inputFile);
-    
-    std::string line;
-    while (std::getline(input, line)) {
-        if (line.find("return: ") != std::string::npos) {
-            // extract the return value
-            int expectedReturnValue = std::stoi(line.substr(line.find(": ") + 2));
-
-            std::cout << "Expected return value: " << expectedReturnValue;
-            if (result.returnCode != expectedReturnValue) {
-                // if the input file contains "skip_on_failure" then we skip the test
-                if (inputFile.find("skip_on_failure") != std::string::npos) {
-                    std::cout << " (skipped)" << std::endl;
-                    continue;
-                }
-                std::cout << " - FAILED (It was " << result.returnCode << ")" << std::endl;
-                return 1;
-            }
-            std::cout << " - PASSED" << std::endl;
-        }
-
-        if (line.find("*/") != std::string::npos) {
-            std::cout << "No further validation required" << std::endl;
-        }
+        realResults.returnValue = programResult.returnCode;
     }
 
-    
-
-    return 0;
+    if (validate(realResults, expectedResults)) {
+        return 0;
+    }
+    else {
+        if (expectedResults.skipped) {
+            std::cout << "Program skipped" << std::endl;
+            return 0;
+        }
+        
+        if (realResults.failed) {
+            std::cout << "Compiling Failed: \n" << std::endl;
+            std::cout << compilerResult.output << std::endl;
+        }
+    }
+    return 1;
 }

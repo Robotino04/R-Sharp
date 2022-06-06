@@ -5,7 +5,11 @@ Parser::Parser(std::vector<Token> const& tokens, std::string const& filename) : 
 }
 
 std::shared_ptr<AstProgram> Parser::parse() {
-    return parseProgram();
+    auto prog = parseProgram();
+    if (numErrors){
+        Fatal("Parser error");
+    }
+    return prog;
 }
 
 
