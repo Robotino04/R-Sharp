@@ -228,12 +228,7 @@ std::vector<Token> Tokenizer::tokenize(){
         tokens.push_back(nextToken());
     }
     if (numErrors){
-        if (numErrors == 1) {
-            Error("There was 1 error in the file!");
-        }
-        else {
-            Error("There were ", numErrors, " errors in the file!");
-        }
+        Fatal("Encountered ", numErrors, " error", numErrors == 1 ? "" : "s");
         return {};
     }
     return tokens;
