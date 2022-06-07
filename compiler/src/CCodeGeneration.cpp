@@ -92,13 +92,13 @@ void AstExpressionStatement::generateCCode(std::string& output){
 void AstUnary::generateCCode(std::string& output){
     output += "(";
     switch (type) {
-        case AstUnary::Type::Negate:
+        case AstUnaryType::Negate:
             output += "-";
             break;
-        case AstUnary::Type::LogicalNot:
+        case AstUnaryType::LogicalNot:
             output += "!";
             break;
-        case AstUnary::Type::BinaryNot:
+        case AstUnaryType::BinaryNot:
             output += "~";
             break;
         default:
@@ -113,42 +113,42 @@ void AstBinary::generateCCode(std::string& output){
     output += "(";
     left->generateCCode(output);
     switch (type){
-        case AstBinary::Type::Add:
+        case AstBinaryType::Add:
             output += "+";
             break;
-        case AstBinary::Type::Subtract:
+        case AstBinaryType::Subtract:
             output += "-";
             break;
-        case AstBinary::Type::Multiply:
+        case AstBinaryType::Multiply:
             output += "*";
             break;
-        case AstBinary::Type::Divide:
+        case AstBinaryType::Divide:
             output += "/";
             break;
 
-        case AstBinary::Type::Equal:
+        case AstBinaryType::Equal:
             output += "==";
             break;
-        case AstBinary::Type::NotEqual:
+        case AstBinaryType::NotEqual:
             output += "!=";
             break;
-        case AstBinary::Type::LessThan:
+        case AstBinaryType::LessThan:
             output += "<";
             break;
-        case AstBinary::Type::LessThanOrEqual:
+        case AstBinaryType::LessThanOrEqual:
             output += "<=";
             break;
-        case AstBinary::Type::GreaterThan:
+        case AstBinaryType::GreaterThan:
             output += ">";
             break;
-        case AstBinary::Type::GreaterThanOrEqual:
+        case AstBinaryType::GreaterThanOrEqual:
             output += ">=";
             break;
 
-        case AstBinary::Type::LogicalAnd:
+        case AstBinaryType::LogicalAnd:
             output += "&&";
             break;
-        case AstBinary::Type::LogicalOr:
+        case AstBinaryType::LogicalOr:
             output += "||";
             break;
 
