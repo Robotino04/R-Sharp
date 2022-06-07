@@ -12,7 +12,6 @@ void AstNode::printTree(std::string prefix, bool isTail) const{
         children.at(i)->printTree(newPrefix, i == children.size()-1);
     }
 }
-void AstNode::generateCCode(std::string& output){Fatal("Unimplemented Node!"); output += "!!!Unimplemented Node!!!";}
 
 AstUnaryType toUnaryOperator(TokenType type){
     switch (type) {

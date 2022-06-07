@@ -2,64 +2,12 @@
 
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/Token.hpp"
+#include "R-Sharp/AstNodesFWD.hpp"
+#include "R-Sharp/AstVisitor.hpp"
 
 #include <vector>
 #include <string>
 #include <memory>
-
-// forward declarations for all the AST nodes
-struct AstProgram;
-struct AstFunction;
-struct AstBlock;
-struct AstStatement;
-struct AstReturn;
-struct AstExpression;
-struct AstExpressionStatement;
-struct AstUnary;
-struct AstBinary;
-struct AstInteger;
-struct AstVariableAccess;
-struct AstVariableAssignment;
-struct AstVariableDeclaration;
-struct AstType;
-struct AstBuiltinType;
-struct AstTypeModifier;
-struct AstParameterList;
-struct AstArray;
-
-
-enum class AstNodeType {
-    AstProgram,
-    AstFunction,
-    AstBlock,
-    AstReturn,
-    AstInteger,
-    AstBuiltinType,
-    AstTypeModifier,
-    AstArray,
-    AstParameterList,
-
-    AstUnary,
-    AstBinary,
-
-    AstExpressionStatement,
-
-    AstVariableDeclaration,
-    AstVariableAccess,
-    AstVariableAssignment,
-};
-
-struct AstNode{
-    virtual ~AstNode() = default;
-
-    void printTree(std::string prefix="", bool isTail=true) const;
-
-    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {};};
-    virtual AstNodeType getType() const = 0;
-    virtual std::string toString() const = 0;
-
-    virtual void generateCCode(std::string& output);
-};
 
 template<typename... Args>
 std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
@@ -72,7 +20,7 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 #define BASE(NAME) \
     NAME() = default; \
     AstNodeType getType() const override { return AstNodeType::NAME; } \
-    void generateCCode(std::string& output) override;
+    void accept(AstVisitor* visitor) override{ visitor->visit##NAME(this); }
 
 #define CHILD_INIT(NAME, TYPE, VARIABLE_NAME) \
     NAME(std::shared_ptr<TYPE> child) : VARIABLE_NAME(child) {}

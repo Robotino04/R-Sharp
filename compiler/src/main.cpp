@@ -9,6 +9,7 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Parser.hpp"
 #include "R-Sharp/Utils.hpp"
+#include "R-Sharp/CCodeGenerator.hpp"
 
 void printHelp(const char* programName) {
     std::cout << "Usage: " << programName << " [options] [input file]" << std::endl;
@@ -128,7 +129,8 @@ int main(int argc, const char** argv) {
 
     Print("--------------| Generated code |--------------");
     {
-        ast->generateCCode(C_Source);
+        CCodeGenerator generator(ast);
+        C_Source = generator.generate();
         Print(C_Source);
     }
 
