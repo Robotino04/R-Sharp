@@ -31,6 +31,7 @@ namespace std{
 
             case TokenType::ExclamationPoint: return "ExclamationPoint";
             case TokenType::Tilde: return "Tilde";
+            case TokenType::QuestionMark: return "QuestionMark";
 
             case TokenType::Plus: return "Plus";
             case TokenType::Minus: return "Minus";
@@ -48,9 +49,13 @@ namespace std{
 
             case TokenType::Return: return "Return";
 
+            case TokenType::If: return "If";
+            case TokenType::Elif: return "Elif";
+            case TokenType::Else: return "Else";
+
             case TokenType::Assign: return "Assign";
             default:
-                Fatal("Unknown token type: ", type);
+                Fatal("Unknown token type: ", static_cast<int>(type));
                 return "Unknown";
         }
     }

@@ -92,11 +92,7 @@ struct AstFunction : public AstNode {
     SINGLE_CHILD(AstStatement, body)
 };
 
-
 // ----------------------------------| Groups |---------------------------------- //
-struct AstStatement : public AstNode{
-    DESTRUCTOR(AstStatement)
-};
 struct AstExpression : public AstNode{
     DESTRUCTOR(AstExpression)
 };
@@ -107,15 +103,24 @@ struct AstType : public AstNode{
 
     MULTI_CHILD(AstTypeModifier, modifiers)
 };
+struct AstBlockItem : public AstNode{
+    DESTRUCTOR(AstBlockItem)
+};
+struct AstDeclaration : public AstBlockItem{
+    DESTRUCTOR(AstDeclaration)
+};
+struct AstStatement : public AstBlockItem{
+    DESTRUCTOR(AstStatement)
+};
 
 // ----------------------------------| Statements |---------------------------------- //
 struct AstBlock : public AstStatement {
     BASE(AstBlock)
     TO_STRING(AstBlock)
 
-    GET_MULTI_CHILD(statements)
+    GET_MULTI_CHILD(items)
 
-    MULTI_CHILD(AstStatement, statements)
+    MULTI_CHILD(AstBlockItem, items)
 };
 
 struct AstReturn : public AstStatement {
@@ -138,14 +143,16 @@ struct AstExpressionStatement : public AstStatement {
     SINGLE_CHILD(AstExpression, expression)
 };
 
-struct AstVariableDeclaration : public AstStatement {
-    BASE(AstVariableDeclaration)
-    TO_STRING_NAME(AstVariableDeclaration)
 
-    GET_SINGLE_CHILDREN(type, value)
+struct AstConditionalStatement : public AstStatement {
+    BASE(AstConditionalStatement)
+    TO_STRING(AstConditionalStatement)
 
-    SINGLE_CHILD(AstType, type)
-    SINGLE_CHILD(AstExpression, value)
+    GET_SINGLE_CHILDREN(condition, trueStatement, falseStatement)
+
+    SINGLE_CHILD(AstExpression, condition)
+    SINGLE_CHILD(AstStatement, trueStatement)
+    SINGLE_CHILD(AstStatement, falseStatement)
 };
 
 // ----------------------------------| Expressions |---------------------------------- //
@@ -240,6 +247,16 @@ struct AstBinary : public AstExpression {
 
     AstBinaryType type = AstBinaryType::None;
 };
+struct AstConditionalExpression : public AstExpression {
+    BASE(AstConditionalExpression)
+    TO_STRING(AstConditionalExpression)
+
+    GET_SINGLE_CHILDREN(condition, trueExpression, falseExpression)
+
+    SINGLE_CHILD(AstExpression, condition)
+    SINGLE_CHILD(AstExpression, trueExpression)
+    SINGLE_CHILD(AstExpression, falseExpression)
+};
 
 
 
@@ -264,6 +281,16 @@ struct AstArray : public AstType {
     SINGLE_CHILD(AstType, type)
 };
 
+// ----------------------------------| Declarations |---------------------------------- //
+struct AstVariableDeclaration : public AstDeclaration {
+    BASE(AstVariableDeclaration)
+    TO_STRING_NAME(AstVariableDeclaration)
+
+    GET_SINGLE_CHILDREN(type, value)
+
+    SINGLE_CHILD(AstType, type)
+    SINGLE_CHILD(AstExpression, value)
+};
 
 #undef BASE
 #undef GET_SINGLE_CHILDREN

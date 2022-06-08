@@ -35,36 +35,33 @@ class Parser{
         Token getCurrentToken() const;
         Token getToken(int offset) const;
 
-        void testErrorLimit() const;
-
         template<typename... Args>
         void logError(Args... args) const{
             Error(filename, ":", getCurrentToken().line, ":", getCurrentToken().column, ":\t", args...);
-            numErrors++;
         }
 
         std::vector<Token> tokens;
         int currentTokenIndex = 0;
 
-        static const int maxErrors = 20;
-        mutable int numErrors = 0;
         std::string filename;
 
         std::shared_ptr<AstProgram> program;
 
         std::shared_ptr<AstProgram> parseProgram();
         std::shared_ptr<AstFunction> parseFunction();
-        std::shared_ptr<AstBlock> parseBlock();
-        std::shared_ptr<AstStatement> parseStatement();
-        std::shared_ptr<AstReturn> parseReturn();
-        std::shared_ptr<AstInteger> parseNumber();
-        std::shared_ptr<AstType> parseType();
-        std::shared_ptr<AstBuiltinType> parseBuiltinType();
-        std::shared_ptr<AstTypeModifier> parseTypeModifier();
-        std::shared_ptr<AstArray> parseArray();
         std::shared_ptr<AstParameterList> parseParameterList();
 
+        std::shared_ptr<AstStatement> parseStatement();
         std::shared_ptr<AstExpression> parseExpression();
+        std::shared_ptr<AstType> parseType();
+        std::shared_ptr<AstDeclaration> parseDeclaration();
+        std::shared_ptr<AstBlockItem> parseBlockItem();
+
+        std::shared_ptr<AstBlock> parseBlock();
+        std::shared_ptr<AstReturn> parseReturn();
+        std::shared_ptr<AstConditionalStatement> parseConditionalStatement();
+
+        std::shared_ptr<AstExpression> parseConditionalExpression();
         std::shared_ptr<AstExpression> parseLogicalAndExp();
         std::shared_ptr<AstExpression> parseLogicalOrExp();
         std::shared_ptr<AstExpression> parseEqualityExp();
@@ -72,8 +69,14 @@ class Parser{
         std::shared_ptr<AstExpression> parseAdditiveExp();
         std::shared_ptr<AstExpression> parseTerm();
         std::shared_ptr<AstExpression> parseFactor();
+        std::shared_ptr<AstInteger> parseNumber();
+        std::shared_ptr<AstVariableAssignment> parseVariableAssignment();
+        std::shared_ptr<AstVariableAccess> parseVariableAccess();
+
+
+        std::shared_ptr<AstBuiltinType> parseBuiltinType();
+        std::shared_ptr<AstTypeModifier> parseTypeModifier();
+        std::shared_ptr<AstArray> parseArray();
 
         std::shared_ptr<AstVariableDeclaration> parseVariableDeclaration();
-        std::shared_ptr<AstVariableAccess> parseVariableAccess();
-        std::shared_ptr<AstVariableAssignment> parseVariableAssignment();
 };

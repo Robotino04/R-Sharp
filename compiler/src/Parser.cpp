@@ -5,8 +5,10 @@ Parser::Parser(std::vector<Token> const& tokens, std::string const& filename) : 
 }
 
 std::shared_ptr<AstProgram> Parser::parse() {
+    resetErrorCount();
+    setErrorLimit(20);
     auto prog = parseProgram();
-    if (numErrors){
+    if (getErrorCount()){
         Fatal("Parser error");
     }
     return prog;
@@ -106,10 +108,6 @@ Token Parser::getCurrentToken() const{
         logError("Unexpected end of file");
         return Token(TokenType::EndOfFile, "");
     }
-    if (currentTokenIndex < 0){
-        Fatal("Tried to get current token before any tokens were consumed");
-        return Token(TokenType::EndOfFile, "");
-    }
     return tokens[currentTokenIndex];
 }
 Token Parser::getToken(int offset) const{
@@ -118,22 +116,14 @@ Token Parser::getToken(int offset) const{
 }
 
 
-void Parser::testErrorLimit() const{
-    if (numErrors > maxErrors) {
-        Fatal("Too many errors");
-    }
-}
 
 std::shared_ptr<AstProgram> Parser::parseProgram() {
-    testErrorLimit();
     while (!isAtEnd()) {
         program->functions.push_back(parseFunction());
     }
     return program;
 }
-
 std::shared_ptr<AstFunction> Parser::parseFunction() {
-    testErrorLimit();
     std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
     function->name = consume(TokenType::ID).value;
     function->parameters = parseParameterList();
@@ -142,27 +132,16 @@ std::shared_ptr<AstFunction> Parser::parseFunction() {
     function->body = parseStatement();
     return function;
 }
-std::shared_ptr<AstBlock> Parser::parseBlock() {
-    testErrorLimit();
-    std::shared_ptr<AstBlock> block = std::make_shared<AstBlock>();
-    consume(TokenType::LeftBrace);
-    while (!match(TokenType::RightBrace)) {
-        block->statements.push_back(parseStatement());
-    }
-    consume(TokenType::RightBrace);
-    return block;
-}
 
 std::shared_ptr<AstStatement> Parser::parseStatement() {
-    testErrorLimit();
     if (match(TokenType::LeftBrace)) {
         return parseBlock();
     }
     else if (match(TokenType::Return)) {
         return parseReturn();
     }
-    else if (match({TokenType::ID, TokenType::Colon})){
-        return parseVariableDeclaration();
+    else if (match(TokenType::If)){
+        return parseConditionalStatement();
     }
     else{
         auto exp = parseExpression();
@@ -170,29 +149,113 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
         return std::make_shared<AstExpressionStatement>(exp);
     }
 }
+std::shared_ptr<AstExpression> Parser::parseExpression() {
+    if (match({TokenType::ID, TokenType::Assign})){
+        return parseVariableAssignment();
+    }
+    else{
+        return parseConditionalExpression();
+    }
+}
+std::shared_ptr<AstType> Parser::parseType() {
+    std::vector<std::shared_ptr<AstTypeModifier>> typeModifiers;
+    while (match(TokenType::TypeModifier)) {
+        typeModifiers.push_back(parseTypeModifier());
+    }
+    if (match(TokenType::LeftBracket)) {
+        auto type = parseArray();
+        type->modifiers = typeModifiers;
+        return type;
+    }
+    else if (match(TokenType::Typename)) {
+        auto type = parseBuiltinType();
+        type->modifiers = typeModifiers;
+        return type;
+    }
+    else {
+        logError("Expected typename, type modifier or array but got ", getCurrentToken());
+        return nullptr;
+    }
+}
+std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
+    if (match({TokenType::ID, TokenType::Colon})){
+        return parseVariableDeclaration();
+    }
+    else {
+        logError("Expected typename, type modifier or array but got ", getCurrentToken());
+        return nullptr;
+    }
+}
+
+std::shared_ptr<AstBlockItem> Parser::parseBlockItem() {
+    if (match({TokenType::ID, TokenType::Colon})){
+        return parseDeclaration();
+    }
+    else{
+        return parseStatement();
+    }
+}
+
 
 std::shared_ptr<AstReturn> Parser::parseReturn() {
-    testErrorLimit();
     std::shared_ptr<AstReturn> returnStatement = std::make_shared<AstReturn>();
     consume(TokenType::Return);
     returnStatement->value = parseExpression();
     consume(TokenType::Semicolon);
     return returnStatement;
 }
-
-std::shared_ptr<AstExpression> Parser::parseExpression() {
-    testErrorLimit();
+std::shared_ptr<AstBlock> Parser::parseBlock() {
+    std::shared_ptr<AstBlock> block = std::make_shared<AstBlock>();
+    consume(TokenType::LeftBrace);
+    while (!match(TokenType::RightBrace)) {
+        block->items.push_back(parseBlockItem());
+    }
+    consume(TokenType::RightBrace);
+    return block;
+}
+std::shared_ptr<AstConditionalStatement> Parser::parseConditionalStatement() {
+    std::shared_ptr<AstConditionalStatement> main_conditional = std::make_shared<AstConditionalStatement>();
+    auto current_conditional = main_conditional;
     
-    if (match({TokenType::ID, TokenType::Assign})){
-        return parseVariableAssignment();
+    consume(TokenType::If);
+    consume(TokenType::LeftParen);
+    main_conditional->condition = parseExpression();
+    consume(TokenType::RightParen);
+    main_conditional->trueStatement = parseStatement();
+
+    while (match(TokenType::Elif)) {
+        consume(TokenType::Elif);
+        current_conditional->falseStatement = std::make_shared<AstConditionalStatement>();
+        current_conditional = std::dynamic_pointer_cast<AstConditionalStatement>(current_conditional->falseStatement);
+        consume(TokenType::LeftParen);
+        current_conditional->condition = parseExpression();
+        consume(TokenType::RightParen);
+        current_conditional->trueStatement = parseStatement();
     }
-    else{
-        return parseLogicalOrExp();
+
+    if (match(TokenType::Else)) {
+        consume(TokenType::Else);
+        current_conditional->falseStatement = parseStatement();
     }
+
+    return main_conditional;
+}
+
+std::shared_ptr<AstExpression> Parser::parseConditionalExpression() {
+    std::shared_ptr<AstExpression> condition = parseLogicalOrExp();
+    if (!match(TokenType::QuestionMark)){
+        return condition;
+    }
+    std::shared_ptr<AstConditionalExpression> conditional = std::make_shared<AstConditionalExpression>();
+    conditional->condition = condition;
+    consume(TokenType::QuestionMark);
+    conditional->trueExpression = parseExpression();
+    consume(TokenType::Colon);
+    conditional->falseExpression = parseExpression();
+    return conditional;
 }
 
 std::shared_ptr<AstExpression> Parser::parseLogicalOrExp() {
-    testErrorLimit();
     auto andExp = parseLogicalAndExp();
 
     while (match(TokenType::DoublePipe)) {
@@ -203,10 +266,7 @@ std::shared_ptr<AstExpression> Parser::parseLogicalOrExp() {
     }
     return andExp;
 }
-
-
 std::shared_ptr<AstExpression> Parser::parseLogicalAndExp() {
-    testErrorLimit();
     auto equalityExp = parseEqualityExp();
 
     while (match(TokenType::DoubleAmpersand)) {
@@ -217,9 +277,7 @@ std::shared_ptr<AstExpression> Parser::parseLogicalAndExp() {
     }
     return equalityExp;
 }
-
 std::shared_ptr<AstExpression> Parser::parseEqualityExp() {
-    testErrorLimit();
     auto relationalExp = parseRelationalExp();
 
     while (matchAny({TokenType::EqualEqual, TokenType::NotEqual})) {
@@ -230,9 +288,7 @@ std::shared_ptr<AstExpression> Parser::parseEqualityExp() {
     }
     return relationalExp;
 }
-
 std::shared_ptr<AstExpression> Parser::parseRelationalExp() {
-    testErrorLimit();
     auto additiveExp = parseAdditiveExp();
 
     while (matchAny({TokenType::GreaterThan, TokenType::GreaterThanEqual, TokenType::LessThan, TokenType::LessThanEqual})) {
@@ -243,9 +299,7 @@ std::shared_ptr<AstExpression> Parser::parseRelationalExp() {
     }
     return additiveExp;
 }
-
 std::shared_ptr<AstExpression> Parser::parseAdditiveExp() {
-    testErrorLimit();
     auto term = parseTerm();
 
     while (matchAny({TokenType::Plus, TokenType::Minus})) {
@@ -256,9 +310,7 @@ std::shared_ptr<AstExpression> Parser::parseAdditiveExp() {
     }
     return term;
 }
-
 std::shared_ptr<AstExpression> Parser::parseTerm() {
-    testErrorLimit();
     auto factor = parseFactor();
 
     while (matchAny({TokenType::Star, TokenType::Slash})) {
@@ -269,10 +321,7 @@ std::shared_ptr<AstExpression> Parser::parseTerm() {
     }
     return factor;
 }
-
 std::shared_ptr<AstExpression> Parser::parseFactor() {
-    testErrorLimit();
-    
     if (match(TokenType::LeftParen)) {
         consume(TokenType::LeftParen);
         auto expression = parseExpression();
@@ -294,24 +343,17 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
         return nullptr;
     }
 }
-
 std::shared_ptr<AstInteger> Parser::parseNumber() {
-    testErrorLimit();
     std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>();
     number->value = std::stoi(consume(TokenType::Number).value);
     return number;
 }
-
 std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
-    testErrorLimit();
-
     std::shared_ptr<AstVariableAccess> variableAccess = std::make_shared<AstVariableAccess>();
     variableAccess->name = consume(TokenType::ID).value;
     return variableAccess;
 }
-
 std::shared_ptr<AstVariableAssignment> Parser::parseVariableAssignment() {
-    testErrorLimit();
     std::shared_ptr<AstVariableAssignment> variableAssignment = std::make_shared<AstVariableAssignment>();
     variableAssignment->name = consume(TokenType::ID).value;
     consume(TokenType::Assign);
@@ -319,58 +361,18 @@ std::shared_ptr<AstVariableAssignment> Parser::parseVariableAssignment() {
     return variableAssignment;
 }
 
-std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
-    testErrorLimit();
-    std::shared_ptr<AstVariableDeclaration> variable = std::make_shared<AstVariableDeclaration>();
-    variable->name = consume(TokenType::Identifier).value;
-    consume(TokenType::Colon);
-    variable->type = parseType();
-    if (match(TokenType::Assign)) {
-        consume(TokenType::Assign);
-        variable->value = parseExpression();
-    }
-    consume(TokenType::Semicolon);
-    return variable;
-}
-
-std::shared_ptr<AstType> Parser::parseType() {
-    testErrorLimit();
-    std::vector<std::shared_ptr<AstTypeModifier>> typeModifiers;
-    while (match(TokenType::TypeModifier)) {
-        typeModifiers.push_back(parseTypeModifier());
-    }
-    if (match(TokenType::LeftBracket)) {
-        auto type = parseArray();
-        type->modifiers = typeModifiers;
-        return type;
-    }
-    else if (match(TokenType::Typename)) {
-        auto type = parseBuiltinType();
-        type->modifiers = typeModifiers;
-        return type;
-    }
-    else {
-        logError("Expected typename, type modifier or array but got ", getCurrentToken());
-        return nullptr;
-    }
-}
 
 std::shared_ptr<AstBuiltinType> Parser::parseBuiltinType() {
-    testErrorLimit();
     std::shared_ptr<AstBuiltinType> type = std::make_shared<AstBuiltinType>();
     type->name = consume(TokenType::Typename).value;
     return type;
 }
-
 std::shared_ptr<AstTypeModifier> Parser::parseTypeModifier() {
-    testErrorLimit();
     std::shared_ptr<AstTypeModifier> typeModifier = std::make_shared<AstTypeModifier>();
     typeModifier->name = consume(TokenType::TypeModifier).value;
     return typeModifier;
 }
-
 std::shared_ptr<AstParameterList> Parser::parseParameterList() {
-    testErrorLimit();
     std::shared_ptr<AstParameterList> parameterList = std::make_shared<AstParameterList>();
     consume(TokenType::LeftParen);
     while (!match(TokenType::RightParen)) {
@@ -382,12 +384,24 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
     consume(TokenType::RightParen);
     return parameterList;
 }
-
 std::shared_ptr<AstArray> Parser::parseArray() {
-    testErrorLimit();
     std::shared_ptr<AstArray> array = std::make_shared<AstArray>();
     consume(TokenType::LeftBracket);
     array->type = parseType();
     consume(TokenType::RightBracket);
     return array;
+}
+
+
+std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
+    std::shared_ptr<AstVariableDeclaration> variable = std::make_shared<AstVariableDeclaration>();
+    variable->name = consume(TokenType::Identifier).value;
+    consume(TokenType::Colon);
+    variable->type = parseType();
+    if (match(TokenType::Assign)) {
+        consume(TokenType::Assign);
+        variable->value = parseExpression();
+    }
+    consume(TokenType::Semicolon);
+    return variable;
 }

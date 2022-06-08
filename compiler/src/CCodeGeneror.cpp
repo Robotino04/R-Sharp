@@ -26,10 +26,19 @@ void CCodeGenerator::emit(std::string const& str){
     source += str;
 }
 void CCodeGenerator::emitIndented(std::string const& str){
-    for (int i=0;i<indentLevel;i++){
-        source += "    ";
+    if (indentedEmitBlocked){
+        indentedEmitBlocked = false;
     }
+    else{
+        for (int i=0;i<indentLevel;i++){
+            source += "    ";
+        }
+    }
+
     source += str;
+}
+void CCodeGenerator::blockNextIndentedEmit(){
+    indentedEmitBlocked = true;
 }
 
 void CCodeGenerator::visitAstProgram(AstProgram* node){
@@ -38,7 +47,6 @@ void CCodeGenerator::visitAstProgram(AstProgram* node){
         emit("\n");
     }
 }
-
 void CCodeGenerator::visitAstFunction(AstFunction* node){
     visit(node->returnType);
     emit(" " + node->name);
@@ -55,70 +63,6 @@ void CCodeGenerator::visitAstFunction(AstFunction* node){
     }
 
 }
-
-void CCodeGenerator::visitAstBlock(AstBlock* node){
-    emitIndented("{\n");
-    indent();
-    for (auto const& statement : node->statements) {
-        visit(statement);
-        emit("\n");
-    }
-    dedent();
-    emitIndented("}\n");
-}
-
-void CCodeGenerator::visitAstReturn(AstReturn* node){
-
-    emitIndented("return ");
-    visit(node->value);
-    emit(";");
-}
-void CCodeGenerator::visitAstInteger(AstInteger* node){
-    emit(std::to_string(node->value));
-}
-
-void CCodeGenerator::visitAstBuiltinType(AstBuiltinType* node){
-    for (auto const& modifier : node->modifiers) {
-        visit(modifier);
-        emit(" ");
-    }
-    emit(node->name);
-}
-
-void CCodeGenerator::visitAstArray(AstArray* node){
-    visit(node->type);
-    emit("*");
-    for (auto const& modifier : node->modifiers) {
-        visit(modifier);
-        emit(" ");
-    }
-}
-
-void CCodeGenerator::visitAstTypeModifier(AstTypeModifier* node){
-    emit(node->name);
-}
-
-void CCodeGenerator::visitAstVariableDeclaration(AstVariableDeclaration* node){
-    emitIndented("");
-    visit(node->type);
-    emit(" " + node->name);
-    if (node->value){
-        emit(" = ");
-        visit(node->value);
-    }
-    emit(";");
-}
-
-void CCodeGenerator::visitAstVariableAccess(AstVariableAccess* node){
-    emit(node->name);
-}
-
-void CCodeGenerator::visitAstVariableAssignment(AstVariableAssignment* node){
-    emit("(" + node->name + " = ");
-    visit(node->value);
-    emit(")");
-}
-
 void CCodeGenerator::visitAstParameterList(AstParameterList* node){
     emit("(");
     for (auto const& parameter : node->parameters) {
@@ -130,12 +74,47 @@ void CCodeGenerator::visitAstParameterList(AstParameterList* node){
     emit(")");
 }
 
+
+// Statements
+void CCodeGenerator::visitAstBlock(AstBlock* node){
+    emitIndented("{\n");
+    indent();
+    for (auto const& statement : node->items) {
+        visit(statement);
+        emit("\n");
+    }
+    dedent();
+    emitIndented("}\n");
+}
+void CCodeGenerator::visitAstReturn(AstReturn* node){
+
+    emitIndented("return ");
+    visit(node->value);
+    emit(";");
+}
 void CCodeGenerator::visitAstExpressionStatement(AstExpressionStatement* node){
     emitIndented("");
     visit(node->expression);
     emit(";");
 }
+void CCodeGenerator::visitAstConditionalStatement(AstConditionalStatement* node){
+    emitIndented("if (");
+    visit(node->condition);
+    emit(") ");
+    blockNextIndentedEmit();
+    visit(node->trueStatement);
+    if (node->falseStatement){
+        emit("\n");
+        emitIndented("else ");
+        blockNextIndentedEmit();
+        visit(node->falseStatement);
+    }
+}
 
+// Expressions
+void CCodeGenerator::visitAstInteger(AstInteger* node){
+    emit(std::to_string(node->value));
+}
 void CCodeGenerator::visitAstUnary(AstUnary* node){
     emit("(");
     switch (node->type) {
@@ -155,7 +134,6 @@ void CCodeGenerator::visitAstUnary(AstUnary* node){
     visit(node->value);
     emit(")");
 }
-
 void CCodeGenerator::visitAstBinary(AstBinary* node){
     emit("(");
     visit(node->left);
@@ -205,4 +183,54 @@ void CCodeGenerator::visitAstBinary(AstBinary* node){
     }
     visit(node->right);
     emit(")");
+}
+void CCodeGenerator::visitAstVariableAccess(AstVariableAccess* node){
+    emit(node->name);
+}
+void CCodeGenerator::visitAstVariableAssignment(AstVariableAssignment* node){
+    emit("(" + node->name + " = ");
+    visit(node->value);
+    emit(")");
+}
+void CCodeGenerator::visitAstConditionalExpression(AstConditionalExpression* node){
+    emit("(");
+    visit(node->condition);
+    emit(" ? ");
+    visit(node->trueExpression);
+    emit(" : ");
+    visit(node->falseExpression);
+    emit(")");
+}
+
+
+// Types
+void CCodeGenerator::visitAstBuiltinType(AstBuiltinType* node){
+    for (auto const& modifier : node->modifiers) {
+        visit(modifier);
+        emit(" ");
+    }
+    emit(node->name);
+}
+void CCodeGenerator::visitAstArray(AstArray* node){
+    visit(node->type);
+    emit("*");
+    for (auto const& modifier : node->modifiers) {
+        visit(modifier);
+        emit(" ");
+    }
+}
+void CCodeGenerator::visitAstTypeModifier(AstTypeModifier* node){
+    emit(node->name);
+}
+
+// Declarations
+void CCodeGenerator::visitAstVariableDeclaration(AstVariableDeclaration* node){
+    emitIndented("");
+    visit(node->type);
+    emit(" " + node->name);
+    if (node->value){
+        emit(" = ");
+        visit(node->value);
+    }
+    emit(";");
 }
