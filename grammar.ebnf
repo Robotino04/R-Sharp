@@ -1,8 +1,6 @@
 program = {<function>}
 
-function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> '{' <block> '}'
-
-block = '{' {<statement>} '}'
+function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> <statement>
 
 return = 'return' <expression> ';'
 statement = <return> | <block> | <declaration> | <expression> ';'

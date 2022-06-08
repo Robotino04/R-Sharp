@@ -139,7 +139,7 @@ std::shared_ptr<AstFunction> Parser::parseFunction() {
     function->parameters = parseParameterList();
     consume(TokenType::Colon);
     function->returnType = parseType();
-    function->body = parseBlock();
+    function->body = parseStatement();
     return function;
 }
 std::shared_ptr<AstBlock> Parser::parseBlock() {

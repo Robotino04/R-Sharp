@@ -43,7 +43,17 @@ void CCodeGenerator::visitAstFunction(AstFunction* node){
     visit(node->returnType);
     emit(" " + node->name);
     visit(node->parameters);
-    visit(node->body);
+
+    if (node->body->getType() == AstNodeType::AstBlock)
+        visit(node->body);
+    else{
+        emit("{\n");
+        indent();
+        visit(node->body);
+        dedent();
+        emit("\n}");
+    }
+
 }
 
 void CCodeGenerator::visitAstBlock(AstBlock* node){
