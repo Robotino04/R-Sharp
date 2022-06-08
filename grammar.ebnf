@@ -1,11 +1,18 @@
 program = {<function>}
 
 function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> <statement>
+block-item = <declaration> | <statement>
 
 return = 'return' <expression> ';'
-statement = <return> | <block> | <declaration> | <expression> ';'
+statement = (<return> | <declaration> | <expression> ';') | '{' {<block-item>} '}'
 
-expression = <assignment> | <logical-or-exp>
+if = 'if' '(' <expression> ')' <statement> {elif} [<else>]
+elif = 'elif' '(' <expression> ')' <statement>
+else = 'else' <statement>
+
+
+expression = <assignment> | <conditional-exp>
+conditional-exp = <logical-or-exp> ['?' <expression> ':' <expression>]
 logical-or-exp = <logical-and-exp> {'||' <logical-and-exp>}
 logical-and-exp = <equality-exp> {'&&' <equality-ex>}
 equality-exp = <relational-exp> {('==' | '!=') <relational-exp>}

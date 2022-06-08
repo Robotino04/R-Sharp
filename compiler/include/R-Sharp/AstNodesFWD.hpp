@@ -9,22 +9,24 @@ struct AstVisitor;
 enum class AstNodeType {
     AstProgram,
     AstFunction,
+    AstParameterList,
+
     AstBlock,
     AstReturn,
+    AstExpressionStatement,
+    AstConditionalStatement,
+
+    AstVariableAccess,
+    AstVariableAssignment,
+    AstUnary,
+    AstBinary,
     AstInteger,
+    AstConditionalExpression,
+
+    AstVariableDeclaration,
     AstBuiltinType,
     AstTypeModifier,
     AstArray,
-    AstParameterList,
-
-    AstUnary,
-    AstBinary,
-
-    AstExpressionStatement,
-
-    AstVariableDeclaration,
-    AstVariableAccess,
-    AstVariableAssignment,
 };
 
 struct AstNode{
@@ -45,19 +47,24 @@ struct AstFunction;
 struct AstStatement;
 struct AstExpression;
 struct AstType;
+struct AstDeclaration;
+struct AstBlockItem;
 
 struct AstBlock;
 struct AstReturn;
 struct AstExpressionStatement;
-struct AstVariableDeclaration;
+struct AstConditionalStatement;
 
 struct AstUnary;
 struct AstBinary;
 struct AstInteger;
 struct AstVariableAccess;
 struct AstVariableAssignment;
+struct AstConditionalExpression;
 
 struct AstBuiltinType;
 struct AstTypeModifier;
 struct AstParameterList;
 struct AstArray;
+
+struct AstVariableDeclaration;

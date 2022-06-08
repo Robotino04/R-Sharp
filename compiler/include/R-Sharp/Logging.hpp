@@ -5,6 +5,9 @@
 #include <list>
 #include <algorithm>
 
+template<typename ...Args>
+inline void Fatal(Args&& ...args);
+
 namespace Internals{
     const std::string ansiColorStart = "\033[";
     const std::string ansiColorEnd = "m";
@@ -63,6 +66,16 @@ namespace Internals{
         private:
             const char* name;
     };
+
+    inline int errorCount = 0;
+    inline int errorLimit = -1;
+
+    inline void registerError(){
+        errorCount++;
+        if (errorLimit > 0 && errorCount > errorLimit){
+            Fatal("Too many errors");
+        }
+    }
 }
 
 
@@ -73,6 +86,7 @@ inline void Fatal(Args&& ...args){
 }
 template<typename ...Args>
 inline void Error(Args&& ...args){
+    Internals::registerError();
     Internals::printToStream(std::cerr, Internals::colorRed, "[ERROR]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
 }
 template<typename ...Args>
@@ -86,6 +100,16 @@ inline void Log(Args&& ...args){
 template<typename ...Args>
 inline void Print(Args&& ...args){
     Internals::printToStream(std::cout, args..., '\n');
+}
+
+inline void setErrorLimit(int limit){
+    Internals::errorLimit = limit;
+}
+inline void resetErrorCount(){
+    Internals::errorCount = 0;
+}
+inline int getErrorCount(){
+    return Internals::errorCount;
 }
 
 #define CONCAT(a, b) CONCAT_INNER(a, b)

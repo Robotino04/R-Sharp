@@ -20,7 +20,7 @@ static const std::string validIdentifierBegin = characterRange('a', 'z') + chara
 static const std::string validIdentifierChars = validIdentifierBegin + characterRange('0', '9');
 
 
-Tokenizer::Tokenizer(std::string const& filename): currentPosition(0), line(1), column(1), numErrors(0), filename(filename) {
+Tokenizer::Tokenizer(std::string const& filename): currentPosition(0), line(1), column(1), filename(filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         Fatal("Could not open file: \"", filename, "\"");
@@ -45,6 +45,21 @@ bool Tokenizer::matchAny(std::string str) const {
     return false;
 }
 
+bool Tokenizer::match(int offset, std::string str) const {
+    return !isAtEnd(offset) && source.substr(currentPosition+offset, str.size()) == str;
+}
+bool Tokenizer::match(int offset, char c) const {
+    return !isAtEnd(offset) && getChar(offset) == c;
+}
+bool Tokenizer::matchAny(int offset, std::string str) const {
+    for (char c : str) {
+        if (match(offset, c)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 char Tokenizer::consume() {
     char c = getCurrentChar();
     if (getCurrentChar() == '\n') {
@@ -62,15 +77,16 @@ char Tokenizer::consume(char c) {
     }
     return '\0';
 }
-char Tokenizer::consume(std::string str) {
+std::string Tokenizer::consume(std::string str) {
     if (!match(str)) {
         logError("Expected: \"", str, "\"");
-        return '\0';
+        return "\0";
     }
+    std::string result;
     for (int i = 0; i < str.size(); i++) {
-        consume();
+        result += consume();
     }
-    return getCurrentChar();
+    return result;
 }
 char Tokenizer::consumeAnyOne(std::string str) {
     for (char c : str) {
@@ -112,14 +128,14 @@ char Tokenizer::getChar(int offset) const{
     return source[currentPosition + offset];
 }
 
-void Tokenizer::testErrorLimit() const{
-    if (numErrors > maxErrors) {
-        Fatal("Too many errors");
-    }
-}
-
 #define SIMPLE_TOKEN(characters, type) \
     if (match(characters)) { \
+        int line_ = line; \
+        int column_ = column; \
+        token = Token(type, consume(characters), line_, column_); \
+    }
+#define KEYWORD_TOKEN(characters, type) \
+    if (match(characters) && !matchAny(std::string(characters).size(), validIdentifierChars)) { \
         int line_ = line; \
         int column_ = column; \
         token = Token(type, consume(characters), line_, column_); \
@@ -148,11 +164,19 @@ Token Tokenizer::nextToken(){
     while (!isAtEnd()) {
         Token token;
         token.type = TokenType::None;
-        testErrorLimit();
 
-        COMPLEX_SET_TOKEN(validIdentifierBegin, validIdentifierChars, TokenType::Identifier)
-        else ENCLOSING_TOKEN("//", "\n", TokenType::Comment)
+        ENCLOSING_TOKEN("//", "\n", TokenType::Comment)
         else ENCLOSING_TOKEN("/*", "*/", TokenType::Comment)
+
+        else KEYWORD_TOKEN("if", TokenType::If)
+        else KEYWORD_TOKEN("elif", TokenType::Elif)
+        else KEYWORD_TOKEN("else", TokenType::Else)
+
+        else KEYWORD_TOKEN("return", TokenType::Return)
+
+        else KEYWORD_TOKEN("int", TokenType::Typename)
+        else KEYWORD_TOKEN("char", TokenType::Typename)
+        else KEYWORD_TOKEN("const", TokenType::TypeModifier)
 
         else SIMPLE_TOKEN(';', TokenType::Semicolon)
         else SIMPLE_TOKEN(',', TokenType::Comma)
@@ -176,6 +200,7 @@ Token Tokenizer::nextToken(){
 
         else SIMPLE_TOKEN('!', TokenType::Bang)
         else SIMPLE_TOKEN('~', TokenType::Tilde)
+        else SIMPLE_TOKEN('?', TokenType::QuestionMark)
 
         else SIMPLE_TOKEN('+', TokenType::Plus)
         else SIMPLE_TOKEN('-', TokenType::Minus)
@@ -184,27 +209,11 @@ Token Tokenizer::nextToken(){
 
         else SIMPLE_TOKEN('=', TokenType::Assign)
 
-
+        else COMPLEX_SET_TOKEN(validIdentifierBegin, validIdentifierChars, TokenType::Identifier)
         else SET_TOKEN(numbers, TokenType::Number)
         else if (std::isspace(getCurrentChar())) { consume(); }
         else {
             logError("Unexpected character '", consume(), "'");
-        }
-
-        // filter out keywords, typenames, and type modifiers
-        if (token.type == TokenType::ID){
-            if (token.value == "int" || token.value == "char"){
-                token.type = TokenType::Typename;
-            }
-            else if (token.value == "const") {
-                token.type = TokenType::TypeModifier;
-            }
-            else if(token.value == "return") {
-                token.type = TokenType::Return;
-            }
-            else {
-                token.type = TokenType::ID;
-            }
         }
 
         if (token.type != TokenType::None) {
@@ -222,12 +231,15 @@ Token Tokenizer::nextToken(){
 
 
 std::vector<Token> Tokenizer::tokenize(){
+    resetErrorCount();
+    setErrorLimit(20);
+
     std::vector<Token> tokens;
     while (!isAtEnd()) {
         tokens.push_back(nextToken());
     }
-    if (numErrors){
-        Fatal("Encountered ", numErrors, " error", numErrors == 1 ? "" : "s");
+    if (getErrorCount()){
+        Fatal("Encountered ", getErrorCount(), " error", getErrorCount() == 1 ? "" : "s");
         return {};
     }
     return tokens;

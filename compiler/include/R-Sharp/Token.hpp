@@ -25,6 +25,7 @@ enum class TokenType{
 
     ExclamationPoint,           // "!"
     Tilde,                      // "~"
+    QuestionMark,               // "?"
 
     Plus,                       // "+"
     Minus,                      // "-"
@@ -41,6 +42,9 @@ enum class TokenType{
     GreaterThanEqual,           // ">="
 
     Return,                     // "return"
+    If,                         // "if"
+    Elif,                       // "elif"
+    Else,                       // "else"
 
     Assign,                     // "="
 
