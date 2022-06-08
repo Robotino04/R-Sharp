@@ -212,7 +212,6 @@ Token Tokenizer::nextToken(){
         }
     }
 
-    logError("Unexpected end of file");
     return Token(TokenType::EndOfFile, "", line, column);
 }
 

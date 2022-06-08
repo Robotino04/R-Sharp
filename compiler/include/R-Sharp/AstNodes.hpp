@@ -89,7 +89,7 @@ struct AstFunction : public AstNode {
 
     SINGLE_CHILD(AstParameterList, parameters)
     SINGLE_CHILD(AstType, returnType)
-    SINGLE_CHILD(AstBlock, body)
+    SINGLE_CHILD(AstStatement, body)
 };
 
 
