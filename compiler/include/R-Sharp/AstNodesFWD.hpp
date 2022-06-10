@@ -15,6 +15,12 @@ enum class AstNodeType {
     AstReturn,
     AstExpressionStatement,
     AstConditionalStatement,
+    AstForLoopDeclaration,
+    AstForLoopExpression,
+    AstWhileLoop,
+    AstDoWhileLoop,
+    AstBreak,
+    AstSkip,
 
     AstVariableAccess,
     AstVariableAssignment,
@@ -22,6 +28,7 @@ enum class AstNodeType {
     AstBinary,
     AstInteger,
     AstConditionalExpression,
+    AstEmptyExpression,
 
     AstVariableDeclaration,
     AstBuiltinType,
@@ -54,6 +61,12 @@ struct AstBlock;
 struct AstReturn;
 struct AstExpressionStatement;
 struct AstConditionalStatement;
+struct AstForLoopDeclaration;
+struct AstForLoopExpression;
+struct AstWhileLoop;
+struct AstDoWhileLoop;
+struct AstBreak;
+struct AstSkip;
 
 struct AstUnary;
 struct AstBinary;
@@ -61,6 +74,7 @@ struct AstInteger;
 struct AstVariableAccess;
 struct AstVariableAssignment;
 struct AstConditionalExpression;
+struct AstEmptyExpression;
 
 struct AstBuiltinType;
 struct AstTypeModifier;

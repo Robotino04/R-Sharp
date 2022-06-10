@@ -19,6 +19,12 @@ class CCodeGenerator : public AstVisitor {
         void visitAstReturn(AstReturn* node) override;
         void visitAstExpressionStatement(AstExpressionStatement* node) override;
         void visitAstConditionalStatement(AstConditionalStatement* node) override;
+        void visitAstForLoopDeclaration(AstForLoopDeclaration* node) override;
+        void visitAstForLoopExpression(AstForLoopExpression* node) override;
+        void visitAstWhileLoop(AstWhileLoop* node) override;
+        void visitAstDoWhileLoop(AstDoWhileLoop* node) override;
+        void visitAstBreak(AstBreak* node) override;
+        void visitAstSkip(AstSkip* node) override;
 
         void visitAstUnary(AstUnary* node) override;
         void visitAstBinary(AstBinary* node) override;
@@ -26,6 +32,7 @@ class CCodeGenerator : public AstVisitor {
         void visitAstVariableAccess(AstVariableAccess* node) override;
         void visitAstVariableAssignment(AstVariableAssignment* node) override;
         void visitAstConditionalExpression(AstConditionalExpression* node) override;
+        void visitAstEmptyExpression(AstEmptyExpression* node) override;
 
         void visitAstBuiltinType(AstBuiltinType* node) override;
         void visitAstTypeModifier(AstTypeModifier* node) override;

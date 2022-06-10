@@ -110,6 +110,80 @@ void CCodeGenerator::visitAstConditionalStatement(AstConditionalStatement* node)
         visit(node->falseStatement);
     }
 }
+void CCodeGenerator::visitAstForLoopDeclaration(AstForLoopDeclaration* node){
+    emitIndented("for (");
+    blockNextIndentedEmit();
+    visit(node->variable);
+    emit(" ");
+    visit(node->condition);
+    emit("; ");
+    visit(node->increment);
+    emit(") ");
+    if (node->body->getType() == AstNodeType::AstBlock)
+        visit(node->body);
+    else{
+        emit("{\n");
+        indent();
+        visit(node->body);
+        dedent();
+        emit("\n");
+        emitIndented("}");
+    }
+}
+void CCodeGenerator::visitAstForLoopExpression(AstForLoopExpression* node){
+    emitIndented("for (");
+    visit(node->variable);
+    emit("; ");
+    visit(node->condition);
+    emit("; ");
+    visit(node->increment);
+    emit(") ");
+    if (node->body->getType() == AstNodeType::AstBlock)
+        visit(node->body);
+    else{
+        emit("{\n");
+        indent();
+        visit(node->body);
+        dedent();
+        emit("\n}");
+    }
+}
+void CCodeGenerator::visitAstWhileLoop(AstWhileLoop* node){
+    emitIndented("while (");
+    visit(node->condition);
+    emit(") ");
+    if (node->body->getType() == AstNodeType::AstBlock)
+        visit(node->body);
+    else{
+        emit("{\n");
+        indent();
+        visit(node->body);
+        dedent();
+        emit("\n}");
+    }
+}
+void CCodeGenerator::visitAstDoWhileLoop(AstDoWhileLoop* node){
+    emitIndented("do ");
+    if (node->body->getType() == AstNodeType::AstBlock)
+        visit(node->body);
+    else{
+        emit("{\n");
+        indent();
+        visit(node->body);
+        dedent();
+        emit("\n}");
+    }
+    emit("\n");
+    emitIndented("while (");
+    visit(node->condition);
+    emit(");");
+}
+void CCodeGenerator::visitAstBreak(AstBreak* node){
+    emitIndented("break;");
+}
+void CCodeGenerator::visitAstSkip(AstSkip* node){
+    emitIndented("continue;");
+}
 
 // Expressions
 void CCodeGenerator::visitAstInteger(AstInteger* node){
@@ -200,6 +274,8 @@ void CCodeGenerator::visitAstConditionalExpression(AstConditionalExpression* nod
     emit(" : ");
     visit(node->falseExpression);
     emit(")");
+}
+void CCodeGenerator::visitAstEmptyExpression(AstEmptyExpression* node){
 }
 
 

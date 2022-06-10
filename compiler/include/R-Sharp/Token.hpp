@@ -46,6 +46,13 @@ enum class TokenType{
     Elif,                       // "elif"
     Else,                       // "else"
 
+    While,                      // "while"
+    For,                        // "for"
+    Do,                         // "do"
+    Break,                      // "break"
+    Skip,                       // "skip"
+
+
     Assign,                     // "="
 
     Identifier = ID,
