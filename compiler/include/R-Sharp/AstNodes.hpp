@@ -155,6 +155,66 @@ struct AstConditionalStatement : public AstStatement {
     SINGLE_CHILD(AstStatement, falseStatement)
 };
 
+
+struct AstWhileLoop : public AstStatement {
+    BASE(AstWhileLoop)
+    TO_STRING(AstWhileLoop)
+
+    GET_SINGLE_CHILDREN(condition, body)
+
+    SINGLE_CHILD(AstExpression, condition)
+    SINGLE_CHILD(AstStatement, body)
+};
+
+
+struct AstForLoopDeclaration : public AstStatement {
+    BASE(AstForLoopDeclaration)
+    TO_STRING(AstForLoopDeclaration)
+
+    GET_SINGLE_CHILDREN(variable, condition, increment, body)
+
+    SINGLE_CHILD(AstVariableDeclaration, variable)
+    SINGLE_CHILD(AstExpression, condition)
+    SINGLE_CHILD(AstExpression, increment)
+    SINGLE_CHILD(AstStatement, body)
+};
+
+
+struct AstForLoopExpression : public AstStatement {
+    BASE(AstForLoopExpression)
+    TO_STRING(AstForLoopExpression)
+
+    GET_SINGLE_CHILDREN(variable, condition, increment, body)
+
+    SINGLE_CHILD(AstExpression, variable)
+    SINGLE_CHILD(AstExpression, condition)
+    SINGLE_CHILD(AstExpression, increment)
+    SINGLE_CHILD(AstStatement, body)
+};
+
+
+struct AstDoWhileLoop : public AstStatement {
+    BASE(AstDoWhileLoop)
+    TO_STRING(AstDoWhileLoop)
+
+    GET_SINGLE_CHILDREN(body, condition)
+
+    SINGLE_CHILD(AstStatement, body)
+    SINGLE_CHILD(AstExpression, condition)
+};
+
+
+struct AstBreak : public AstStatement {
+    BASE(AstBreak)
+    TO_STRING(AstBreak)
+};
+
+
+struct AstSkip : public AstStatement {
+    BASE(AstSkip)
+    TO_STRING(AstSkip)
+};
+
 // ----------------------------------| Expressions |---------------------------------- //
 struct AstVariableAccess : public AstExpression {
     BASE(AstVariableAccess)
@@ -258,7 +318,10 @@ struct AstConditionalExpression : public AstExpression {
     SINGLE_CHILD(AstExpression, falseExpression)
 };
 
-
+struct AstEmptyExpression : public AstExpression {
+    BASE(AstEmptyExpression)
+    TO_STRING(AstEmptyExpression)
+};
 
 // ----------------------------------| Types |---------------------------------- //
 struct AstTypeModifier : public AstNode {

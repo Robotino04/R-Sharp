@@ -134,12 +134,19 @@ int main(int argc, const char** argv) {
         Print(C_Source);
     }
 
+    Print("Writing to file: ", outputFilename, ".c");
     std::ofstream outputFile(outputFilename + ".c");
-    outputFile << C_Source;
-    outputFile.close();
+    if (outputFile.is_open()) {
+        outputFile << C_Source;
+        outputFile.close();
+    } else {
+        Error("Could not open file: ", outputFilename, ".c");
+        return 1;
+    }
 
     Print("--------------| Compiling using gcc |--------------");
     std::string command = "gcc " + outputFilename + ".c -o " + outputFilename;
+    Print("Executing: ", command);
     int success = system(command.c_str());
     if (success != 0) {
         Error("Compilation failed");

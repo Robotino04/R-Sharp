@@ -60,6 +60,12 @@ class Parser{
         std::shared_ptr<AstBlock> parseBlock();
         std::shared_ptr<AstReturn> parseReturn();
         std::shared_ptr<AstConditionalStatement> parseConditionalStatement();
+        std::shared_ptr<AstForLoopDeclaration> parseForLoopDeclaration();
+        std::shared_ptr<AstForLoopExpression> parseForLoopExpression();
+        std::shared_ptr<AstWhileLoop> parseWhileLoop();
+        std::shared_ptr<AstDoWhileLoop> parseDoWhileLoop();
+        std::shared_ptr<AstBreak> parseBreak();
+        std::shared_ptr<AstSkip> parseSkip();
 
         std::shared_ptr<AstExpression> parseConditionalExpression();
         std::shared_ptr<AstExpression> parseLogicalAndExp();
@@ -79,4 +85,8 @@ class Parser{
         std::shared_ptr<AstArray> parseArray();
 
         std::shared_ptr<AstVariableDeclaration> parseVariableDeclaration();
+
+        // helpers
+        std::shared_ptr<AstStatement> parseForLoop();
+        std::shared_ptr<AstExpression> parseOptionalExpression();
 };

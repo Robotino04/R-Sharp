@@ -20,6 +20,12 @@ public:
     VISTITOR_FN(AstReturn);
     VISTITOR_FN(AstExpressionStatement);
     VISTITOR_FN(AstConditionalStatement);
+    VISTITOR_FN(AstForLoopDeclaration);
+    VISTITOR_FN(AstForLoopExpression);
+    VISTITOR_FN(AstWhileLoop);
+    VISTITOR_FN(AstDoWhileLoop);
+    VISTITOR_FN(AstBreak);
+    VISTITOR_FN(AstSkip);
 
     VISTITOR_FN(AstUnary);
     VISTITOR_FN(AstBinary);
@@ -27,6 +33,7 @@ public:
     VISTITOR_FN(AstVariableAccess);
     VISTITOR_FN(AstVariableAssignment);
     VISTITOR_FN(AstConditionalExpression);
+    VISTITOR_FN(AstEmptyExpression);
 
     VISTITOR_FN(AstBuiltinType);
     VISTITOR_FN(AstTypeModifier);

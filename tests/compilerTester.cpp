@@ -21,7 +21,7 @@ ExecutionResults parseExpectations(std::string filename){
         lineNumber++;
         if (line.find("*/") != std::string::npos) {
             std::cout << "No further validation required" << std::endl;
-            continue;
+            break;
         }
         if (line.find("/*") != std::string::npos) continue;
 
@@ -50,24 +50,26 @@ ExecutionResults parseExpectations(std::string filename){
 
 bool validate(ExecutionResults real, ExecutionResults expected){
     bool isValid = true;
-    std::cout << "Validation";
+    std::cout << "Validation:";
+    std::cout << "\n\texpected program to fail: " << std::boolalpha << expected.failed << std::noboolalpha;
+    std::cout << "\n\tactual program failed: " << std::boolalpha << real.failed << std::noboolalpha;
     if (real.failed != expected.failed) {
-        std::cout << " - FAILED\n expected program to fail" << std::endl;
         isValid = false;
     }
-    if (real.returnValue != expected.returnValue) {
-        std::cout << " - FAILED\n expected return value: " << expected.returnValue << std::endl;
+    std::cout << "\n\texpected return value: " << expected.returnValue << " (interpreted as " << (int)((int8_t)expected.returnValue) << ")";
+    std::cout << "\n\tactual return value: " << real.returnValue << " (interpreted as " << ((int)(int8_t)real.returnValue) << ")";
+    if ((int8_t)real.returnValue != (int8_t)expected.returnValue) {
         isValid = false;
     }
 
     if (isValid) {
-        std::cout << " - PASSED" << std::endl;
+        std::cout << "\nPASSED\n" << std::endl;
     }
     return isValid;
 }
 
 constexpr int getExitStatus(int status) {
-    return (int8_t)WEXITSTATUS(status);
+    return (int)WEXITSTATUS(status);
 }
 
 struct CommandResult {
@@ -124,7 +126,7 @@ int main(int argc, char** argv) {
     std::string filename = inputFile.substr(inputFile.find_last_of("/") + 1);
     filename = filename.substr(0, filename.find_last_of("."));
 
-    std::string command = compilerPath + " -o " + outputDir + "/" + filename +  " " + inputFile;
+    std::string command = compilerPath + " -o " + outputDir + "/" + filename + " " + inputFile;
 
     ExecutionResults realResults;
 

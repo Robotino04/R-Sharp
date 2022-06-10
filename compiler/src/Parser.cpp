@@ -143,8 +143,23 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
     else if (match(TokenType::If)){
         return parseConditionalStatement();
     }
+    else if (match(TokenType::While)){
+        return parseWhileLoop();
+    }
+    else if (match(TokenType::Do)){
+        return parseDoWhileLoop();
+    }
+    else if (match(TokenType::For)){
+        return parseForLoop();
+    }
+    else if (match(TokenType::Break)){
+        return parseBreak();
+    }
+    else if (match(TokenType::Skip)){
+        return parseSkip();
+    }
     else{
-        auto exp = parseExpression();
+        auto exp = parseOptionalExpression();
         consume(TokenType::Semicolon);
         return std::make_shared<AstExpressionStatement>(exp);
     }
@@ -217,8 +232,7 @@ std::shared_ptr<AstConditionalStatement> Parser::parseConditionalStatement() {
     std::shared_ptr<AstConditionalStatement> main_conditional = std::make_shared<AstConditionalStatement>();
     auto current_conditional = main_conditional;
     
-    consume(TokenType::If);
-    consume(TokenType::LeftParen);
+    consume({TokenType::If, TokenType::LeftParen});
     main_conditional->condition = parseExpression();
     consume(TokenType::RightParen);
     main_conditional->trueStatement = parseStatement();
@@ -240,6 +254,56 @@ std::shared_ptr<AstConditionalStatement> Parser::parseConditionalStatement() {
 
     return main_conditional;
 }
+std::shared_ptr<AstForLoopDeclaration> Parser::parseForLoopDeclaration() {
+    std::shared_ptr<AstForLoopDeclaration> forLoop = std::make_shared<AstForLoopDeclaration>();
+    consume({TokenType::For, TokenType::LeftParen});
+    forLoop->variable = parseVariableDeclaration();
+    forLoop->condition = parseOptionalExpression();
+    consume(TokenType::Semicolon);
+    forLoop->increment = parseOptionalExpression();
+    consume(TokenType::RightParen);
+    forLoop->body = parseStatement();
+    return forLoop;
+}
+std::shared_ptr<AstForLoopExpression> Parser::parseForLoopExpression() {
+    std::shared_ptr<AstForLoopExpression> forLoop = std::make_shared<AstForLoopExpression>();
+    consume({TokenType::For, TokenType::LeftParen});
+    forLoop->variable = parseOptionalExpression();
+    consume(TokenType::Semicolon);
+    forLoop->condition = parseOptionalExpression();
+    consume(TokenType::Semicolon);
+    forLoop->increment = parseOptionalExpression();
+    consume(TokenType::RightParen);
+    forLoop->body = parseStatement();
+    return forLoop;
+}
+std::shared_ptr<AstWhileLoop> Parser::parseWhileLoop() {
+    std::shared_ptr<AstWhileLoop> whileLoop = std::make_shared<AstWhileLoop>();
+    consume({TokenType::While, TokenType::LeftParen});
+    whileLoop->condition = parseExpression();
+    consume(TokenType::RightParen);
+    whileLoop->body = parseStatement();
+    return whileLoop;
+}
+std::shared_ptr<AstDoWhileLoop> Parser::parseDoWhileLoop() {
+    std::shared_ptr<AstDoWhileLoop> doWhileLoop = std::make_shared<AstDoWhileLoop>();
+    consume(TokenType::Do);
+    doWhileLoop->body = parseStatement();
+    consume({TokenType::While, TokenType::LeftParen});
+    doWhileLoop->condition = parseExpression();
+    consume({TokenType::RightParen, TokenType::Semicolon});
+    return doWhileLoop;
+}
+std::shared_ptr<AstBreak> Parser::parseBreak() {
+    consume({TokenType::Break, TokenType::Semicolon});
+    return std::make_shared<AstBreak>();
+}
+std::shared_ptr<AstSkip> Parser::parseSkip() {
+    consume({TokenType::Skip, TokenType::Semicolon});
+    return std::make_shared<AstSkip>();
+}
+
+
 
 std::shared_ptr<AstExpression> Parser::parseConditionalExpression() {
     std::shared_ptr<AstExpression> condition = parseLogicalOrExp();
@@ -404,4 +468,23 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
     }
     consume(TokenType::Semicolon);
     return variable;
+}
+
+
+// helpers
+std::shared_ptr<AstStatement> Parser::parseForLoop(){
+    if (match(4, TokenType::Typename)){
+        return parseForLoopDeclaration();
+    }
+    else{
+        return parseForLoopExpression();
+    }
+}
+std::shared_ptr<AstExpression> Parser::parseOptionalExpression(){
+    if (matchAny({TokenType::Semicolon, TokenType::RightParen})){
+        return std::make_shared<AstEmptyExpression>();
+    }
+    else{
+        return parseExpression();
+    }
 }

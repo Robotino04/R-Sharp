@@ -53,6 +53,12 @@ namespace std{
             case TokenType::Elif: return "Elif";
             case TokenType::Else: return "Else";
 
+            case TokenType::While: return "While";
+            case TokenType::For: return "For";
+            case TokenType::Do: return "Do";
+            case TokenType::Break: return "Break";
+            case TokenType::Skip: return "Skip";
+
             case TokenType::Assign: return "Assign";
             default:
                 Fatal("Unknown token type: ", static_cast<int>(type));

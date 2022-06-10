@@ -4,7 +4,27 @@ function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> <statement>
 block-item = <declaration> | <statement>
 
 return = 'return' <expression> ';'
-statement = (<return> | <declaration> | <expression> ';') | '{' {<block-item>} '}'
+
+for = 'for' '(' <optional-expression> ';' <optional-expression> ';' <optional-expression> ')' <statement>
+    | 'for' '(' <declaration> ';' <optional-expression> ';' <optional-expression> ')' <statement>
+do = 'do' <statement> 'while' '(' <expression> ')' ';'
+while = 'while' '(' <expression> ')' <statement>
+break = 'break' ';'
+skip = 'skip' ';'
+
+optional-expression = [<expression>]
+
+statement = <return>
+          | <declaration>
+          | <optional-expression> ';'
+          | '{' {<block-item>} '}'
+          | <for>
+          | <do>
+          | <while>
+          | <break>
+          | <skip>
+          | <if>
+
 
 if = 'if' '(' <expression> ')' <statement> {elif} [<else>]
 elif = 'elif' '(' <expression> ')' <statement>
