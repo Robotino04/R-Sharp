@@ -9,7 +9,24 @@ struct ExecutionResults{
     bool failed = false;
     bool skipped = false;
     int returnValue = 0;
+    std::string output = "";
 };
+
+std::string escapeString(std::string const& str) {
+    std::string result;
+    for (char c : str) {
+        switch (c) {
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            case '\t': result += "\\t"; break;
+            case '\'': result += "\\'"; break;
+            case '\"': result += "\\\""; break;
+            case '\\': result += "\\\\"; break;
+            default: result += c; break;
+        }
+    }
+    return result;
+}
 
 ExecutionResults parseExpectations(std::string filename){
     ExecutionResults validations;
@@ -43,6 +60,43 @@ ExecutionResults parseExpectations(std::string filename){
             // the program should be ignored until the missing features are implemented
             validations.skipped = std::stoi(line.substr(line.find(": ") + 2));
         }
+        else if (line.find("output: ") != std::string::npos) {
+            // parse a string enclosed in quotes by itterating over the characters
+            std::string output = line.substr(line.find(": \"") + 3);
+            for (int i = 0; i < output.size(); i++) {
+                if (output[i] == '\\') {
+                    i++;
+                    if (output[i] == 'n') {
+                        validations.output += '\n';
+                    }
+                    else if (output[i] == 't') {
+                        validations.output += '\t';
+                    }
+                    else if (output[i] == '\\') {
+                        validations.output += '\\';
+                    }
+                    else {
+                        std::cout << "Error: unknown escape sequence \\" << output[i] << " on line " << lineNumber << std::endl;
+                    }
+                }
+                else if (output[i] == '"') {
+                    break;
+                }
+                else if (output[i] == '*') {
+                    i++;
+                    if (output[i] == '/') {
+                        std::cout << "Error: unterminated string on line " << lineNumber << std::endl;
+                    exit(1);
+                    }
+                    else {
+                        validations.output += '*' + output[i];
+                    }
+                }
+                else {
+                    validations.output += output[i];
+                }
+            }
+        }
     }
 
     return validations;
@@ -61,9 +115,17 @@ bool validate(ExecutionResults real, ExecutionResults expected){
     if ((int8_t)real.returnValue != (int8_t)expected.returnValue) {
         isValid = false;
     }
+    std::cout << "\n\texpected output: \"" << escapeString(expected.output) << "\"";
+    std::cout << "\n\tactual output: \"" << escapeString(real.output) << "\"";
+    if (real.output != expected.output) {
+        isValid = false;
+    }
 
     if (isValid) {
         std::cout << "\nPASSED\n" << std::endl;
+    }
+    else{
+        std::cout << "\nFAILED\n" << std::endl;
     }
     return isValid;
 }
@@ -141,6 +203,7 @@ int main(int argc, char** argv) {
         auto programResult = exec(outputDir + "/" + filename);
 
         realResults.returnValue = programResult.returnCode;
+        realResults.output = programResult.output;
     }
 
     if (validate(realResults, expectedResults)) {

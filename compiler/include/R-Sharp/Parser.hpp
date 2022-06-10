@@ -75,8 +75,9 @@ class Parser{
         std::shared_ptr<AstProgram> program;
 
         std::shared_ptr<AstProgram> parseProgram();
-        std::shared_ptr<AstFunction> parseFunction();
         std::shared_ptr<AstParameterList> parseParameterList();
+
+        std::shared_ptr<AstProgramItem> parseProgramItem();
 
         std::shared_ptr<AstStatement> parseStatement();
         std::shared_ptr<AstExpression> parseExpression();
@@ -105,6 +106,7 @@ class Parser{
         std::shared_ptr<AstInteger> parseNumber();
         std::shared_ptr<AstVariableAssignment> parseVariableAssignment();
         std::shared_ptr<AstVariableAccess> parseVariableAccess();
+        std::shared_ptr<AstFunctionCall> parseFunctionCall();
 
 
         std::shared_ptr<AstBuiltinType> parseBuiltinType();

@@ -61,7 +61,7 @@ class ErrorPrinter : public AstVisitor {
             Error(node->name);
             printErrorToken(node);
         };
-        void visit(AstErrorFunction* node) {
+        void visit(AstErrorProgramItem* node) {
             Error(node->name);
             printErrorToken(node);
         };

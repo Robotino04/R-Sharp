@@ -18,10 +18,12 @@ public:
     }
 
     VISTITOR_FN(AstProgram);
-    VISTITOR_FN(AstFunction);
     
     VISTITOR_FN(AstErrorStatement);
-    VISTITOR_FN(AstErrorFunction);
+    VISTITOR_FN(AstErrorProgramItem);
+
+    VISTITOR_FN(AstFunction);
+    VISTITOR_FN(AstFunctionDeclaration);
 
     VISTITOR_FN(AstBlock);
     VISTITOR_FN(AstReturn);
@@ -41,6 +43,7 @@ public:
     VISTITOR_FN(AstVariableAssignment);
     VISTITOR_FN(AstConditionalExpression);
     VISTITOR_FN(AstEmptyExpression);
+    VISTITOR_FN(AstFunctionCall);
 
     VISTITOR_FN(AstBuiltinType);
     VISTITOR_FN(AstTypeModifier);

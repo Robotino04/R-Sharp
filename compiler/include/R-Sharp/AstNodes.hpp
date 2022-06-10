@@ -63,16 +63,16 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 
 // The actual AST nodes
 // ----------------------------------| Program |---------------------------------- //
-struct AstProgram : public AstNode {
+struct AstProgram : public virtual AstNode {
     BASE(AstProgram)
     TO_STRING(AstProgram)
 
-    GET_MULTI_CHILD(functions)
+    GET_MULTI_CHILD(items)
 
-    MULTI_CHILD(AstFunction, functions)
+    MULTI_CHILD(AstProgramItem, items)
 };
 
-struct AstParameterList : public AstNode {
+struct AstParameterList : public virtual AstNode {
     BASE(AstParameterList)
     TO_STRING(AstParameterList)
 
@@ -81,7 +81,39 @@ struct AstParameterList : public AstNode {
     MULTI_CHILD(AstVariableDeclaration, parameters)
 };
 
-struct AstFunction : public AstNode {
+
+// ----------------------------------| Groups |---------------------------------- //
+struct AstExpression : public virtual AstNode{
+    DESTRUCTOR(AstExpression)
+};
+struct AstType : public virtual AstNode{
+    DESTRUCTOR(AstType)
+
+    GET_MULTI_CHILD(modifiers)
+
+    MULTI_CHILD(AstTypeModifier, modifiers)
+};
+struct AstBlockItem : public virtual AstNode{
+    DESTRUCTOR(AstBlockItem)
+};
+struct AstDeclaration : public AstBlockItem{
+    DESTRUCTOR(AstDeclaration)
+};
+struct AstStatement : public AstBlockItem{
+    DESTRUCTOR(AstStatement)
+};
+struct AstErrorNode : public virtual AstNode{
+    DESTRUCTOR(AstErrorNode)
+
+    Token token;
+};
+struct AstProgramItem : public virtual AstNode{
+    DESTRUCTOR(AstProgramItem)
+};
+
+// ----------------------------------| Program Items |---------------------------------- //
+
+struct AstFunction : public AstProgramItem {
     BASE(AstFunction)
     TO_STRING_NAME(AstFunction)
 
@@ -92,32 +124,15 @@ struct AstFunction : public AstNode {
     SINGLE_CHILD(AstStatement, body)
 };
 
-// ----------------------------------| Groups |---------------------------------- //
-struct AstExpression : public AstNode{
-    DESTRUCTOR(AstExpression)
-};
-struct AstType : public AstNode{
-    DESTRUCTOR(AstType)
+struct AstFunctionDeclaration : public AstProgramItem {
+    BASE(AstFunctionDeclaration)
+    TO_STRING_NAME(AstFunctionDeclaration)
 
-    GET_MULTI_CHILD(modifiers)
+    GET_SINGLE_CHILDREN(parameters, returnType)
 
-    MULTI_CHILD(AstTypeModifier, modifiers)
+    SINGLE_CHILD(AstParameterList, parameters)
+    SINGLE_CHILD(AstType, returnType)
 };
-struct AstBlockItem : public AstNode{
-    DESTRUCTOR(AstBlockItem)
-};
-struct AstDeclaration : public AstBlockItem{
-    DESTRUCTOR(AstDeclaration)
-};
-struct AstStatement : public AstBlockItem{
-    DESTRUCTOR(AstStatement)
-};
-struct AstErrorNode : public AstNode{
-    DESTRUCTOR(AstErrorNode)
-
-    Token token;
-};
-
 
 // ----------------------------------| Errors |---------------------------------- //
 
@@ -125,11 +140,10 @@ struct AstErrorStatement : public AstStatement, public AstErrorNode {
     BASE(AstErrorStatement)
     TO_STRING_NAME(AstErrorStatement)
 };
-struct AstErrorFunction : public AstFunction, public AstErrorNode {
-    BASE(AstErrorFunction)
-    TO_STRING_NAME(AstErrorFunction)
+struct AstErrorProgramItem : public AstProgramItem, public AstErrorNode {
+    BASE(AstErrorProgramItem)
+    TO_STRING_NAME(AstErrorProgramItem)
 };
-
 // ----------------------------------| Statements |---------------------------------- //
 struct AstBlock : public AstStatement {
     BASE(AstBlock)
@@ -341,8 +355,17 @@ struct AstEmptyExpression : public AstExpression {
     TO_STRING(AstEmptyExpression)
 };
 
+struct AstFunctionCall : public AstExpression {
+    BASE(AstFunctionCall)
+    TO_STRING_NAME(AstFunctionCall)
+
+    GET_MULTI_CHILD(arguments)
+
+    MULTI_CHILD(AstExpression, arguments)
+};
+
 // ----------------------------------| Types |---------------------------------- //
-struct AstTypeModifier : public AstNode {
+struct AstTypeModifier : public virtual AstNode {
     BASE(AstTypeModifier)
     TO_STRING_NAME(AstTypeModifier)
 };
