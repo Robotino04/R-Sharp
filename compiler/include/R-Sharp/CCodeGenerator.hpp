@@ -12,8 +12,10 @@ class CCodeGenerator : public AstVisitor {
         std::string generate();
 
         void visit(AstProgram* node) override;
-        void visit(AstFunction* node) override;
         void visit(AstParameterList* node) override;
+
+        void visit(AstFunction* node) override;
+        void visit(AstFunctionDeclaration* node) override;
 
         void visit(AstBlock* node) override;
         void visit(AstReturn* node) override;
@@ -33,6 +35,7 @@ class CCodeGenerator : public AstVisitor {
         void visit(AstVariableAccess* node) override;
         void visit(AstVariableAssignment* node) override;
         void visit(AstConditionalExpression* node) override;
+        void visit(AstFunctionCall* node) override;
 
         void visit(AstBuiltinType* node) override;
         void visit(AstTypeModifier* node) override;

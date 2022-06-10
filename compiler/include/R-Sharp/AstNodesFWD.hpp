@@ -8,11 +8,13 @@ struct AstVisitor;
 
 enum class AstNodeType {
     AstProgram,
-    AstFunction,
     AstParameterList,
 
+    AstFunction,
+    AstFunctionDeclaration,
+
     AstErrorStatement,
-    AstErrorFunction,
+    AstErrorProgramItem,
 
     AstBlock,
     AstReturn,
@@ -32,6 +34,7 @@ enum class AstNodeType {
     AstInteger,
     AstConditionalExpression,
     AstEmptyExpression,
+    AstFunctionCall,
 
     AstVariableDeclaration,
     AstBuiltinType,
@@ -52,16 +55,19 @@ struct AstNode{
 
 // forward declarations for all the AST nodes
 struct AstProgram;
-struct AstFunction;
 
 struct AstErrorStatement;
-struct AstErrorFunction;
+struct AstErrorProgramItem;
 
 struct AstStatement;
 struct AstExpression;
 struct AstType;
 struct AstDeclaration;
 struct AstBlockItem;
+struct AstProgramItem;
+
+struct AstFunction;
+struct AstFunctionDeclaration;
 
 struct AstBlock;
 struct AstReturn;
@@ -81,6 +87,7 @@ struct AstVariableAccess;
 struct AstVariableAssignment;
 struct AstConditionalExpression;
 struct AstEmptyExpression;
+struct AstFunctionCall;
 
 struct AstBuiltinType;
 struct AstTypeModifier;

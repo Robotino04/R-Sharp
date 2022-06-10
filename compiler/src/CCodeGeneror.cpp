@@ -42,11 +42,25 @@ void CCodeGenerator::blockNextIndentedEmit(){
 }
 
 void CCodeGenerator::visit(AstProgram* node){
-    for (auto& function : node->functions) {
+    for (auto& function : node->items) {
         function->accept(this);
         emit("\n");
     }
 }
+void CCodeGenerator::visit(AstParameterList* node){
+    emit("(");
+    for (auto const& parameter : node->parameters) {
+        parameter->type->accept(this);
+        emit(" " + parameter->name);
+
+        if (parameter != node->parameters.back()) {
+            emit(", ");
+        }
+    }
+    emit(")");
+}
+
+// program items
 void CCodeGenerator::visit(AstFunction* node){
     node->returnType->accept(this);
     emit(" " + node->name);
@@ -63,17 +77,12 @@ void CCodeGenerator::visit(AstFunction* node){
     }
 
 }
-void CCodeGenerator::visit(AstParameterList* node){
-    emit("(");
-    for (auto const& parameter : node->parameters) {
-        parameter->accept(this);
-        if (parameter != node->parameters.back()) {
-            emit(", ");
-        }
-    }
-    emit(")");
+void CCodeGenerator::visit(AstFunctionDeclaration* node){
+    node->returnType->accept(this);
+    emit(" " + node->name);
+    node->parameters->accept(this);
+    emit(";");
 }
-
 
 // Statements
 void CCodeGenerator::visit(AstBlock* node){
@@ -276,6 +285,15 @@ void CCodeGenerator::visit(AstConditionalExpression* node){
     node->trueExpression->accept(this);
     emit(" : ");
     node->falseExpression->accept(this);
+    emit(")");
+}
+void CCodeGenerator::visit(AstFunctionCall* node){
+    emit(node->name + "(");
+    for (int i = 0; i < node->arguments.size(); i++){
+        node->arguments[i]->accept(this);
+        if (i < node->arguments.size() - 1)
+            emit(", ");
+    }
     emit(")");
 }
 

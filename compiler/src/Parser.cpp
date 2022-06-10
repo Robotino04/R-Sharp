@@ -117,28 +117,42 @@ Token Parser::getToken(int offset) const{
 std::shared_ptr<AstProgram> Parser::parseProgram() {
     while (!isAtEnd()) {
         bool wereRecovering = isRecovering;
-        auto function = parseFunction();
-        
+        auto item = parseProgramItem();
 
-        if (function->getType() == AstNodeType::AstErrorFunction && !wereRecovering){
-            program->functions.push_back(function);
+        if (item->getType() == AstNodeType::AstErrorProgramItem && !wereRecovering){
+            program->items.push_back(item);
         }
-        else if (function->getType() != AstNodeType::AstErrorFunction){
-            program->functions.push_back(function);
+        else if (item->getType() != AstNodeType::AstErrorProgramItem){
+            program->items.push_back(item);
             isRecovering = false;
         }
     }
     return program;
 }
-std::shared_ptr<AstFunction> Parser::parseFunction() {
+
+// program items
+std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
+    std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
     try{
-        std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
         function->name = consume(TokenType::ID).value;
         function->parameters = parseParameterList();
         consume(TokenType::Colon);
         function->returnType = parseType();
-        function->body = parseStatement();
-        return function;
+
+        if (match(TokenType::Semicolon)){
+            // it is a function declaration
+            consume(TokenType::Semicolon);
+            auto decl = std::make_shared<AstFunctionDeclaration>();
+            decl->name = function->name;
+            decl->parameters = function->parameters;
+            decl->returnType = function->returnType;
+            return decl;
+        }
+        else{
+            // a full function definition
+            function->body = parseStatement();
+            return function;
+        }
     }
     catch(ParsingError const& e){
         hasError = true;
@@ -147,7 +161,7 @@ std::shared_ptr<AstFunction> Parser::parseFunction() {
             consume();
         }
         isRecovering = true;
-        auto err = std::make_shared<AstErrorFunction>(e.what());
+        auto err = std::make_shared<AstErrorProgramItem>(e.what());
         err->token = getCurrentToken();
         return err;
     }
@@ -234,7 +248,9 @@ std::shared_ptr<AstType> Parser::parseType() {
 }
 std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
     if (match({TokenType::ID, TokenType::Colon})){
-        return parseVariableDeclaration();
+        auto decl = parseVariableDeclaration();
+        consume(TokenType::Semicolon);
+        return decl;
     }
     else {
         parserError("Expected typename, type modifier or array but got ", getCurrentToken());
@@ -308,6 +324,7 @@ std::shared_ptr<AstForLoopDeclaration> Parser::parseForLoopDeclaration() {
     std::shared_ptr<AstForLoopDeclaration> forLoop = std::make_shared<AstForLoopDeclaration>();
     consume({TokenType::For, TokenType::LeftParen});
     forLoop->variable = parseVariableDeclaration();
+    consume(TokenType::Semicolon);
     forLoop->condition = parseOptionalExpression();
     consume(TokenType::Semicolon);
     forLoop->increment = parseOptionalExpression();
@@ -449,9 +466,10 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
     }
     else if (match(TokenType::Number))
         return parseNumber();
-    else if (match(TokenType::ID)){
+    else if (match({TokenType::ID, TokenType::LeftParen}))
+        return parseFunctionCall();
+    else if (match(TokenType::ID))
         return std::make_shared<AstVariableAccess>(consume(TokenType::ID).value);
-    }
     else{
         parserError("Expected expression but got ", getCurrentToken());
         return nullptr;
@@ -473,6 +491,21 @@ std::shared_ptr<AstVariableAssignment> Parser::parseVariableAssignment() {
     consume(TokenType::Assign);
     variableAssignment->value = parseExpression();
     return variableAssignment;
+}
+std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
+    std::shared_ptr<AstFunctionCall> functionCall = std::make_shared<AstFunctionCall>();
+    functionCall->name = consume(TokenType::ID).value;
+    consume(TokenType::LeftParen);
+    while (!match(TokenType::RightParen)) {
+        functionCall->arguments.push_back(parseExpression());
+        if (match(TokenType::Comma))
+            consume(TokenType::Comma);
+        else{
+            break;
+        }
+    }
+    consume(TokenType::RightParen);
+    return functionCall;
 }
 
 
@@ -516,7 +549,6 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
         consume(TokenType::Assign);
         variable->value = parseExpression();
     }
-    consume(TokenType::Semicolon);
     return variable;
 }
 

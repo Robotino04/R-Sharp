@@ -1,6 +1,7 @@
-program = {<function>}
+program = {<function> | <function-declaration>}
 
 function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> <statement>
+function-declaration = <name> '(' [<parameter-list>] ')' ':' <type-or-array> ';'
 block-item = <declaration> | <statement>
 
 return = 'return' <expression> ';'
@@ -25,6 +26,7 @@ statement = <return>
           | <skip>
           | <if>
 
+<function-call> = <name> '(' [<expression> {',' <expression>}] ')'
 
 if = 'if' '(' <expression> ')' <statement> {elif} [<else>]
 elif = 'elif' '(' <expression> ')' <statement>
@@ -39,7 +41,7 @@ equality-exp = <relational-exp> {('==' | '!=') <relational-exp>}
 relational-exp = <additive-exp> {('<' | '>' | '<=' | '>=') <additive-exp>}
 additive-exp = <term> {('+' | '-') <term>}
 term = <factor> {('*' | '/') <factor>}
-factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor> | <name>
+factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor> | <name> | <function-call>
 
 type-mod = 'const'
 type = {<type-mod>} ('int' | 'char')
