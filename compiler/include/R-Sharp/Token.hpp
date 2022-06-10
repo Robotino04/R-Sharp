@@ -59,20 +59,31 @@ enum class TokenType{
     Bang = ExclamationPoint,
 };
 
+struct TokenLocation{
+    size_t startPos;
+    size_t endPos;
+    int line;
+    int column;
+};
+
 struct Token{
-    Token(): type(TokenType::None), value(""), line(0), column(0){}
-    Token(TokenType type, std::string value, int line, int column)
-        : type(type), value(value), line(line), column(column){}
-    Token(TokenType type, char value, int line, int column)
-        : type(type), line(line), column(column)
-    {
+    Token(): type(TokenType::None), value(""){}
+    Token(TokenType type, std::string value, TokenLocation position){
+        this->type = type;
         this->value = value;
+        this->position = position;
     }
-    Token(TokenType type, std::string value) : type(type), value(value), line(0), column(0){}
+    
+    Token(TokenType type, char value, TokenLocation position){
+        this->type = type;
+        this->value = std::string(1, value);
+        this->position = position;
+    }
+    Token(TokenType type, std::string value) : type(type), value(value){}
     TokenType type;
     std::string value = "";
 
-    int line = 0, column = 0;
+    TokenLocation position;
 };
 
 namespace std{

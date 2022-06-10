@@ -41,32 +41,32 @@ void CCodeGenerator::blockNextIndentedEmit(){
     indentedEmitBlocked = true;
 }
 
-void CCodeGenerator::visitAstProgram(AstProgram* node){
-    for (auto const& function : node->functions) {
-        visit(function);
+void CCodeGenerator::visit(AstProgram* node){
+    for (auto& function : node->functions) {
+        function->accept(this);
         emit("\n");
     }
 }
-void CCodeGenerator::visitAstFunction(AstFunction* node){
-    visit(node->returnType);
+void CCodeGenerator::visit(AstFunction* node){
+    node->returnType->accept(this);
     emit(" " + node->name);
-    visit(node->parameters);
+    node->parameters->accept(this);
 
     if (node->body->getType() == AstNodeType::AstBlock)
-        visit(node->body);
+        node->body->accept(this);
     else{
         emit("{\n");
         indent();
-        visit(node->body);
+        node->body->accept(this);
         dedent();
         emit("\n}");
     }
 
 }
-void CCodeGenerator::visitAstParameterList(AstParameterList* node){
+void CCodeGenerator::visit(AstParameterList* node){
     emit("(");
     for (auto const& parameter : node->parameters) {
-        visit(parameter);
+        parameter->accept(this);
         if (parameter != node->parameters.back()) {
             emit(", ");
         }
@@ -76,120 +76,123 @@ void CCodeGenerator::visitAstParameterList(AstParameterList* node){
 
 
 // Statements
-void CCodeGenerator::visitAstBlock(AstBlock* node){
+void CCodeGenerator::visit(AstBlock* node){
     emitIndented("{\n");
     indent();
     for (auto const& statement : node->items) {
-        visit(statement);
+        statement->accept(this);
         emit("\n");
     }
     dedent();
     emitIndented("}\n");
 }
-void CCodeGenerator::visitAstReturn(AstReturn* node){
+void CCodeGenerator::visit(AstReturn* node){
 
     emitIndented("return ");
-    visit(node->value);
+    node->value->accept(this);
     emit(";");
 }
-void CCodeGenerator::visitAstExpressionStatement(AstExpressionStatement* node){
+void CCodeGenerator::visit(AstExpressionStatement* node){
     emitIndented("");
-    visit(node->expression);
+    node->expression->accept(this);
     emit(";");
 }
-void CCodeGenerator::visitAstConditionalStatement(AstConditionalStatement* node){
+void CCodeGenerator::visit(AstConditionalStatement* node){
     emitIndented("if (");
-    visit(node->condition);
+    node->condition->accept(this);
     emit(") ");
     blockNextIndentedEmit();
-    visit(node->trueStatement);
+    node->trueStatement->accept(this);
     if (node->falseStatement){
         emit("\n");
         emitIndented("else ");
         blockNextIndentedEmit();
-        visit(node->falseStatement);
+        node->falseStatement->accept(this);
     }
 }
-void CCodeGenerator::visitAstForLoopDeclaration(AstForLoopDeclaration* node){
+void CCodeGenerator::visit(AstForLoopDeclaration* node){
     emitIndented("for (");
     blockNextIndentedEmit();
-    visit(node->variable);
+    node->variable->accept(this);
     emit(" ");
-    visit(node->condition);
+    node->condition->accept(this);
     emit("; ");
-    visit(node->increment);
+    node->increment->accept(this);
     emit(") ");
     if (node->body->getType() == AstNodeType::AstBlock)
-        visit(node->body);
+        node->body->accept(this);
     else{
         emit("{\n");
         indent();
-        visit(node->body);
+        node->body->accept(this);
         dedent();
         emit("\n");
         emitIndented("}");
     }
 }
-void CCodeGenerator::visitAstForLoopExpression(AstForLoopExpression* node){
+void CCodeGenerator::visit(AstForLoopExpression* node){
     emitIndented("for (");
-    visit(node->variable);
+    node->variable->accept(this);
     emit("; ");
-    visit(node->condition);
+    node->condition->accept(this);
     emit("; ");
-    visit(node->increment);
+    node->increment->accept(this);
     emit(") ");
     if (node->body->getType() == AstNodeType::AstBlock)
-        visit(node->body);
+        node->body->accept(this);
     else{
         emit("{\n");
         indent();
-        visit(node->body);
+        node->body->accept(this);
         dedent();
         emit("\n}");
     }
 }
-void CCodeGenerator::visitAstWhileLoop(AstWhileLoop* node){
+void CCodeGenerator::visit(AstWhileLoop* node){
     emitIndented("while (");
-    visit(node->condition);
+    node->condition->accept(this);
     emit(") ");
     if (node->body->getType() == AstNodeType::AstBlock)
-        visit(node->body);
+        node->body->accept(this);
     else{
         emit("{\n");
         indent();
-        visit(node->body);
+        node->body->accept(this);
         dedent();
         emit("\n}");
     }
 }
-void CCodeGenerator::visitAstDoWhileLoop(AstDoWhileLoop* node){
+void CCodeGenerator::visit(AstDoWhileLoop* node){
     emitIndented("do ");
     if (node->body->getType() == AstNodeType::AstBlock)
-        visit(node->body);
+        node->body->accept(this);
     else{
         emit("{\n");
         indent();
-        visit(node->body);
+        node->body->accept(this);
         dedent();
         emit("\n}");
     }
     emit("\n");
     emitIndented("while (");
-    visit(node->condition);
+    node->condition->accept(this);
     emit(");");
 }
-void CCodeGenerator::visitAstBreak(AstBreak* node){
+void CCodeGenerator::visit(AstBreak* node){
     emitIndented("break;");
 }
-void CCodeGenerator::visitAstSkip(AstSkip* node){
+void CCodeGenerator::visit(AstSkip* node){
     emitIndented("continue;");
+}
+void CCodeGenerator::visit(AstErrorStatement* node){
+    emitIndented("// Error(\"" + node->name + "\");");
 }
 
 // Expressions
-void CCodeGenerator::visitAstInteger(AstInteger* node){
+void CCodeGenerator::visit(AstInteger* node){
     emit(std::to_string(node->value));
 }
-void CCodeGenerator::visitAstUnary(AstUnary* node){
+void CCodeGenerator::visit(AstUnary* node){
     emit("(");
     switch (node->type) {
         case AstUnaryType::Negate:
@@ -205,12 +208,12 @@ void CCodeGenerator::visitAstUnary(AstUnary* node){
             Fatal("Invalid unary operator ", std::to_string(node->type));
             break;
     }
-    visit(node->value);
+    node->value->accept(this);
     emit(")");
 }
-void CCodeGenerator::visitAstBinary(AstBinary* node){
+void CCodeGenerator::visit(AstBinary* node){
     emit("(");
-    visit(node->left);
+    node->left->accept(this);
     switch (node->type){
         case AstBinaryType::Add:
             emit(" + ");
@@ -255,58 +258,56 @@ void CCodeGenerator::visitAstBinary(AstBinary* node){
             Fatal("Invalid binary operator ", std::to_string(node->type));
             break;
     }
-    visit(node->right);
+    node->right->accept(this);
     emit(")");
 }
-void CCodeGenerator::visitAstVariableAccess(AstVariableAccess* node){
+void CCodeGenerator::visit(AstVariableAccess* node){
     emit(node->name);
 }
-void CCodeGenerator::visitAstVariableAssignment(AstVariableAssignment* node){
+void CCodeGenerator::visit(AstVariableAssignment* node){
     emit("(" + node->name + " = ");
-    visit(node->value);
+    node->value->accept(this);
     emit(")");
 }
-void CCodeGenerator::visitAstConditionalExpression(AstConditionalExpression* node){
+void CCodeGenerator::visit(AstConditionalExpression* node){
     emit("(");
-    visit(node->condition);
+    node->condition->accept(this);
     emit(" ? ");
-    visit(node->trueExpression);
+    node->trueExpression->accept(this);
     emit(" : ");
-    visit(node->falseExpression);
+    node->falseExpression->accept(this);
     emit(")");
-}
-void CCodeGenerator::visitAstEmptyExpression(AstEmptyExpression* node){
 }
 
 
 // Types
-void CCodeGenerator::visitAstBuiltinType(AstBuiltinType* node){
+void CCodeGenerator::visit(AstBuiltinType* node){
     for (auto const& modifier : node->modifiers) {
-        visit(modifier);
+        modifier->accept(this);
         emit(" ");
     }
     emit(node->name);
 }
-void CCodeGenerator::visitAstArray(AstArray* node){
-    visit(node->type);
+void CCodeGenerator::visit(AstArray* node){
+    node->type->accept(this);
     emit("*");
     for (auto const& modifier : node->modifiers) {
-        visit(modifier);
+        modifier->accept(this);
         emit(" ");
     }
 }
-void CCodeGenerator::visitAstTypeModifier(AstTypeModifier* node){
+void CCodeGenerator::visit(AstTypeModifier* node){
     emit(node->name);
 }
 
 // Declarations
-void CCodeGenerator::visitAstVariableDeclaration(AstVariableDeclaration* node){
+void CCodeGenerator::visit(AstVariableDeclaration* node){
     emitIndented("");
-    visit(node->type);
+    node->type->accept(this);
     emit(" " + node->name);
     if (node->value){
         emit(" = ");
-        visit(node->value);
+        node->value->accept(this);
     }
     emit(";");
 }

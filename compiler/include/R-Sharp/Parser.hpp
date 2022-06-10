@@ -6,6 +6,30 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <stdexcept>
+#include <sstream>
+
+class ParsingError : public std::exception{
+public:
+    ParsingError(const std::string& message) : message(message) {}
+    virtual const char* what() const noexcept override { return message.c_str(); }
+private:
+    std::string message;
+};
+namespace {
+    template<typename Arg>
+    std::string stringify(Arg a){
+        std::stringstream ss;
+        ss << a;
+        return ss.str();
+    }
+    template<typename Arg, typename... Args>
+    std::string stringify(Arg a, Args... args){
+        std::stringstream ss;
+        ss << a;
+        return ss.str() + stringify(args...);
+    }
+}
 
 class Parser{
     public:
@@ -13,6 +37,7 @@ class Parser{
 
         std::shared_ptr<AstProgram> parse();
 
+        bool hasErrors() const { return hasError; }
     private:
         bool match(TokenType type) const;
         bool match(TokenType type, std::string value) const;
@@ -36,9 +61,11 @@ class Parser{
         Token getToken(int offset) const;
 
         template<typename... Args>
-        void logError(Args... args) const{
-            Error(filename, ":", getCurrentToken().line, ":", getCurrentToken().column, ":\t", args...);
+        void parserError(Args... args) const{
+            throw ParsingError(stringify(filename, ":", getCurrentToken().position.line, ":", getCurrentToken().position.column, ":\t", args...));
         }
+        bool hasError = false;
+        bool isRecovering = false;
 
         std::vector<Token> tokens;
         int currentTokenIndex = 0;
@@ -89,4 +116,29 @@ class Parser{
         // helpers
         std::shared_ptr<AstStatement> parseForLoop();
         std::shared_ptr<AstExpression> parseOptionalExpression();
+
+        /*
+        This class is used to store the current state of the parser.
+
+        If a parsing function is not able to parse the current token, it will
+        throw an exception of type ParsingError. The token restorer will
+        restore the parser to the state it was in before the parsing function
+        was called.
+        */
+        class TokenRestorer{
+            public:
+                TokenRestorer(Parser& parser) : parser(parser) {
+                    savedTokenIndex = parser.currentTokenIndex;
+                }
+                ~TokenRestorer(){
+                    // only restore the tokens if an exception was thrown
+                    if (std::uncaught_exceptions()){
+                        parser.currentTokenIndex = savedTokenIndex;
+                    }
+                }
+            private:
+                Parser& parser;
+                int savedTokenIndex;
+                bool released = false;
+        };
 };

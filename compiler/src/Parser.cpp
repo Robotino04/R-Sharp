@@ -5,12 +5,9 @@ Parser::Parser(std::vector<Token> const& tokens, std::string const& filename) : 
 }
 
 std::shared_ptr<AstProgram> Parser::parse() {
-    resetErrorCount();
-    setErrorLimit(20);
+    hasError = false;
+    isRecovering = false;
     auto prog = parseProgram();
-    if (getErrorCount()){
-        Fatal("Parser error");
-    }
     return prog;
 }
 
@@ -66,19 +63,19 @@ Token Parser::consume(){
 }
 Token Parser::Parser::consume(TokenType type){
     if (!match(type)){
-        logError("Expected ", type, " but got ", getCurrentToken());
+        parserError("Expected ", type, " but got ", getCurrentToken());
     }
     return consume();
 }
 Token Parser::consume(TokenType type, std::string value){
     if (!match(type, value))
-        logError("Expected ", Token(type, value), " but got ", getCurrentToken());
+        parserError("Expected ", Token(type, value), " but got ", getCurrentToken());
     return consume();
 }
 Token Parser::consume(std::vector<TokenType> types){
     for (int i = 0; i < types.size(); i++) {
         if (!match(types[i])) {
-            logError("Expected ", types[i], " but got ", getCurrentToken());
+            parserError("Expected ", types[i], " but got ", getCurrentToken());
         }
         consume();
     }
@@ -95,17 +92,17 @@ Token Parser::consumeAnyOne(std::vector<TokenType> types){
         error += std::to_string(types[i]);
         if (i != types.size()-1) error += ", ";
     }
-    logError(error, " but got ", getCurrentToken());
+    parserError(error, " but got ", getCurrentToken());
     return getCurrentToken();
 }
 
 bool Parser::isAtEnd(int offset) const{
-    return ((currentTokenIndex + offset) >= tokens.size() || tokens[currentTokenIndex].type == TokenType::EndOfFile) && (currentTokenIndex + offset) >= 0;
+    return ((currentTokenIndex + offset) >= tokens.size() || tokens[currentTokenIndex + offset].type == TokenType::EndOfFile) && (currentTokenIndex + offset) >= 0;
 }
 
 Token Parser::getCurrentToken() const{
-    if (isAtEnd()){
-        logError("Unexpected end of file");
+    if (currentTokenIndex >= tokens.size()){
+        Fatal("Unexpected end of file");
         return Token(TokenType::EndOfFile, "");
     }
     return tokens[currentTokenIndex];
@@ -119,49 +116,92 @@ Token Parser::getToken(int offset) const{
 
 std::shared_ptr<AstProgram> Parser::parseProgram() {
     while (!isAtEnd()) {
-        program->functions.push_back(parseFunction());
+        bool wereRecovering = isRecovering;
+        auto function = parseFunction();
+        
+
+        if (function->getType() == AstNodeType::AstErrorFunction && !wereRecovering){
+            program->functions.push_back(function);
+        }
+        else if (function->getType() != AstNodeType::AstErrorFunction){
+            program->functions.push_back(function);
+            isRecovering = false;
+        }
     }
     return program;
 }
 std::shared_ptr<AstFunction> Parser::parseFunction() {
-    std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
-    function->name = consume(TokenType::ID).value;
-    function->parameters = parseParameterList();
-    consume(TokenType::Colon);
-    function->returnType = parseType();
-    function->body = parseStatement();
-    return function;
+    try{
+        std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
+        function->name = consume(TokenType::ID).value;
+        function->parameters = parseParameterList();
+        consume(TokenType::Colon);
+        function->returnType = parseType();
+        function->body = parseStatement();
+        return function;
+    }
+    catch(ParsingError const& e){
+        hasError = true;
+        // consume one token to try to recover
+        if (isRecovering){
+            consume();
+        }
+        isRecovering = true;
+        auto err = std::make_shared<AstErrorFunction>(e.what());
+        err->token = getCurrentToken();
+        return err;
+    }
 }
 
 std::shared_ptr<AstStatement> Parser::parseStatement() {
-    if (match(TokenType::LeftBrace)) {
-        return parseBlock();
+    // If an error occurs, the parser will try to recover by skipping this statement and returning an error statement.
+    try{
+        if (match(TokenType::LeftBrace)) {
+            return parseBlock();
+        }
+        else if (match(TokenType::Return)) {
+            return parseReturn();
+        }
+        else if (match(TokenType::If)){
+            return parseConditionalStatement();
+        }
+        else if (match(TokenType::While)){
+            return parseWhileLoop();
+        }
+        else if (match(TokenType::Do)){
+            return parseDoWhileLoop();
+        }
+        else if (match(TokenType::For)){
+            try{
+                TokenRestorer _(*this);
+                return parseForLoopDeclaration();
+            }
+            catch(ParsingError const& e){
+                return parseForLoopExpression();
+            }
+        }
+        else if (match(TokenType::Break)){
+            return parseBreak();
+        }
+        else if (match(TokenType::Skip)){
+            return parseSkip();
+        }
+        else{
+            auto exp = parseOptionalExpression();
+            consume(TokenType::Semicolon);
+            return std::make_shared<AstExpressionStatement>(exp);
+        }
     }
-    else if (match(TokenType::Return)) {
-        return parseReturn();
-    }
-    else if (match(TokenType::If)){
-        return parseConditionalStatement();
-    }
-    else if (match(TokenType::While)){
-        return parseWhileLoop();
-    }
-    else if (match(TokenType::Do)){
-        return parseDoWhileLoop();
-    }
-    else if (match(TokenType::For)){
-        return parseForLoop();
-    }
-    else if (match(TokenType::Break)){
-        return parseBreak();
-    }
-    else if (match(TokenType::Skip)){
-        return parseSkip();
-    }
-    else{
-        auto exp = parseOptionalExpression();
-        consume(TokenType::Semicolon);
-        return std::make_shared<AstExpressionStatement>(exp);
+    catch(ParsingError const& e){
+        hasError = true;
+        // consume one token to try to recover
+        if (isRecovering){
+            consume();
+        }
+        isRecovering = true;
+        auto err = std::make_shared<AstErrorStatement>(e.what());
+        err->token = getCurrentToken();
+        return err;
     }
 }
 std::shared_ptr<AstExpression> Parser::parseExpression() {
@@ -188,7 +228,7 @@ std::shared_ptr<AstType> Parser::parseType() {
         return type;
     }
     else {
-        logError("Expected typename, type modifier or array but got ", getCurrentToken());
+        parserError("Expected typename, type modifier or array but got ", getCurrentToken());
         return nullptr;
     }
 }
@@ -197,7 +237,7 @@ std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
         return parseVariableDeclaration();
     }
     else {
-        logError("Expected typename, type modifier or array but got ", getCurrentToken());
+        parserError("Expected typename, type modifier or array but got ", getCurrentToken());
         return nullptr;
     }
 }
@@ -222,8 +262,18 @@ std::shared_ptr<AstReturn> Parser::parseReturn() {
 std::shared_ptr<AstBlock> Parser::parseBlock() {
     std::shared_ptr<AstBlock> block = std::make_shared<AstBlock>();
     consume(TokenType::LeftBrace);
-    while (!match(TokenType::RightBrace)) {
-        block->items.push_back(parseBlockItem());
+    while (!match(TokenType::RightBrace) && !isAtEnd()) {
+        bool wereRecovering = isRecovering;
+        auto item = parseBlockItem();
+        
+
+        if (item->getType() == AstNodeType::AstErrorStatement && !wereRecovering){
+            block->items.push_back(item);
+        }
+        else if (item->getType() != AstNodeType::AstErrorStatement){
+            block->items.push_back(item);
+            isRecovering = false;
+        }
     }
     consume(TokenType::RightBrace);
     return block;
@@ -403,7 +453,7 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
         return std::make_shared<AstVariableAccess>(consume(TokenType::ID).value);
     }
     else{
-        logError("Expected expression but got ", getCurrentToken());
+        parserError("Expected expression but got ", getCurrentToken());
         return nullptr;
     }
 }
@@ -472,19 +522,11 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
 
 
 // helpers
-std::shared_ptr<AstStatement> Parser::parseForLoop(){
-    if (match(4, TokenType::Typename)){
-        return parseForLoopDeclaration();
-    }
-    else{
-        return parseForLoopExpression();
-    }
-}
 std::shared_ptr<AstExpression> Parser::parseOptionalExpression(){
-    if (matchAny({TokenType::Semicolon, TokenType::RightParen})){
-        return std::make_shared<AstEmptyExpression>();
-    }
-    else{
+    try{
         return parseExpression();
+    }
+    catch(ParsingError& e){
+        return std::make_shared<AstEmptyExpression>();
     }
 }

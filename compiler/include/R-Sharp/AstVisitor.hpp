@@ -4,17 +4,24 @@
 
 #include <memory>
 
-#define VISTITOR_FN(NAME) virtual void visit##NAME(NAME* node) = 0
+#define VISTITOR_FN(NAME) virtual void visit(NAME* node) {visit((AstNode*)node);}
 
 class AstVisitor {
 public:
     virtual ~AstVisitor() = default;
 
-    virtual void visit(AstNode* node) {node->accept(this);}
-    virtual void visit(std::shared_ptr<AstNode> node) {node->accept(this);}
+    virtual void visit(AstNode* node) {
+        for (auto& child : node->getChildren()) {
+            if (child)
+                child->accept(this);
+        }
+    }
 
     VISTITOR_FN(AstProgram);
     VISTITOR_FN(AstFunction);
+    
+    VISTITOR_FN(AstErrorStatement);
+    VISTITOR_FN(AstErrorFunction);
 
     VISTITOR_FN(AstBlock);
     VISTITOR_FN(AstReturn);

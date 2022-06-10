@@ -11,34 +11,34 @@ class CCodeGenerator : public AstVisitor {
 
         std::string generate();
 
-        void visitAstProgram(AstProgram* node) override;
-        void visitAstFunction(AstFunction* node) override;
-        void visitAstParameterList(AstParameterList* node) override;
+        void visit(AstProgram* node) override;
+        void visit(AstFunction* node) override;
+        void visit(AstParameterList* node) override;
 
-        void visitAstBlock(AstBlock* node) override;
-        void visitAstReturn(AstReturn* node) override;
-        void visitAstExpressionStatement(AstExpressionStatement* node) override;
-        void visitAstConditionalStatement(AstConditionalStatement* node) override;
-        void visitAstForLoopDeclaration(AstForLoopDeclaration* node) override;
-        void visitAstForLoopExpression(AstForLoopExpression* node) override;
-        void visitAstWhileLoop(AstWhileLoop* node) override;
-        void visitAstDoWhileLoop(AstDoWhileLoop* node) override;
-        void visitAstBreak(AstBreak* node) override;
-        void visitAstSkip(AstSkip* node) override;
+        void visit(AstBlock* node) override;
+        void visit(AstReturn* node) override;
+        void visit(AstExpressionStatement* node) override;
+        void visit(AstConditionalStatement* node) override;
+        void visit(AstForLoopDeclaration* node) override;
+        void visit(AstForLoopExpression* node) override;
+        void visit(AstWhileLoop* node) override;
+        void visit(AstDoWhileLoop* node) override;
+        void visit(AstBreak* node) override;
+        void visit(AstSkip* node) override;
+        void visit(AstErrorStatement* node) override;
 
-        void visitAstUnary(AstUnary* node) override;
-        void visitAstBinary(AstBinary* node) override;
-        void visitAstInteger(AstInteger* node) override;
-        void visitAstVariableAccess(AstVariableAccess* node) override;
-        void visitAstVariableAssignment(AstVariableAssignment* node) override;
-        void visitAstConditionalExpression(AstConditionalExpression* node) override;
-        void visitAstEmptyExpression(AstEmptyExpression* node) override;
+        void visit(AstUnary* node) override;
+        void visit(AstBinary* node) override;
+        void visit(AstInteger* node) override;
+        void visit(AstVariableAccess* node) override;
+        void visit(AstVariableAssignment* node) override;
+        void visit(AstConditionalExpression* node) override;
 
-        void visitAstBuiltinType(AstBuiltinType* node) override;
-        void visitAstTypeModifier(AstTypeModifier* node) override;
-        void visitAstArray(AstArray* node) override;
+        void visit(AstBuiltinType* node) override;
+        void visit(AstTypeModifier* node) override;
+        void visit(AstArray* node) override;
 
-        void visitAstVariableDeclaration(AstVariableDeclaration* node) override;
+        void visit(AstVariableDeclaration* node) override;
 
     private:
         void indent();

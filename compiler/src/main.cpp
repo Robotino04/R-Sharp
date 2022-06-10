@@ -10,6 +10,7 @@
 #include "R-Sharp/Parser.hpp"
 #include "R-Sharp/Utils.hpp"
 #include "R-Sharp/CCodeGenerator.hpp"
+#include "R-Sharp/ErrorPrinter.hpp"
 
 void printHelp(const char* programName) {
     std::cout << "Usage: " << programName << " [options] [input file]" << std::endl;
@@ -107,11 +108,13 @@ int main(int argc, const char** argv) {
     std::vector<Token> tokens;
     std::shared_ptr<AstProgram> ast;
     std::string C_Source;
+    std::string R_Sharp_Source;
 
     Print("--------------| Tokenizing |--------------");
     {
         Tokenizer tokenizer(inputFilename);
         tokens = tokenizer.tokenize();
+        R_Sharp_Source = tokenizer.getSource();
 
         for (auto const& token : tokens){
             Print(token);
@@ -125,6 +128,12 @@ int main(int argc, const char** argv) {
         Parser parser = Parser(tokens, inputFilename);
         ast = parser.parse();
         ast->printTree();
+
+        if (parser.hasErrors()) {
+            ErrorPrinter printer(ast, inputFilename, R_Sharp_Source);
+            printer.print();
+            Fatal("Parsing errors.");
+        }
     }
 
     Print("--------------| Generated code |--------------");

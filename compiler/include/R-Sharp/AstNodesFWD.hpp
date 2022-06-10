@@ -11,6 +11,9 @@ enum class AstNodeType {
     AstFunction,
     AstParameterList,
 
+    AstErrorStatement,
+    AstErrorFunction,
+
     AstBlock,
     AstReturn,
     AstExpressionStatement,
@@ -50,6 +53,9 @@ struct AstNode{
 // forward declarations for all the AST nodes
 struct AstProgram;
 struct AstFunction;
+
+struct AstErrorStatement;
+struct AstErrorFunction;
 
 struct AstStatement;
 struct AstExpression;
