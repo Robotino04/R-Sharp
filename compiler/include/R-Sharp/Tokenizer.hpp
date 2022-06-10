@@ -11,6 +11,7 @@ class Tokenizer{
         Tokenizer(std::string const& filename);
 
         std::vector<Token> tokenize();
+        std::string getSource() const { return source; };
 
     private:
         Token nextToken();

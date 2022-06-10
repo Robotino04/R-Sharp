@@ -132,32 +132,42 @@ char Tokenizer::getChar(int offset) const{
     if (match(characters)) { \
         int line_ = line; \
         int column_ = column; \
-        token = Token(type, consume(characters), line_, column_); \
+        size_t pos_ = currentPosition; \
+        auto chars = consume(characters); \
+        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
     }
 #define KEYWORD_TOKEN(characters, type) \
     if (match(characters) && !matchAny(std::string(characters).size(), validIdentifierChars)) { \
         int line_ = line; \
         int column_ = column; \
-        token = Token(type, consume(characters), line_, column_); \
+        size_t pos_ = currentPosition; \
+        auto chars = consume(characters); \
+        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
     }
 
 #define ENCLOSING_TOKEN(startChars, endChars, type) \
     if (match(startChars)) { \
         int line_ = line; \
         int column_ = column; \
-        token = Token(type, consumeUntil(endChars), line_, column_); \
+        size_t pos_ = currentPosition; \
+        auto chars = consumeUntil(endChars); \
+        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
     }
 #define SET_TOKEN(characters, type) \
     if (matchAny(characters)) { \
         int line_ = line; \
         int column_ = column; \
-        token = Token(type, consumeAny(characters), line_, column_); \
+        size_t pos_ = currentPosition; \
+        auto chars = consumeAny(characters); \
+        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
     }
 #define COMPLEX_SET_TOKEN(beginCharacters, characters, type) \
     if (matchAny(beginCharacters)) { \
         int line_ = line; \
         int column_ = column; \
-        token = Token(type, consumeAny(characters), line_, column_); \
+        size_t pos_ = currentPosition; \
+        auto chars = consumeAny(characters); \
+        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
     }
 
 Token Tokenizer::nextToken(){
@@ -227,7 +237,7 @@ Token Tokenizer::nextToken(){
         }
     }
 
-    return Token(TokenType::EndOfFile, "", line, column);
+    return Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column});
 }
 
 #undef SIMPLE_TOKEN
@@ -244,6 +254,7 @@ std::vector<Token> Tokenizer::tokenize(){
     while (!isAtEnd()) {
         tokens.push_back(nextToken());
     }
+    tokens.push_back(Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column}));
     if (getErrorCount()){
         Fatal("Encountered ", getErrorCount(), " error", getErrorCount() == 1 ? "" : "s");
         return {};

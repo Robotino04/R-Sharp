@@ -20,7 +20,7 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 #define BASE(NAME) \
     NAME() = default; \
     AstNodeType getType() const override { return AstNodeType::NAME; } \
-    void accept(AstVisitor* visitor) override{ visitor->visit##NAME(this); }
+    void accept(AstVisitor* visitor) override{ visitor->visit(this); }
 
 #define CHILD_INIT(NAME, TYPE, VARIABLE_NAME) \
     NAME(std::shared_ptr<TYPE> child) : VARIABLE_NAME(child) {}
@@ -111,6 +111,23 @@ struct AstDeclaration : public AstBlockItem{
 };
 struct AstStatement : public AstBlockItem{
     DESTRUCTOR(AstStatement)
+};
+struct AstErrorNode : public AstNode{
+    DESTRUCTOR(AstErrorNode)
+
+    Token token;
+};
+
+
+// ----------------------------------| Errors |---------------------------------- //
+
+struct AstErrorStatement : public AstStatement, public AstErrorNode {
+    BASE(AstErrorStatement)
+    TO_STRING_NAME(AstErrorStatement)
+};
+struct AstErrorFunction : public AstFunction, public AstErrorNode {
+    BASE(AstErrorFunction)
+    TO_STRING_NAME(AstErrorFunction)
 };
 
 // ----------------------------------| Statements |---------------------------------- //
@@ -214,6 +231,7 @@ struct AstSkip : public AstStatement {
     BASE(AstSkip)
     TO_STRING(AstSkip)
 };
+
 
 // ----------------------------------| Expressions |---------------------------------- //
 struct AstVariableAccess : public AstExpression {
