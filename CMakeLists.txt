@@ -21,6 +21,7 @@ foreach(test_file ${RSHARP_TESTS})
     get_filename_component(test_filename ${test_name}, NAME_WE)
 
     add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "c")
+    add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "nasm")
 
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tests/${test_dir}")
 endforeach()
@@ -39,5 +40,9 @@ list(REMOVE_DUPLICATES TEST_GROUPS)
 
 foreach(group ${TEST_GROUPS})
 add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}" DEPENDS rsc compilerTester)
-add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}.*c" DEPENDS rsc compilerTester)
+add_custom_target(test_${group}_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\"${group}.*\\(nasm\\)\"" DEPENDS rsc compilerTester)
+add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\"${group}.*\\(c\\)\"" DEPENDS rsc compilerTester)
 endforeach(group)
+
+add_custom_target(test_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\".*\\(nasm\\)\"" DEPENDS rsc compilerTester)
+add_custom_target(test_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\".*\\(c\\)\"" DEPENDS rsc compilerTester)
