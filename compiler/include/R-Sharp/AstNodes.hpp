@@ -386,7 +386,7 @@ struct AstArray : public AstType {
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
-struct AstVariableDeclaration : public AstDeclaration {
+struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem {
     BASE(AstVariableDeclaration)
     TO_STRING_NAME(AstVariableDeclaration)
 
