@@ -24,3 +24,19 @@ foreach(test_file ${RSHARP_TESTS})
 
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tests/${test_dir}")
 endforeach()
+
+foreach(test_file ${RSHARP_TESTS})
+    file(RELATIVE_PATH test_name "${CMAKE_SOURCE_DIR}/tests" ${test_file})
+
+    get_filename_component(test_dir ${test_name}, DIRECTORY)
+    string(REPLACE "invalid/" "" test_dir ${test_dir})
+    string(REPLACE "valid/" "" test_dir ${test_dir})
+
+    list(APPEND TEST_GROUPS ${test_dir})
+endforeach(test_file)
+
+list(REMOVE_DUPLICATES TEST_GROUPS)
+
+foreach(group ${TEST_GROUPS})
+    add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}" DEPENDS rsc compilerTester)
+endforeach(group)
