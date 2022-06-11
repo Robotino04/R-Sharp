@@ -172,14 +172,15 @@ CommandResult exec(std::string const& cmd) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4) {
-        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir>" << std::endl;
+    if (argc < 5) {
+        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language>" << std::endl;
         return 1;
     }
 
     std::string compilerPath = argv[1];
     std::string inputFile = argv[2];
     std::string outputDir = argv[3];
+    std::string outputLanguage = argv[4];
 
     
     ExecutionResults expectedResults = parseExpectations(inputFile);
@@ -188,7 +189,7 @@ int main(int argc, char** argv) {
     std::string filename = inputFile.substr(inputFile.find_last_of("/") + 1);
     filename = filename.substr(0, filename.find_last_of("."));
 
-    std::string command = compilerPath + " -o " + outputDir + "/" + filename + " " + inputFile;
+    std::string command = compilerPath + " -o " + outputDir + "/" + filename + " " + inputFile + " -f " + outputLanguage;
 
     ExecutionResults realResults;
 

@@ -2,6 +2,6 @@
 fail: 1
 */
 
-main(): fail {
+main(): int {
     return 0
 }

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.0)
 
+cmake_policy(SET CMP0110 NEW)
 project("R Sharp")
-
 enable_testing()
 
-macro(add_valiadtive_test test_name test_file, out_dir)
-    add_test(NAME ${test_name} COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir})
+macro(add_valiadtive_test test_name test_file, out_dir out_lang)
+    add_test(NAME "${test_name} (${out_lang})" COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir} ${out_lang})
 endmacro()
 
 add_subdirectory("compiler")
@@ -20,7 +20,7 @@ foreach(test_file ${RSHARP_TESTS})
     get_filename_component(test_dir ${test_name}, DIRECTORY)
     get_filename_component(test_filename ${test_name}, NAME_WE)
 
-    add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}")
+    add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "c")
 
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tests/${test_dir}")
 endforeach()
@@ -38,5 +38,6 @@ endforeach(test_file)
 list(REMOVE_DUPLICATES TEST_GROUPS)
 
 foreach(group ${TEST_GROUPS})
-    add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}" DEPENDS rsc compilerTester)
+add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}" DEPENDS rsc compilerTester)
+add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}.*c" DEPENDS rsc compilerTester)
 endforeach(group)
