@@ -10,6 +10,7 @@
 #include "R-Sharp/Parser.hpp"
 #include "R-Sharp/Utils.hpp"
 #include "R-Sharp/CCodeGenerator.hpp"
+#include "R-Sharp/NASMCodeGenerator.hpp"
 #include "R-Sharp/ErrorPrinter.hpp"
 #include "R-Sharp/Validator.hpp"
 
@@ -18,7 +19,7 @@ void printHelp(const char* programName) {
     std::cout << "Options:" << std::endl;
     std::cout << "  -h, --help\t\t\t\tPrint this help message" << std::endl;
     std::cout << "  -o, --output <file>\t\t\tOutput file" << std::endl;
-    std::cout << "  -f, --format <format>\t\t\tOutput format (c)" << std::endl;
+    std::cout << "  -f, --format <format>\t\t\tOutput format (c, nasm)" << std::endl;
 }
 
 std::stringstream& indent(std::stringstream& ss, int indentLevel) {
@@ -75,6 +76,7 @@ std::string tokensToString(std::vector<Token> const& tokens) {
 
 enum class OutputFormat {
     C,
+    NASM
 };
 
 int main(int argc, const char** argv) {
@@ -107,8 +109,9 @@ int main(int argc, const char** argv) {
                 std::string format = argv[i+1];
                 if (format == "c") {
                     outputFormat = OutputFormat::C;
-                }
-                else {
+                } else if (format == "nasm") {
+                    outputFormat = OutputFormat::NASM;
+                } else {
                     Error("Unknown output format \"" + format + "\"");
                     return 1;
                 }
@@ -164,7 +167,7 @@ int main(int argc, const char** argv) {
             Print("No errors"); 
         }
     }
-
+    
     Print("--------------| Semantic Errors |--------------");
     {
         Validator validator(ast, inputFilename, R_Sharp_Source);
@@ -184,6 +187,9 @@ int main(int argc, const char** argv) {
             case OutputFormat::C:
                 outputSource = CCodeGenerator(ast).generate();
                 break;
+            case OutputFormat::NASM:
+                outputSource = NASMCodeGenerator(ast).generate();
+                break;
         }
         Print(outputSource);
     }
@@ -191,6 +197,9 @@ int main(int argc, const char** argv) {
     switch(outputFormat) {
         case OutputFormat::C:
             temporaryFile += ".c";
+            break;
+        case OutputFormat::NASM:
+            temporaryFile += ".asm";
             break;
         default:
             Fatal("Unknown output format");
@@ -217,6 +226,27 @@ int main(int argc, const char** argv) {
                 Print("Compilation successful.");
             else
                 Fatal("Compilation failed.");
+            break;
+        }
+        case OutputFormat::NASM:{
+            Print("--------------| Assembling using nasm |--------------");
+            std::string command = "nasm -f elf64 " + temporaryFile + " -o " + outputFilename + ".o";
+            Print("Executing: ", command);
+            int success = !system(command.c_str());
+            if (success)
+                Print("Assembling successful.");
+            else
+                Fatal("Assembling failed.");
+
+            Print("--------------| Linking using ld |--------------");
+            command = "ld " + outputFilename + ".o -o " + outputFilename;
+            Print("Executing: ", command);
+            success = !system(command.c_str());
+            if (success)
+                Print("Linking successful.");
+            else
+                Fatal("Linking failed.");
+            
             break;
         }
         default:
