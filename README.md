@@ -1,5 +1,5 @@
 # R# (R-Sharp)
-![Tests](https://github.com/Robotino04/R-Sharp/actions/workflows/cmake.yml/badge.svg)
+[![CMake](https://github.com/Robotino04/R-Sharp/actions/workflows/cmake.yml/badge.svg)](https://github.com/Robotino04/R-Sharp/actions/workflows/cmake.yml)
 
 A general purpose programming language inspired by C/C++. 
 
