@@ -11,12 +11,14 @@
 #include "R-Sharp/Utils.hpp"
 #include "R-Sharp/CCodeGenerator.hpp"
 #include "R-Sharp/ErrorPrinter.hpp"
+#include "R-Sharp/Validator.hpp"
 
 void printHelp(const char* programName) {
     std::cout << "Usage: " << programName << " [options] [input file]" << std::endl;
     std::cout << "Options:" << std::endl;
     std::cout << "  -h, --help\t\t\t\tPrint this help message" << std::endl;
     std::cout << "  -o, --output <file>\t\t\tOutput file" << std::endl;
+    std::cout << "  -f, --format <format>\t\t\tOutput format (c)" << std::endl;
 }
 
 std::stringstream& indent(std::stringstream& ss, int indentLevel) {
@@ -71,9 +73,14 @@ std::string tokensToString(std::vector<Token> const& tokens) {
     return ss.str();
 }
 
+enum class OutputFormat {
+    C,
+};
+
 int main(int argc, const char** argv) {
     std::string inputFilename;
     std::string outputFilename = "a.out";
+    OutputFormat outputFormat = OutputFormat::C;
 
     if (argc < 2) {
         printHelp(argv[0]);
@@ -85,7 +92,8 @@ int main(int argc, const char** argv) {
         if (arg == "-h" || arg == "--help") {
             printHelp(argv[0]);
             return 0;
-        } else if (arg == "-o" || arg == "--output") {
+        }
+        else if (arg == "-o" || arg == "--output") {
             if (i+1 < argc) {
                 outputFilename = argv[i+1];
                 i++;
@@ -93,7 +101,24 @@ int main(int argc, const char** argv) {
                 Error("Missing output file");
                 return 1;
             }
-        } else {
+        }
+        else if (arg == "-f" || arg == "--format") {
+            if (i+1 < argc) {
+                std::string format = argv[i+1];
+                if (format == "c") {
+                    outputFormat = OutputFormat::C;
+                }
+                else {
+                    Error("Unknown output format \"" + format + "\"");
+                    return 1;
+                }
+                i++;
+            } else {
+                Error("Missing output format");
+                return 1;
+            }
+        }
+        else {
             // test if it is a filename
             std::ifstream testFile(arg);
             if (testFile.is_open()) {
@@ -107,7 +132,7 @@ int main(int argc, const char** argv) {
 
     std::vector<Token> tokens;
     std::shared_ptr<AstProgram> ast;
-    std::string C_Source;
+    std::string outputSource;
     std::string R_Sharp_Source;
 
     Print("--------------| Tokenizing |--------------");
@@ -129,40 +154,74 @@ int main(int argc, const char** argv) {
         ast = parser.parse();
         ast->printTree();
 
+        Print("--------------| Syntax Errors |--------------");
         if (parser.hasErrors()) {
             ErrorPrinter printer(ast, inputFilename, R_Sharp_Source);
             printer.print();
             Fatal("Parsing errors.");
         }
+        else{
+            Print("No errors"); 
+        }
+    }
+
+    Print("--------------| Semantic Errors |--------------");
+    {
+        Validator validator(ast, inputFilename, R_Sharp_Source);
+        validator.validate();
+
+        if (validator.hasErrors()) {
+            Fatal("Semantic errors.");
+        }
+        else{
+            Print("No errors"); 
+        }
     }
 
     Print("--------------| Generated code |--------------");
     {
-        CCodeGenerator generator(ast);
-        C_Source = generator.generate();
-        Print(C_Source);
+        switch(outputFormat) {
+            case OutputFormat::C:
+                outputSource = CCodeGenerator(ast).generate();
+                break;
+        }
+        Print(outputSource);
+    }
+    std::string temporaryFile = outputFilename;
+    switch(outputFormat) {
+        case OutputFormat::C:
+            temporaryFile += ".c";
+            break;
+        default:
+            Fatal("Unknown output format");
+            break;
     }
 
-    Print("Writing to file: ", outputFilename, ".c");
-    std::ofstream outputFile(outputFilename + ".c");
+    Print("Writing to file: ", temporaryFile);
+    std::ofstream outputFile(temporaryFile);
     if (outputFile.is_open()) {
-        outputFile << C_Source;
+        outputFile << outputSource;
         outputFile.close();
     } else {
-        Error("Could not open file: ", outputFilename, ".c");
+        Error("Could not open file: ", temporaryFile);
         return 1;
     }
 
-    Print("--------------| Compiling using gcc |--------------");
-    std::string command = "gcc " + outputFilename + ".c -o " + outputFilename;
-    Print("Executing: ", command);
-    int success = system(command.c_str());
-    if (success != 0) {
-        Error("Compilation failed");
-        return 1;
-    }
-    else {
-        Print("Compilation successful");
+    switch(outputFormat) {
+        case OutputFormat::C:{
+            Print("--------------| Compiling using gcc |--------------");
+            std::string command = "gcc " + temporaryFile + " -o " + outputFilename;
+            Print("Executing: ", command);
+            int success = !system(command.c_str());
+            if (success)
+                Print("Compilation successful.");
+            else
+                Fatal("Compilation failed.");
+            break;
+        }
+        default:
+            Fatal("Unsupported output format");
+            break;
     }
 
     return 0;

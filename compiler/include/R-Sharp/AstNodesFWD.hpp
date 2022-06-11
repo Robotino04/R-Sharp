@@ -1,5 +1,7 @@
 #pragma once
 
+#include "R-Sharp/Token.hpp"
+
 #include <vector>
 #include <memory>
 #include <string>

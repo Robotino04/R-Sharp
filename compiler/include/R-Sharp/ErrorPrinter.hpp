@@ -15,7 +15,7 @@ class ErrorPrinter : public AstVisitor {
 
         void printErrorToken(AstErrorNode* node){
             int start = node->token.position.startPos;
-            int end = node->token.position.endPos+1;
+            int end = node->token.position.endPos;
 
             std::string src = source;
             src.replace(start, end - start, "\033[31m" + src.substr(start, end - start) + "\033[0m");
@@ -49,7 +49,7 @@ class ErrorPrinter : public AstVisitor {
                 << std::string(prefixLen + node->token.position.column - 1, ' ') // print spaces before the error
                 << "^";
             try {
-                ss << std::string(node->token.position.endPos - node->token.position.startPos - 1, '~'); // underline the error
+                ss << std::string(end - start - 1, '~'); // underline the error
             }
             catch(std::length_error){}
 
