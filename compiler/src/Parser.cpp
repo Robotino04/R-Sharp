@@ -134,7 +134,16 @@ std::shared_ptr<AstProgram> Parser::parseProgram() {
 std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
     std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>();
     try{
+        try{
+            TokenRestorer _(*this);
+            auto var = parseVariableDeclaration();
+            consume(TokenType::Semicolon);
+            return var;
+        }
+        catch(ParsingError const& e){}
+
         function->name = consume(TokenType::ID).value;
+
         function->parameters = parseParameterList();
         consume(TokenType::Colon);
         function->returnType = parseType();
