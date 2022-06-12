@@ -70,14 +70,14 @@ NASMVariable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
     else{
         Error("Only i64 and i32 are supported");
     }
-    stackOffset -= var.size;
+    stackOffset += var.size;
     var.stackOffset = stackOffset;
     stackFrames.back().push_back(var);
     return var;
 }
 NASMVariable NASMCodeGenerator::getVariable(std::string const& name){
-    for (auto& frame : stackFrames){
-        for (auto& var : frame){
+    for (auto frame = stackFrames.rbegin(); frame != stackFrames.rend(); frame++){
+        for (auto& var : *frame){
             if (var.name == name) return var;
         }
     }
@@ -85,23 +85,48 @@ NASMVariable NASMCodeGenerator::getVariable(std::string const& name){
     return NASMVariable();
 }
 void NASMCodeGenerator::pushStackFrame(){
+    if (collapseStackFrame){
+        collapseStackFrame = false;
+        return;
+    }
     emitIndented("; Create stack frame\n");
     emitIndented("push rbp\n");
     emitIndented("mov rbp, rsp\n");
     stackFrames.push_back(std::vector<NASMVariable>());
     stackOffset = 0;
 }
+int getScopeSize(std::vector<NASMVariable> const& stackFrame){
+    int size = 0;
+    for (auto& var : stackFrame){
+        size += var.size;
+    }
+    return size;
+}
+
 void NASMCodeGenerator::popStackFrame(bool codeOnly){
     emitIndented("; Destroy stack frame\n");
     emitIndented("mov rsp, rbp\n");
     emitIndented("pop rbp\n");
     if (!codeOnly){
+        collapseStackFrame = false;
         if (stackFrames.empty()){
             Error("Stack frame underflow");
         }
         stackFrames.pop_back();
     }
 }
+void NASMCodeGenerator::pushVariableContext(){
+    stackFrames.emplace_back();
+}
+void NASMCodeGenerator::popVariableContext(){
+    if (stackFrames.empty()){
+        Error("Stack frame underflow");
+    }
+    emitIndented("add rsp, " + std::to_string(getScopeSize(stackFrames.back())) + "\n");
+    stackFrames.pop_back();
+    stackOffset -= getScopeSize(stackFrames.back());
+}
+
 
 std::string NASMCodeGenerator::sizeToNASMType(int size){
     if (size == 8) return "qword";
@@ -142,9 +167,10 @@ void NASMCodeGenerator::visit(AstFunction* node){
     emitIndented(node->name + ":\n");
     indent();
     pushStackFrame();
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
-    }
+
+    node->parameters->accept(this);
+    node->body->accept(this);
+
     popStackFrame();
     emitIndented("mov rax, 0\n");
     emitIndented("ret\n");
@@ -153,6 +179,13 @@ void NASMCodeGenerator::visit(AstFunction* node){
 
 
 // statements
+void NASMCodeGenerator::visit(AstBlock* node){
+    pushVariableContext();
+    for (auto const& child : node->getChildren()){
+        child->accept(this);
+    }
+    popVariableContext();
+}
 void NASMCodeGenerator::visit(AstReturn* node){
     node->value->accept(this);
     popStackFrame(true);
@@ -172,7 +205,7 @@ void NASMCodeGenerator::visit(AstConditionalStatement* node){
     dedent();
     emitIndented(else_label + ":\n");
     indent();
-    node->falseStatement->accept(this);
+    if (node->falseStatement) node->falseStatement->accept(this);
     dedent();
     emitIndented(end_label + ":\n");
 }
@@ -315,12 +348,12 @@ void NASMCodeGenerator::visit(AstInteger* node){
 }
 void NASMCodeGenerator::visit(AstVariableAccess* node){
     NASMVariable var = getVariable(node->name);
-    emitIndented("mov " + sizeToNASMType(var.size) + " rax, [rbp" + std::to_string(var.stackOffset) + "]\n");
+    emitIndented("mov " + sizeToNASMType(var.size) + " rax, [rbp - " + std::to_string(var.stackOffset) + "]\n");
 }
 void NASMCodeGenerator::visit(AstVariableAssignment* node){
     NASMVariable var = getVariable(node->name);
     node->value->accept(this);
-    emitIndented("mov " + sizeToNASMType(var.size) + " [rbp" + std::to_string(var.stackOffset) + "], rax\n");
+    emitIndented("mov " + sizeToNASMType(var.size) + " [rbp - " + std::to_string(var.stackOffset) + "], rax\n");
 }
 void NASMCodeGenerator::visit(AstConditionalExpression* node){
     std::string true_clause = getUniqueLabel("true_expression");
