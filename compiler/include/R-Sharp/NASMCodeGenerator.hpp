@@ -28,7 +28,7 @@ class NASMCodeGenerator : public AstVisitor {
         // void visit(AstBlock* node) override;
         void visit(AstReturn* node) override;
         // void visit(AstExpressionStatement* node) override;
-        // void visit(AstConditionalStatement* node) override;
+        void visit(AstConditionalStatement* node) override;
         // void visit(AstForLoopDeclaration* node) override;
         // void visit(AstForLoopExpression* node) override;
         // void visit(AstWhileLoop* node) override;
@@ -42,7 +42,7 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstInteger* node) override;
         void visit(AstVariableAccess* node) override;
         void visit(AstVariableAssignment* node) override;
-        // void visit(AstConditionalExpression* node) override;
+        void visit(AstConditionalExpression* node) override;
         // void visit(AstFunctionCall* node) override;
 
         // void visit(AstBuiltinType* node) override;
@@ -60,7 +60,7 @@ class NASMCodeGenerator : public AstVisitor {
 
         void emitSyscall(Syscall callNr, std::string const& arg1="", std::string const& arg2="", std::string const& arg3="", std::string const& arg4="", std::string const& arg5="", std::string const& arg6="");
 
-        std::string getUniqueLabel();
+        std::string getUniqueLabel(std::string const& prefix);
         int labelCounter = 0;
 
         NASMVariable addVariable(AstVariableDeclaration* node);
