@@ -85,10 +85,6 @@ NASMVariable NASMCodeGenerator::getVariable(std::string const& name){
     return NASMVariable();
 }
 void NASMCodeGenerator::pushStackFrame(){
-    if (collapseStackFrame){
-        collapseStackFrame = false;
-        return;
-    }
     emitIndented("; Create stack frame\n");
     emitIndented("push rbp\n");
     emitIndented("mov rbp, rsp\n");
@@ -108,7 +104,6 @@ void NASMCodeGenerator::popStackFrame(bool codeOnly){
     emitIndented("mov rsp, rbp\n");
     emitIndented("pop rbp\n");
     if (!codeOnly){
-        collapseStackFrame = false;
         if (stackFrames.empty()){
             Error("Stack frame underflow");
         }
@@ -208,6 +203,123 @@ void NASMCodeGenerator::visit(AstConditionalStatement* node){
     if (node->falseStatement) node->falseStatement->accept(this);
     dedent();
     emitIndented(end_label + ":\n");
+}
+void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
+    std::string start_label = getUniqueLabel("start");
+    std::string end_label = getUniqueLabel("end");
+    std::string increment_label = getUniqueLabel("increment");
+
+    loopInfo.push_back({increment_label, end_label});
+
+    pushVariableContext();
+    emitIndented("; For loop\n");
+    emitIndented("; Initialization\n");
+    node->variable->accept(this);
+
+    emitIndented("; For loop\n");
+    emitIndented(start_label + ":\n");
+    indent();
+    emitIndented("; Condition\n");
+    node->condition->accept(this);
+    emitIndented("cmp rax, 0\n");
+    emitIndented("je " + end_label + "\n");
+    emitIndented("; Body\n");
+    node->body->accept(this);
+    dedent();
+    emitIndented("; Increment\n");
+    emitIndented(increment_label + ":\n");
+    indent();
+    node->increment->accept(this);
+    emitIndented("jmp " + start_label + "\n");
+    dedent();
+    emitIndented(end_label + ":\n");
+    popVariableContext();
+
+    loopInfo.pop_back();
+}
+void NASMCodeGenerator::visit(AstForLoopExpression* node){
+    std::string start_label = getUniqueLabel("start");
+    std::string end_label = getUniqueLabel("end");
+    std::string increment_label = getUniqueLabel("increment");
+
+    loopInfo.push_back({increment_label, end_label});
+
+    emitIndented("; For loop\n");
+    emitIndented("; Initialization\n");
+    node->variable->accept(this);
+
+    emitIndented(start_label + ":\n");
+    indent();
+    emitIndented("; Condition\n");
+    node->condition->accept(this);
+    emitIndented("cmp rax, 0\n");
+    emitIndented("je " + end_label + "\n");
+    emitIndented("; Body\n");
+    node->body->accept(this);
+    dedent();
+    emitIndented("; Increment\n");
+    emitIndented(increment_label + ":\n");
+    indent();
+    node->increment->accept(this);
+    emitIndented("jmp " + start_label + "\n");
+    dedent();
+    emitIndented(end_label + ":\n");
+
+    loopInfo.pop_back();
+}
+void NASMCodeGenerator::visit(AstWhileLoop* node){
+    std::string start_label = getUniqueLabel("start");
+    std::string end_label = getUniqueLabel("end");
+
+    loopInfo.push_back({start_label, end_label});
+
+    emitIndented("; While loop\n");
+    emitIndented(start_label + ":\n");
+    indent();
+    node->condition->accept(this);
+    emitIndented("cmp rax, 0\n");
+    emitIndented("je " + end_label + "\n");
+    emitIndented("; Body\n");
+    node->body->accept(this);
+    emitIndented("jmp " + start_label + "\n");
+    dedent();
+    emitIndented(end_label + ":\n");
+
+    loopInfo.pop_back();
+}
+void NASMCodeGenerator::visit(AstDoWhileLoop* node){
+    std::string start_label = getUniqueLabel("start");
+    std::string end_label = getUniqueLabel("end");
+
+    loopInfo.push_back({start_label, end_label});
+
+    emitIndented("; Do loop\n");
+    emitIndented(start_label + ":\n");
+    indent();
+    emitIndented("; Body\n");
+    node->body->accept(this);
+    node->condition->accept(this);
+    emitIndented("cmp rax, 0\n");
+    emitIndented("jne " + start_label + "\n");
+    dedent();
+    emitIndented(end_label + ":\n");
+
+    loopInfo.pop_back();
+
+}
+void NASMCodeGenerator::visit(AstBreak* node){
+    if (loopInfo.empty()){
+        Error("NASM Generator: Break statement outside of loop!");
+    }
+    emitIndented("; Break\n");
+    emitIndented("jmp " + loopInfo.back().breakLabel + "\n");
+}
+void NASMCodeGenerator::visit(AstSkip* node){
+    if (loopInfo.empty()){
+        Error("NASM Generator: Skip statement outside of loop!");
+    }
+    emitIndented("; Skip\n");
+    emitIndented("jmp " + loopInfo.back().skipLabel + "\n");
 }
 
 
@@ -371,6 +483,10 @@ void NASMCodeGenerator::visit(AstConditionalExpression* node){
     node->falseExpression->accept(this);
     dedent();
     emitIndented(end + ":\n");
+}
+void NASMCodeGenerator::visit(AstEmptyExpression* node){
+    emitIndented("; Empty Expression\n");
+    emitIndented("mov rax, 1\n");
 }
 
 
