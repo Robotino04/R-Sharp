@@ -222,6 +222,7 @@ Token Tokenizer::nextToken(){
         else SIMPLE_TOKEN('-', TokenType::Minus)
         else SIMPLE_TOKEN('*', TokenType::Star)
         else SIMPLE_TOKEN('/', TokenType::Slash)
+        else SIMPLE_TOKEN('%', TokenType::Percent)
 
         else SIMPLE_TOKEN('=', TokenType::Assign)
 

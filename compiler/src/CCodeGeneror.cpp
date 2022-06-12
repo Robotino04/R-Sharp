@@ -236,6 +236,9 @@ void CCodeGenerator::visit(AstBinary* node){
         case AstBinaryType::Divide:
             emit(" / ");
             break;
+        case AstBinaryType::Modulo:
+            emit(" % ");
+            break;
 
         case AstBinaryType::Equal:
             emit(" == ");

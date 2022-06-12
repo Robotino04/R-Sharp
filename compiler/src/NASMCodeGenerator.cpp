@@ -123,10 +123,15 @@ void NASMCodeGenerator::visit(AstBinary* node){
             break;
         case AstBinaryType::Multiply:
             emitIndented("imul rax, rbx\n");
-            break;  
+            break;
         case AstBinaryType::Divide:
             emitIndented("cqo\n");
             emitIndented("idiv rbx\n");
+            break;
+        case AstBinaryType::Modulo:
+            emitIndented("cqo\n");
+            emitIndented("idiv rbx\n");
+            emitIndented("mov rax, rdx\n");
             break;
         default:
             Error("NASM Generator: Binary operator not implemented!");

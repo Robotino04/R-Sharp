@@ -37,6 +37,7 @@ namespace std{
             case TokenType::Minus: return "Minus";
             case TokenType::Star: return "Star";
             case TokenType::Slash: return "Slash";
+            case TokenType::Percent: return "Percent";
 
             case TokenType::DoubleAmpersand: return "DoubleAmpersand";
             case TokenType::DoublePipe: return "DoublePipe";
