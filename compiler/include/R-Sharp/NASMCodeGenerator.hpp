@@ -31,7 +31,7 @@ class NASMCodeGenerator : public AstVisitor {
         // void visit(AstErrorStatement* node) override;
 
         void visit(AstUnary* node) override;
-        // void visit(AstBinary* node) override;
+        void visit(AstBinary* node) override;
         void visit(AstInteger* node) override;
         // void visit(AstVariableAccess* node) override;
         // void visit(AstVariableAssignment* node) override;

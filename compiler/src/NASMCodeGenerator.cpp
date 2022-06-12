@@ -108,6 +108,30 @@ void NASMCodeGenerator::visit(AstUnary* node){
             Error("NASM Generator: Unary operator not implemented!");
     }
 }
+void NASMCodeGenerator::visit(AstBinary* node){
+    node->left->accept(this);
+    emitIndented("push rax\n");
+    node->right->accept(this);
+    emitIndented("mov rbx, rax\n");
+    emitIndented("pop rax\n");
+    switch (node->type){
+        case AstBinaryType::Add:
+            emitIndented("add rax, rbx\n");
+            break;
+        case AstBinaryType::Subtract:
+            emitIndented("sub rax, rbx\n");
+            break;
+        case AstBinaryType::Multiply:
+            emitIndented("imul rax, rbx\n");
+            break;  
+        case AstBinaryType::Divide:
+            emitIndented("cqo\n");
+            emitIndented("idiv rbx\n");
+            break;
+        default:
+            Error("NASM Generator: Binary operator not implemented!");
+    }
+}
 void NASMCodeGenerator::visit(AstInteger* node){
     emitIndented("mov rax, " + std::to_string(node->value) + "\n");
 }
