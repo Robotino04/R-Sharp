@@ -2,9 +2,9 @@
 fail: 1
 */
 
-foo: int = 3;
-bar: int = foo + 1;
+foo: i64 = 3;
+bar: i64 = foo + 1;
 
-main(): int {
+main(): i32 {
     return bar;
 }

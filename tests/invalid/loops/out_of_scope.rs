@@ -2,10 +2,10 @@
 fail: 1
 */
 
-main(): int {
+main(): i32 {
 
     while (1) {
-        a: int = 2;
+        a: i64 = 2;
     }
 
     return a;

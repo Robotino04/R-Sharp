@@ -2,12 +2,12 @@
 return: -1
 */
 
-foo(a: int, b: int): int;
+foo(a: i64, b: i64): i64;
 
-main(): int {
+main(): i32 {
     return foo(1, 2);
 }
 
-foo(x: int, y: int): int{
+foo(x: i64, y: i64): i64{
     return x - y;
 }

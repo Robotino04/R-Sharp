@@ -486,8 +486,13 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
     }
 }
 std::shared_ptr<AstInteger> Parser::parseNumber() {
-    std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>();
-    number->value = std::stoi(consume(TokenType::Number).value);
+    std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>(consume(TokenType::Number));
+    std::istringstream iss(number->token.value);
+    int64_t i64;
+    iss >> number->value;
+    if (iss.fail()) {
+        parserError("Expected number but got ", number->token);
+    }
     return number;
 }
 std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {

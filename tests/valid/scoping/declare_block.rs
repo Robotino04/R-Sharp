@@ -2,9 +2,9 @@
 return: 0
 */
 
-main(): int {
+main(): i32 {
     if (5) {
-        i: int = 0;
+        i: i64 = 0;
         return i;
     }
 }

@@ -2,4 +2,4 @@
 return: 2
 */
 
-main(): int return 2;
+main(): i32 return 2;

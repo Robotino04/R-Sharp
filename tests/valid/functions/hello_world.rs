@@ -2,9 +2,9 @@
 output: "Hello, World!\n"
 */
 
-putchar(c: int): int;
+putchar(c: i64): i64;
 
-main(): int {
+main(): i32 {
     putchar(72);
     putchar(101);
     putchar(108);

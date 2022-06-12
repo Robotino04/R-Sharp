@@ -2,14 +2,14 @@
 return: 3
 */
 
-main(): int {
-    a: int = 0;
+main(): i32 {
+    a: i64 = 0;
     {
-        b: int = 1;
+        b: i64 = 1;
         a = b;
     }
     {
-        b: int = 2;
+        b: i64 = 2;
         a = a + b;
     }
     return a;

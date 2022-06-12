@@ -2,8 +2,8 @@
 fail: 1
 */
 
-foo: int = 3;
+foo: i64 = 3;
 
-main(): int {
+main(): i32 {
     return foo();
 }

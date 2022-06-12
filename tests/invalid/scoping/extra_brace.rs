@@ -2,7 +2,7 @@
 fail: 1
 */
 
-main(): int {
+main(): i32 {
     if(0){
         return 1;
     }}

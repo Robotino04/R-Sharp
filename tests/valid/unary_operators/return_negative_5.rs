@@ -2,6 +2,6 @@
 return: -5
 */
 
-main(): int{
+main(): i32{
     return -5;
 }

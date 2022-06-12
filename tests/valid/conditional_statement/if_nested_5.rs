@@ -2,8 +2,8 @@
 return: 1
 */
 
-main(): int {
-    a: int = 0;
+main(): i32 {
+    a: i64 = 0;
     if (0)
         if (0)
             a = 3;

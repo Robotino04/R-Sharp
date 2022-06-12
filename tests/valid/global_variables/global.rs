@@ -2,8 +2,8 @@
 return: 7
 */
 
-foo: int = 4;
+foo: i64 = 4;
 
-main(): int {
+main(): i32 {
     return foo + 3;
 }

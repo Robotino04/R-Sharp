@@ -2,9 +2,9 @@
 return: 12
 */
 
-a: int = 3;
-b: int = 4;
+a: i64 = 3;
+b: i64 = 4;
 
-main(): int {
+main(): i32 {
     return a * b;
 }

@@ -2,10 +2,10 @@
 return: 6
 */
 
-twice(x: int): int{
+twice(x: i64): i64{
     return 2 * x;
 }
 
-main(): int {
+main(): i32 {
     return twice(3);
 }

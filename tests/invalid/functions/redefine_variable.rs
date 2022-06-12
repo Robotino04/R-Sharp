@@ -2,10 +2,10 @@
 fail: 1
 */
 
-foo(x: int): int {
-    x: int = 3;
+foo(x: i64): i64 {
+    x: i64 = 3;
 }
 
-main(): int {
+main(): i32 {
     foo(1);
 }

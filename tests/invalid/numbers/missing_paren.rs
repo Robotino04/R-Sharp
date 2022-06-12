@@ -2,6 +2,6 @@
 fail: 1
 */
 
-main(: int {
+main(: i64 {
     return 0;
 }

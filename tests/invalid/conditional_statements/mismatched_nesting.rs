@@ -2,8 +2,8 @@
 fail: 1
 */
 
-main(): int {
-    a: int = 0;
+main(): i32 {
+    a: i64 = 0;
     if (1)
         return 1;
     else

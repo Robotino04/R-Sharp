@@ -2,7 +2,7 @@
 fail: 1
 */
 
-main(): int {
-    for (i: int = 2; ))
-        a: int = 0;
+main(): i32 {
+    for (i: i64 = 2; ))
+        a: i64 = 0;
 }

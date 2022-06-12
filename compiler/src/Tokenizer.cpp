@@ -190,7 +190,8 @@ Token Tokenizer::nextToken(){
         else KEYWORD_TOKEN("break", TokenType::Break)
         else KEYWORD_TOKEN("skip", TokenType::Skip)
 
-        else KEYWORD_TOKEN("int", TokenType::Typename)
+        else KEYWORD_TOKEN("i32", TokenType::Typename)
+        else KEYWORD_TOKEN("i64", TokenType::Typename)
         else KEYWORD_TOKEN("char", TokenType::Typename)
         else KEYWORD_TOKEN("const", TokenType::TypeModifier)
 

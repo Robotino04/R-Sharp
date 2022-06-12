@@ -2,14 +2,14 @@
 return: 12
 */
 
-foo(a: int): int;
-bar(b: int): int;
+foo(a: i64): i64;
+bar(b: i64): i64;
 
-main(): int {
+main(): i32 {
     return foo(5);
 }
 
-foo(a: int): int {
+foo(a: i64): i64 {
     if (a <= 0) {
         return a;
     }
@@ -17,7 +17,7 @@ foo(a: int): int {
     return a + bar(a - 1);
 }
 
-bar(b: int): int {
+bar(b: i64): i64 {
     if (b <= 0) {
         return b;
     }
