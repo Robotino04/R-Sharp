@@ -29,6 +29,7 @@ void NASMCodeGenerator::emitIndented(std::string const& str){
 std::string NASMCodeGenerator::generate(){
     source = "";
     indentLevel = 0;
+    labelCounter = 0;
     root->accept(this);
     return source;
 }
@@ -46,6 +47,10 @@ void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std
     emitIndented("mov rax, " + std::to_string(static_cast<int>(callNr)) + "\n");
 
     emitIndented("syscall\n");
+}
+
+std::string NASMCodeGenerator::getUniqueLabel(){
+    return "label" + std::to_string(labelCounter++);
 }
 
 // program
@@ -110,29 +115,114 @@ void NASMCodeGenerator::visit(AstUnary* node){
 }
 void NASMCodeGenerator::visit(AstBinary* node){
     node->left->accept(this);
-    emitIndented("push rax\n");
-    node->right->accept(this);
-    emitIndented("mov rbx, rax\n");
-    emitIndented("pop rax\n");
+
+    // logical and and or will short circuit, so the right side is not evaluated until necessary
+    if (!(node->type == AstBinaryType::LogicalAnd || node->type == AstBinaryType::LogicalOr)){
+        emitIndented("push rax\n");
+        node->right->accept(this);
+        emitIndented("mov rbx, rax\n");
+        emitIndented("pop rax\n");
+    }
     switch (node->type){
         case AstBinaryType::Add:
+            emitIndented("; Add\n");
             emitIndented("add rax, rbx\n");
             break;
         case AstBinaryType::Subtract:
+            emitIndented("; Subtract\n");
             emitIndented("sub rax, rbx\n");
             break;
         case AstBinaryType::Multiply:
+            emitIndented("; Multiply\n");
             emitIndented("imul rax, rbx\n");
             break;
         case AstBinaryType::Divide:
+            emitIndented("; Divide\n");
             emitIndented("cqo\n");
             emitIndented("idiv rbx\n");
             break;
         case AstBinaryType::Modulo:
+            emitIndented("; Modulo\n");
             emitIndented("cqo\n");
             emitIndented("idiv rbx\n");
             emitIndented("mov rax, rdx\n");
             break;
+
+        case AstBinaryType::Equal:
+            emitIndented("; Equal\n");
+            emitIndented("cmp rax, rbx\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("sete al\n");
+            break;
+        case AstBinaryType::NotEqual:
+            emitIndented("; Not Equal\n");
+            emitIndented("cmp rax, rbx\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setne al\n");
+            break;
+        case AstBinaryType::LessThan:
+            emitIndented("; Less Than\n");
+            emitIndented("cmp rax, rbx\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setl al\n");
+            break;
+        case AstBinaryType::LessThanOrEqual:
+            emitIndented("; Less Than Or Equal\n");
+            emitIndented("cmp rax, rbx\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setle al\n");
+            break;
+        case AstBinaryType::GreaterThan:
+            emitIndented("; Greater Than\n");
+            emitIndented("cmp rax, rbx\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setg al\n");
+            break;
+        case AstBinaryType::GreaterThanOrEqual:
+            emitIndented("; Greater Than Or Equal\n");
+            emitIndented("cmp rax, rbx\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setge al\n");
+            break;
+
+        case AstBinaryType::LogicalAnd:{
+            emitIndented("; Logical And\n");
+            std::string clause2 = getUniqueLabel();
+            std::string end = getUniqueLabel();
+            emitIndented("cmp rax, 0\n");
+            emitIndented("jne " + clause2 + "\n");
+            emitIndented("jmp " + end + "\n");
+            emitIndented(clause2 + ":\n"); indent();
+
+            // evaluate right side
+            node->right->accept(this);
+            emitIndented("cmp rax, 0\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setne al\n");
+            dedent();
+            emitIndented(end + ":\n");
+            break;
+        }
+
+        case AstBinaryType::LogicalOr:{
+            emitIndented("; Logical Or\n");
+            std::string clause2 = getUniqueLabel();
+            std::string end = getUniqueLabel();
+            emitIndented("cmp rax, 0\n");
+            emitIndented("je " + clause2 + "\n");
+            emitIndented("mov rax, 1\n");
+            emitIndented("jmp " + end + "\n");
+            emitIndented(clause2 + ":\n"); indent();
+
+            // evaluate right side
+            node->right->accept(this);
+            emitIndented("cmp rax, 0\n");
+            emitIndented("mov rax, 0\n");
+            emitIndented("setne al\n");
+            dedent();
+            emitIndented(end + ":\n");
+            break;
+        }
         default:
             Error("NASM Generator: Binary operator not implemented!");
     }
