@@ -326,6 +326,7 @@ enum class AstBinaryType{
     Subtract,
     Multiply,
     Divide,
+    Modulo,
 
     Equal,
     NotEqual,

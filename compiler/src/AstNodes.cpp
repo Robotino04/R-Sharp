@@ -37,6 +37,8 @@ AstBinaryType toBinaryOperator(TokenType type){
             return AstBinaryType::Multiply;
         case TokenType::Slash:
             return AstBinaryType::Divide;
+        case TokenType::Percent:
+            return AstBinaryType::Modulo;
         
         case TokenType::EqualEqual:
             return AstBinaryType::Equal;

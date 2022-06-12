@@ -31,6 +31,7 @@ enum class TokenType{
     Minus,                      // "-"
     Star,                       // "*"
     Slash,                      // "/"
+    Percent,                    // "%"
 
     DoubleAmpersand,            // "&&"
     DoublePipe,                 // "||"

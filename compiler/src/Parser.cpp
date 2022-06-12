@@ -454,8 +454,8 @@ std::shared_ptr<AstExpression> Parser::parseAdditiveExp() {
 std::shared_ptr<AstExpression> Parser::parseTerm() {
     auto factor = parseFactor();
 
-    while (matchAny({TokenType::Star, TokenType::Slash})) {
-        Token operatorToken = consumeAnyOne({TokenType::Star, TokenType::Slash});
+    while (matchAny({TokenType::Star, TokenType::Slash, TokenType::Percent})) {
+        Token operatorToken = consumeAnyOne({TokenType::Star, TokenType::Slash, TokenType::Percent});
         auto next_factor = parseFactor();
 
         factor = std::make_shared<AstBinary>(factor, toBinaryOperator(operatorToken.type), next_factor);

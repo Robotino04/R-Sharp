@@ -40,7 +40,7 @@ logical-and-exp = <equality-exp> {'&&' <equality-ex>}
 equality-exp = <relational-exp> {('==' | '!=') <relational-exp>}
 relational-exp = <additive-exp> {('<' | '>' | '<=' | '>=') <additive-exp>}
 additive-exp = <term> {('+' | '-') <term>}
-term = <factor> {('*' | '/') <factor>}
+term = <factor> {('*' | '/' | '%') <factor>}
 factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor> | <name> | <function-call>
 
 type-mod = 'const'
