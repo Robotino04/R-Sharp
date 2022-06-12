@@ -272,12 +272,12 @@ struct AstVariableAccess : public AstExpression {
 
 struct AstInteger : public AstExpression {
     BASE(AstInteger)
-    AstInteger(int value): value(value){}
+    AstInteger(int64_t value): value(value){}
     
     std::string toString() const override{
         return "AstInteger: " + std::to_string(value);
     }
-    int value;
+    int64_t value;
     TOKEN(AstInteger)
 };
 

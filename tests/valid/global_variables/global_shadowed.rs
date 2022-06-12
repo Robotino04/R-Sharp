@@ -2,12 +2,12 @@
 return: 4
 */
 
-a: int = 3;
+a: i64 = 3;
 
-main(): int {
-    ret: int = 0;
+main(): i32 {
+    ret: i64 = 0;
     if (a) {
-        a: int = 0;
+        a: i64 = 0;
         ret = 4;
     }
     return ret;

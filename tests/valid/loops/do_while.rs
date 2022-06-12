@@ -2,8 +2,8 @@
 return: 16
 */
 
-main(): int {
-    a: int = 1;
+main(): i32 {
+    a: i64 = 1;
     do {
         a = a * 2;
     } while(a < 11);

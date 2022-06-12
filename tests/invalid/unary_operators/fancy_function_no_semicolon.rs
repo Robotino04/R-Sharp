@@ -2,4 +2,4 @@
 fail: 1
 */
 
-main(): int return !5
+main(): i32 return !5

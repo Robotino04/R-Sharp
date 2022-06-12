@@ -2,9 +2,9 @@
 return: 1
 */
 
-main(): int {
-    a: int = 1;
-    b: int = 0;
+main(): i32 {
+    a: i64 = 1;
+    b: i64 = 0;
     if (a)
         b = 1;
     elif (b)

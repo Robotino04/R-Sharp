@@ -2,11 +2,11 @@
 return: 3
 */
 
-main(): int {
-    i: int = 0;
+main(): i32 {
+    i: i64 = 0;
     {
-        a: int = 2;
+        a: i64 = 2;
     }
-    b: int = 3;
+    b: i64 = 3;
     return b;
 }

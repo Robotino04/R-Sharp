@@ -2,7 +2,7 @@
 fail: 1
 */
 
-main(): int {
+main(): i32 {
     for (;;;)
         3;
     return 0;

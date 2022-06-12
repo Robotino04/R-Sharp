@@ -42,6 +42,8 @@ void CCodeGenerator::blockNextIndentedEmit(){
 }
 
 void CCodeGenerator::visit(AstProgram* node){
+    // stdint.h provides the int64_t type
+    emit("#include <stdint.h>\n\n");
     for (auto& function : node->items) {
         function->accept(this);
         emit("\n");
@@ -307,7 +309,15 @@ void CCodeGenerator::visit(AstBuiltinType* node){
         modifier->accept(this);
         emit(" ");
     }
-    emit(node->name);
+    if (node->name == "i64"){
+        emit("int64_t");
+    }
+    else if (node->name == "i32"){
+        emit("int32_t");
+    }
+    else{
+        Fatal("Invalid builtin type ", node->name);
+    }
 }
 void CCodeGenerator::visit(AstArray* node){
     node->type->accept(this);

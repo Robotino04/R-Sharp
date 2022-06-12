@@ -1,6 +1,6 @@
 /*
 return: 42
 */
-main(): int{
+main(): i32{
     return 42;
 }

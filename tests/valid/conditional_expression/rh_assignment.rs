@@ -2,9 +2,9 @@
 return: 1
 */
 
-main(): int {
-    flag: int = 1;
-    a: int = 0;
+main(): i32 {
+    flag: i64 = 1;
+    a: i64 = 0;
     flag ? a = 1 : (a = 0);
     return a;
 }

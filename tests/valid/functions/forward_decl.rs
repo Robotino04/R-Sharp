@@ -2,12 +2,12 @@
 return: 3
 */
 
-foo(): int;
+foo(): i64;
 
-main(): int{
+main(): i32{
     return foo();
 }
 
-foo(): int {
+foo(): i64 {
     return 3;
 }

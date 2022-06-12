@@ -2,12 +2,12 @@
 fail: 1
 */
 
-foo(): int {
+foo(): i64 {
     return 3;
 }
 
-foo: int = 4;
+foo: i64 = 4;
 
-main(): int {
+main(): i32 {
     return foo;
 }

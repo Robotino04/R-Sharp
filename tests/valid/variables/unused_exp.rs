@@ -2,7 +2,7 @@
 return: 0
 */
 
-main(): int {
+main(): i32 {
     2 + 2;
     return 0;
 }

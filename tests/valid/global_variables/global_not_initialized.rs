@@ -2,10 +2,10 @@
 return: 3
 */
 
-foo: int;
+foo: i64;
 
-main(): int {
-    for (i: int = 0; i < 3; i = i + 1)
+main(): i32 {
+    for (i: i64 = 0; i < 3; i = i + 1)
         foo = foo + 1;
     return foo;
 }

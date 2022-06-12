@@ -2,7 +2,7 @@
 fail: 1
 */
 
-main(): int {
+main(): i32 {
     do
         3;
     while (4)

@@ -2,11 +2,11 @@
 return: 5
 */
 
-foo(): int {
+foo(): i64 {
     return 3;
 }
 
-main(): int {
-    foo: int = 5;
+main(): i32 {
+    foo: i64 = 5;
     return foo;
 }

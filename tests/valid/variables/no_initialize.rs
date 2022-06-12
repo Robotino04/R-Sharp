@@ -2,7 +2,7 @@
 return: 0
 */
 
-main(): int {
-    a: int;
+main(): i32 {
+    a: i64;
     return 0;
 }

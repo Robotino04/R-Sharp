@@ -2,8 +2,8 @@
 fail: 1
 */
 
-main(): int {
-    while(a: int) {
+main(): i32 {
+    while(a: i64) {
         2;
     }
 }

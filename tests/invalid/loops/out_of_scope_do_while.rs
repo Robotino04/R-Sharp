@@ -2,9 +2,9 @@
 fail: 1
 */
 
-main(): int {
+main(): i32 {
     do {
-        a: int = 2;
+        a: i64 = 2;
     } while (a);
     return 0;
 }

@@ -2,6 +2,6 @@
 fail: 1
 */
 
-main(): int {
+main(): i32 {
     return 1 < > 3;
 }

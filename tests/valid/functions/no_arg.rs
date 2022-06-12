@@ -2,10 +2,10 @@
 return: 3
 */
 
-three(): int{
+three(): i64{
     return 3;
 }
 
-main(): int {
+main(): i32 {
     return three();
 }

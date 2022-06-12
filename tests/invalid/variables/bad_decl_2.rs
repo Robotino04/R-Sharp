@@ -2,7 +2,7 @@
 fail: 1
 */
 
-main(): int {
-    foo bar: int = 3;
+main(): i32 {
+    foo bar: i64 = 3;
     return bar;
 }
