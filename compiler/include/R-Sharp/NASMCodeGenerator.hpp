@@ -29,12 +29,12 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstReturn* node) override;
         // void visit(AstExpressionStatement* node) override;
         void visit(AstConditionalStatement* node) override;
-        // void visit(AstForLoopDeclaration* node) override;
-        // void visit(AstForLoopExpression* node) override;
-        // void visit(AstWhileLoop* node) override;
-        // void visit(AstDoWhileLoop* node) override;
-        // void visit(AstBreak* node) override;
-        // void visit(AstSkip* node) override;
+        void visit(AstForLoopDeclaration* node) override;
+        void visit(AstForLoopExpression* node) override;
+        void visit(AstWhileLoop* node) override;
+        void visit(AstDoWhileLoop* node) override;
+        void visit(AstBreak* node) override;
+        void visit(AstSkip* node) override;
         // void visit(AstErrorStatement* node) override;
 
         void visit(AstUnary* node) override;
@@ -43,6 +43,7 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstVariableAccess* node) override;
         void visit(AstVariableAssignment* node) override;
         void visit(AstConditionalExpression* node) override;
+        void visit(AstEmptyExpression* node) override;
         // void visit(AstFunctionCall* node) override;
 
         // void visit(AstBuiltinType* node) override;
@@ -69,10 +70,14 @@ class NASMCodeGenerator : public AstVisitor {
         void popStackFrame(bool codeOnly = false);
         void pushVariableContext();
         void popVariableContext();
-        void forceStackFrameCollapse();
         std::vector<std::vector<NASMVariable>> stackFrames;
         int stackOffset = 0;
-        bool collapseStackFrame = false;
+
+        struct LoopInfo {
+            std::string skipLabel;
+            std::string breakLabel;
+        };
+        std::vector<LoopInfo> loopInfo;
 
         std::string sizeToNASMType(int size);
 
