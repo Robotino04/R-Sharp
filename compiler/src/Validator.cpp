@@ -55,7 +55,7 @@ void Validator::popContext(){
     }
     variableContexts.pop_back();
 }
-bool Validator::isVariableDeclared(Variable testVar){
+bool Validator::isVariableDeclared(ValidatorVariable testVar){
     for (auto it = variableContexts.rbegin(); it != variableContexts.rend(); it++){
         if (it->end() != std::find(it->begin(), it->end(), testVar)){
             return true;
@@ -63,19 +63,21 @@ bool Validator::isVariableDeclared(Variable testVar){
     }
     return false;
 }
-bool Validator::isVariableDefinable(Variable testVar){
-    if (isVariableDeclared(testVar)){
-        auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), testVar);
-        if (it == variableContexts.back().end()){
-            return true;
+bool Validator::isVariableDefinable(ValidatorVariable testVar){
+    auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), testVar);
+    if (it == variableContexts.back().end()){
+        return true;
+    }
+    else{
+        if (it->isGlobal && testVar.isGlobal){
+            return !it->defined;
         }
-        if (it->defined){
+        else{
             return false;
         }
     }
-    return true;
 }
-void Validator::addVariable(Variable var){
+void Validator::addVariable(ValidatorVariable var){
     auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), var);
     if (it == variableContexts.back().end()){
     variableContexts.back().push_back(var);
@@ -86,10 +88,10 @@ void Validator::addVariable(Variable var){
 }
 
 
-bool Validator::isFunctionDeclared(Function testFunc){
+bool Validator::isFunctionDeclared(ValidatorFunction testFunc){
     return std::find(functions.begin(), functions.end(), testFunc) != functions.end();
 }
-bool Validator::isFunctionDeclarable(Function testFunc){
+bool Validator::isFunctionDeclarable(ValidatorFunction testFunc){
     for (auto func : functions){
         if (func.name == testFunc.name){
             if (testFunc.parameters.size() == func.parameters.size()){
@@ -102,7 +104,7 @@ bool Validator::isFunctionDeclarable(Function testFunc){
     }
     return true;
 }
-bool Validator::isFunctionDefinable(Function testFunc){
+bool Validator::isFunctionDefinable(ValidatorFunction testFunc){
     bool isDeclarable = isFunctionDeclarable(testFunc);
     if (isFunctionDeclared(testFunc)){
         auto it = std::find(functions.begin(), functions.end(), testFunc);
@@ -112,7 +114,7 @@ bool Validator::isFunctionDefinable(Function testFunc){
     }
     return isDeclarable;
 }
-void Validator::addFunction(Function func){
+void Validator::addFunction(ValidatorFunction func){
     auto it = std::find(functions.begin(), functions.end(), func);
     if (it == functions.end()){
         functions.push_back(func);
@@ -190,7 +192,7 @@ void Validator::visit(AstVariableAssignment* node){
     }
 }
 void Validator::visit(AstVariableDeclaration* node){
-    Variable var = {node->name, to_string(node->type)};
+    ValidatorVariable var = {node->name, to_string(node->type), false, node->isGlobal};
     if (node->isGlobal){
         if (isFunctionDeclared({var.name, ""})){
             hasError = true;
@@ -212,7 +214,7 @@ void Validator::visit(AstVariableDeclaration* node){
     }
 }
 void Validator::visit(AstFunctionCall* node){
-    Function thisFunc = {node->name, "", {}, false};
+    ValidatorFunction thisFunc = {node->name, "", {}, false};
     for (auto arg : node->arguments){
         thisFunc.parameters.push_back({"", ""});
     }
@@ -223,7 +225,7 @@ void Validator::visit(AstFunctionCall* node){
     }
 }
 void Validator::visit(AstFunctionDeclaration* node){
-    Function thisFunc = {node->name, to_string(node->returnType), {}, false};
+    ValidatorFunction thisFunc = {node->name, to_string(node->returnType), {}, false};
     for (auto param : node->parameters->parameters){
         thisFunc.parameters.push_back({param->name, to_string(param->type)});
     }
@@ -245,7 +247,7 @@ void Validator::visit(AstFunctionDeclaration* node){
     addFunction(thisFunc);
 }
 void Validator::visit(AstFunction* node){
-    Function thisFunc = {node->name, to_string(node->returnType), {}, true};
+    ValidatorFunction thisFunc = {node->name, to_string(node->returnType), {}, true};
     for (auto param : node->parameters->parameters){
         thisFunc.parameters.push_back({param->name, to_string(param->type)});
     }

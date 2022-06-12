@@ -39,9 +39,9 @@ endforeach(test_file)
 list(REMOVE_DUPLICATES TEST_GROUPS)
 
 foreach(group ${TEST_GROUPS})
-add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "${group}" DEPENDS rsc compilerTester)
-add_custom_target(test_${group}_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\"${group}.*\\(nasm\\)\"" DEPENDS rsc compilerTester)
-add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\"${group}.*\\(c\\)\"" DEPENDS rsc compilerTester)
+add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "/${group}/" DEPENDS rsc compilerTester)
+add_custom_target(test_${group}_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(nasm\\)\"" DEPENDS rsc compilerTester)
+add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(c\\)\"" DEPENDS rsc compilerTester)
 endforeach(group)
 
 add_custom_target(test_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\".*\\(nasm\\)\"" DEPENDS rsc compilerTester)
