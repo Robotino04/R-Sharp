@@ -49,8 +49,8 @@ void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std
     emitIndented("syscall\n");
 }
 
-std::string NASMCodeGenerator::getUniqueLabel(){
-    return "label" + std::to_string(labelCounter++);
+std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
+    return prefix + "_" + std::to_string(labelCounter++);
 }
 
 NASMVariable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
@@ -158,6 +158,24 @@ void NASMCodeGenerator::visit(AstReturn* node){
     popStackFrame(true);
     emitIndented("ret\n");
 }
+void NASMCodeGenerator::visit(AstConditionalStatement* node){
+    std::string else_label = getUniqueLabel("else");
+    std::string end_label = getUniqueLabel("end");
+
+    node->condition->accept(this);
+    emitIndented("; If statement\n");
+    emitIndented("cmp rax, 0\n");
+    emitIndented("je " + else_label + "\n");
+    indent();
+    node->trueStatement->accept(this);
+    emitIndented("jmp " + end_label + "\n");
+    dedent();
+    emitIndented(else_label + ":\n");
+    indent();
+    node->falseStatement->accept(this);
+    dedent();
+    emitIndented(end_label + ":\n");
+}
 
 
 // expressions
@@ -252,8 +270,8 @@ void NASMCodeGenerator::visit(AstBinary* node){
 
         case AstBinaryType::LogicalAnd:{
             emitIndented("; Logical And\n");
-            std::string clause2 = getUniqueLabel();
-            std::string end = getUniqueLabel();
+            std::string clause2 = getUniqueLabel("second_expression");
+            std::string end = getUniqueLabel("end");
             emitIndented("cmp rax, 0\n");
             emitIndented("jne " + clause2 + "\n");
             emitIndented("jmp " + end + "\n");
@@ -271,8 +289,8 @@ void NASMCodeGenerator::visit(AstBinary* node){
 
         case AstBinaryType::LogicalOr:{
             emitIndented("; Logical Or\n");
-            std::string clause2 = getUniqueLabel();
-            std::string end = getUniqueLabel();
+            std::string clause2 = getUniqueLabel("second_expression");
+            std::string end = getUniqueLabel("end");
             emitIndented("cmp rax, 0\n");
             emitIndented("je " + clause2 + "\n");
             emitIndented("mov rax, 1\n");
@@ -304,6 +322,23 @@ void NASMCodeGenerator::visit(AstVariableAssignment* node){
     node->value->accept(this);
     emitIndented("mov " + sizeToNASMType(var.size) + " [rbp" + std::to_string(var.stackOffset) + "], rax\n");
 }
+void NASMCodeGenerator::visit(AstConditionalExpression* node){
+    std::string true_clause = getUniqueLabel("true_expression");
+    std::string false_clause = getUniqueLabel("false_expression");
+    std::string end = getUniqueLabel("end");
+    node->condition->accept(this);
+    emitIndented("; Conditional Expression\n");
+    emitIndented("cmp rax, 0\n");
+    emitIndented("je " + false_clause + "\n");
+    emitIndented(true_clause + ":\n"); indent();
+    node->trueExpression->accept(this);
+    emitIndented("jmp " + end + "\n");
+    dedent();
+    emitIndented(false_clause + ":\n"); indent();
+    node->falseExpression->accept(this);
+    dedent();
+    emitIndented(end + ":\n");
+}
 
 
 // declarations
@@ -312,9 +347,9 @@ void NASMCodeGenerator::visit(AstVariableDeclaration* node){
     NASMVariable var = addVariable(node);
     if (node->value){
         node->value->accept(this);
-    emitIndented("mov " + sizeToNASMType(var.size) + " [rbp" + std::to_string(var.stackOffset) + "], rax\n");
+        emitIndented("push " + sizeToNASMType(var.size) + " rax\n");
     }
     else{
-    emitIndented("mov " + sizeToNASMType(var.size) + " [rbp" + std::to_string(var.stackOffset) + "], 0\n");
+        emitIndented("push " + sizeToNASMType(var.size) + " 0\n");
     }
 }

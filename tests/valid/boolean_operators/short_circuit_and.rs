@@ -1,6 +1,5 @@
 /*
 return: 0
-skip: 1
 */
 
 main(): i32 {
