@@ -1,5 +1,6 @@
 /*
 return: 3
+skip: 1
 */
 
 main(): int {

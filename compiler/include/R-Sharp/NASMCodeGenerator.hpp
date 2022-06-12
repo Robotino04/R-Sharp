@@ -53,6 +53,9 @@ class NASMCodeGenerator : public AstVisitor {
 
         void emitSyscall(Syscall callNr, std::string const& arg1="", std::string const& arg2="", std::string const& arg3="", std::string const& arg4="", std::string const& arg5="", std::string const& arg6="");
 
+        std::string getUniqueLabel();
+        int labelCounter = 0;
+
         std::string source;
         int indentLevel;
 };
