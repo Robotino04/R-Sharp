@@ -44,7 +44,7 @@ term = <factor> {('*' | '/' | '%') <factor>}
 factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor> | <name> | <function-call>
 
 type-mod = 'const'
-type = {<type-mod>} ('i64' | 'char')
+type = {<type-mod>} ('i64' | 'i32' | 'char')
 type-or-array = <type> | '[' <type> ']'
 
 parameter-list = <name> ':' <type-or-array> {',' <variable>}

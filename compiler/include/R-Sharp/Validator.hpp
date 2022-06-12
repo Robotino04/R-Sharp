@@ -4,12 +4,13 @@
 
 #include <vector>
 
-struct Variable{
+struct ValidatorVariable{
     std::string name;
     std::string type;
     bool defined = false;
+    bool isGlobal = false;
 
-    bool operator==(Variable const& other) const{
+    bool operator==(ValidatorVariable const& other) const{
         if (name != other.name){
             return false;
         }
@@ -18,18 +19,18 @@ struct Variable{
         }
         return true;
     }
-    bool operator!=(Variable const& other) const{
+    bool operator!=(ValidatorVariable const& other) const{
         return !(*this == other);
     }
 };
 
-struct Function{
+struct ValidatorFunction{
     std::string name;
     std::string returnType;
-    std::vector<Variable> parameters;
+    std::vector<ValidatorVariable> parameters;
     bool defined;
 
-    bool operator==(Function const& other) const{
+    bool operator==(ValidatorFunction const& other) const{
         if (name != other.name){
             return false;
         }
@@ -74,14 +75,14 @@ class Validator : public AstVisitor{
             collapseContexts = true;
         };
         
-        bool isVariableDeclared(Variable testVar);
-        bool isVariableDefinable(Variable testVar);
-        void addVariable(Variable var);
+        bool isVariableDeclared(ValidatorVariable testVar);
+        bool isVariableDefinable(ValidatorVariable testVar);
+        void addVariable(ValidatorVariable var);
 
-        bool isFunctionDeclared(Function testFunc);
-        bool isFunctionDeclarable(Function testFunc);
-        bool isFunctionDefinable(Function testFunc);
-        void addFunction(Function func);
+        bool isFunctionDeclared(ValidatorFunction testFunc);
+        bool isFunctionDeclarable(ValidatorFunction testFunc);
+        bool isFunctionDefinable(ValidatorFunction testFunc);
+        void addFunction(ValidatorFunction func);
 
         void printErrorToken(Token token);
 
@@ -90,8 +91,8 @@ class Validator : public AstVisitor{
         std::string filename;
         std::string source;
 
-        std::vector<std::vector<Variable>> variableContexts;
-        std::vector<Function> functions;
+        std::vector<std::vector<ValidatorVariable>> variableContexts;
+        std::vector<ValidatorFunction> functions;
         bool collapseContexts = false;
 
         int numLoops = 0;

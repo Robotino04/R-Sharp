@@ -6,6 +6,13 @@
 #include <memory>
 #include <string>
 
+struct NASMVariable{
+    std::string name;
+    std::string type;
+    int size;
+    int stackOffset;
+};
+
 class NASMCodeGenerator : public AstVisitor {
     public:
         NASMCodeGenerator(std::shared_ptr<AstNode> root);
@@ -33,8 +40,8 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstUnary* node) override;
         void visit(AstBinary* node) override;
         void visit(AstInteger* node) override;
-        // void visit(AstVariableAccess* node) override;
-        // void visit(AstVariableAssignment* node) override;
+        void visit(AstVariableAccess* node) override;
+        void visit(AstVariableAssignment* node) override;
         // void visit(AstConditionalExpression* node) override;
         // void visit(AstFunctionCall* node) override;
 
@@ -42,7 +49,7 @@ class NASMCodeGenerator : public AstVisitor {
         // void visit(AstTypeModifier* node) override;
         // void visit(AstArray* node) override;
 
-        // void visit(AstVariableDeclaration* node) override;
+        void visit(AstVariableDeclaration* node) override;
 
     private:
         void indent();
@@ -55,6 +62,15 @@ class NASMCodeGenerator : public AstVisitor {
 
         std::string getUniqueLabel();
         int labelCounter = 0;
+
+        NASMVariable addVariable(AstVariableDeclaration* node);
+        NASMVariable getVariable(std::string const& name);
+        void pushStackFrame();
+        void popStackFrame(bool codeOnly = false);
+        std::vector<std::vector<NASMVariable>> stackFrames;
+        int stackOffset = 0;
+
+        std::string sizeToNASMType(int size);
 
         std::string source;
         int indentLevel;
