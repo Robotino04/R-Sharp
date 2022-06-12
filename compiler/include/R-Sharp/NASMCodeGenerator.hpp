@@ -25,7 +25,7 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstFunction* node) override;
         // void visit(AstFunctionDeclaration* node) override;
 
-        // void visit(AstBlock* node) override;
+        void visit(AstBlock* node) override;
         void visit(AstReturn* node) override;
         // void visit(AstExpressionStatement* node) override;
         void visit(AstConditionalStatement* node) override;
@@ -67,8 +67,12 @@ class NASMCodeGenerator : public AstVisitor {
         NASMVariable getVariable(std::string const& name);
         void pushStackFrame();
         void popStackFrame(bool codeOnly = false);
+        void pushVariableContext();
+        void popVariableContext();
+        void forceStackFrameCollapse();
         std::vector<std::vector<NASMVariable>> stackFrames;
         int stackOffset = 0;
+        bool collapseStackFrame = false;
 
         std::string sizeToNASMType(int size);
 
