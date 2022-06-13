@@ -238,8 +238,8 @@ int main(int argc, const char** argv) {
             else
                 Fatal("Assembling failed.");
 
-            Print("--------------| Linking using ld |--------------");
-            command = "ld " + outputFilename + ".o -o " + outputFilename;
+            Print("--------------| Linking using gcc |--------------");
+            command = "gcc -no-pie " + outputFilename + ".o -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
             if (success)
