@@ -26,7 +26,6 @@ class NASMCodeGenerator : public AstVisitor {
 
         void visit(AstBlock* node) override;
         void visit(AstReturn* node) override;
-        // void visit(AstExpressionStatement* node) override;
         void visit(AstConditionalStatement* node) override;
         void visit(AstForLoopDeclaration* node) override;
         void visit(AstForLoopExpression* node) override;
@@ -34,7 +33,6 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstDoWhileLoop* node) override;
         void visit(AstBreak* node) override;
         void visit(AstSkip* node) override;
-        // void visit(AstErrorStatement* node) override;
 
         void visit(AstUnary* node) override;
         void visit(AstBinary* node) override;
@@ -52,11 +50,17 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstVariableDeclaration* node) override;
 
     private:
+        enum class BinarySection{
+            Text,
+            BSS,
+            Data,
+        };
+
         void indent();
         void dedent();
         
-        void emit(std::string const& str);
-        void emitIndented(std::string const& str);
+        void emit(std::string const& str, BinarySection section = BinarySection::Text);
+        void emitIndented(std::string const& str, BinarySection section = BinarySection::Text);
 
         void emitSyscall(Syscall callNr, std::string const& arg1="", std::string const& arg2="", std::string const& arg3="", std::string const& arg4="", std::string const& arg5="", std::string const& arg6="");
 
@@ -76,23 +80,18 @@ class NASMCodeGenerator : public AstVisitor {
         int getCurrentScopeSize();
         int getScopeSize(VariableScope const& scope);
 
-
-        int stackOffset = 0;
-        std::vector<StackFrame> stackFrames;
-
-        std::string sizeToNASMType(int size);
-
-        std::vector<std::string> externFunctions;
-
-        std::string source;
-        int indentLevel;
     
     public:
         struct Variable{
             std::string name;
             std::string type;
+            std::string accessStr;
             int size;
-            int stackOffset;
+            bool initialized = true;
+
+            bool operator==(Variable const& other) const{
+                return name == other.name && type == other.type && size == other.size;
+            }
         };
         struct VariableScope{
             std::vector<Variable> variables;
@@ -106,6 +105,23 @@ class NASMCodeGenerator : public AstVisitor {
             std::vector<VariableScope> variableScopes;
             std::vector<LoopInfo> loopInfo;
         };
+
+    private:
+        int stackOffset = 0;
+        std::vector<StackFrame> stackFrames;
+        VariableScope globalScope;
+
+        std::string sizeToNASMType(int size);
+
+        std::vector<std::string> externFunctions;
+        std::vector<std::string> globalVariables;
+
+        std::string source_text;
+        std::string source_data;
+        std::string source_bss;
+        int indentLevel;
+
+
         void printErrorToken(Token token);
 
         std::string R_SharpSource;
