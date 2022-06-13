@@ -189,7 +189,10 @@ int main(int argc, char** argv) {
     std::string filename = inputFile.substr(inputFile.find_last_of("/") + 1);
     filename = filename.substr(0, filename.find_last_of("."));
 
-    std::string command = compilerPath + " -o " + outputDir + "/" + filename + " " + inputFile + " -f " + outputLanguage;
+    // the output language is needed to allow for parrallel testing over multiple languages
+    std::string outputFile = outputDir + "/" + filename + "_" + outputLanguage;
+
+    std::string command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage;
 
     ExecutionResults realResults;
 
@@ -201,7 +204,7 @@ int main(int argc, char** argv) {
     }
 
     if (!realResults.failed){
-        auto programResult = exec(outputDir + "/" + filename);
+        auto programResult = exec(outputFile);
 
         realResults.returnValue = programResult.returnCode;
         realResults.output = programResult.output;
