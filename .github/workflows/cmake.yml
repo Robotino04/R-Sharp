@@ -18,12 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     # install the nasm assembler
     steps:
-      - name: Set up NASM
-        # You may pin to the exact commit or the version.
-        # uses: ilammy/setup-nasm@229bfed4a21b01237d340787ea51fd7c50a49c54
-        uses: ilammy/setup-nasm@v1.3.0
-        with:
-          platform: linux
+      - name: Install NASM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm
 
       - uses: actions/checkout@v3
 
