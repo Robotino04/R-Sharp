@@ -2,20 +2,19 @@
 
 #include "R-Sharp/AstVisitor.hpp"
 #include "R-Sharp/Syscall.hpp"
+#include "R-Sharp/Token.hpp"
 
 #include <memory>
 #include <string>
 
-struct NASMVariable{
-    std::string name;
-    std::string type;
-    int size;
-    int stackOffset;
-};
 
 class NASMCodeGenerator : public AstVisitor {
     public:
-        NASMCodeGenerator(std::shared_ptr<AstNode> root);
+        struct StackFrame;
+        struct Variable;
+        struct LoopInfo;
+        struct VariableScope;
+        NASMCodeGenerator(std::shared_ptr<AstNode> root, std::string R_SharpSource);
 
         std::string generate();
 
@@ -64,23 +63,48 @@ class NASMCodeGenerator : public AstVisitor {
         std::string getUniqueLabel(std::string const& prefix);
         int labelCounter = 0;
 
-        NASMVariable addVariable(AstVariableDeclaration* node);
-        NASMVariable getVariable(std::string const& name);
+        Variable addVariable(AstVariableDeclaration* node);
+        Variable getVariable(std::string const& name);
         void pushStackFrame();
         void popStackFrame(bool codeOnly = false);
-        void pushVariableContext();
-        void popVariableContext();
-        std::vector<std::vector<NASMVariable>> stackFrames;
-        int stackOffset = 0;
+        void pushVariableScope();
+        void popVariableScope();
+        void popVariableScope(VariableScope const& scope);
 
-        struct LoopInfo {
-            std::string skipLabel;
-            std::string breakLabel;
-        };
-        std::vector<LoopInfo> loopInfo;
+        StackFrame& getCurrentStackFrame();
+        VariableScope& getCurrentVariableScope();
+        int getCurrentScopeSize();
+        int getScopeSize(VariableScope const& scope);
+
+
+        int stackOffset = 0;
+        std::vector<StackFrame> stackFrames;
 
         std::string sizeToNASMType(int size);
 
         std::string source;
         int indentLevel;
+    
+    public:
+        struct Variable{
+            std::string name;
+            std::string type;
+            int size;
+            int stackOffset;
+        };
+        struct VariableScope{
+            std::vector<Variable> variables;
+            bool hasLoop = false;
+        };
+        struct LoopInfo {
+            std::string skipLabel;
+            std::string breakLabel;
+        };
+        struct StackFrame {
+            std::vector<VariableScope> variableScopes;
+            std::vector<LoopInfo> loopInfo;
+        };
+        void printErrorToken(Token token);
+
+        std::string R_SharpSource;
 };

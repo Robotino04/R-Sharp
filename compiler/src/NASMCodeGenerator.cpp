@@ -2,8 +2,11 @@
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/AstNodes.hpp"
 
-NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstNode> root){
+#include <sstream>
+
+NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstNode> root, std::string R_SharpSource){
     this->root = root;
+    this->R_SharpSource = R_SharpSource;
 }
 
 void NASMCodeGenerator::indent(){
@@ -11,7 +14,7 @@ void NASMCodeGenerator::indent(){
 }
 void NASMCodeGenerator::dedent(){
     if (!indentLevel){
-        Error("Indentation error");
+        Fatal("Indentation error");
         return;
     }
     indentLevel--;
@@ -53,13 +56,15 @@ std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
     return prefix + "_" + std::to_string(labelCounter++);
 }
 
-NASMVariable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
-    NASMVariable var;
+NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
+    Variable var;
     var.name = node->name;
     if (node->type->getType() == AstNodeType::AstBuiltinType)
         var.type = std::static_pointer_cast<AstBuiltinType>(node->type)->name;
     else{
         Error("Only builtin types are supported");
+        printErrorToken(node->token);
+        exit(1);
     }
     if (var.type == "i64"){
         var.size = 8;
@@ -68,60 +73,89 @@ NASMVariable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
         var.size = 4;
     }
     else{
-        Error("Only i64 and i32 are supported");
+        Fatal("Only i64 and i32 are supported");
     }
     stackOffset += var.size;
     var.stackOffset = stackOffset;
-    stackFrames.back().push_back(var);
+    getCurrentVariableScope().variables.push_back(var);
     return var;
 }
-NASMVariable NASMCodeGenerator::getVariable(std::string const& name){
-    for (auto frame = stackFrames.rbegin(); frame != stackFrames.rend(); frame++){
-        for (auto& var : *frame){
+NASMCodeGenerator::Variable NASMCodeGenerator::getVariable(std::string const& name){
+    for (auto scope = getCurrentStackFrame().variableScopes.rbegin(); scope != getCurrentStackFrame().variableScopes.rend(); scope++){
+        for (auto const& var : scope->variables){
             if (var.name == name) return var;
         }
     }
-    Error("Variable " + name + " not found");
-    return NASMVariable();
+    Fatal("Variable " + name + " not found");
+    return Variable();
 }
 void NASMCodeGenerator::pushStackFrame(){
     emitIndented("; Create stack frame\n");
+
+    // save callee-saved registers
+    emitIndented("push rbx\n");
     emitIndented("push rbp\n");
+    emitIndented("push r12\n");
+    emitIndented("push r13\n");
+    emitIndented("push r14\n");
+    emitIndented("push r15\n");
     emitIndented("mov rbp, rsp\n");
-    stackFrames.push_back(std::vector<NASMVariable>());
+
+    stackFrames.emplace_back();
+    stackFrames.back().variableScopes.emplace_back();
     stackOffset = 0;
 }
-int getScopeSize(std::vector<NASMVariable> const& stackFrame){
+int NASMCodeGenerator::getCurrentScopeSize(){
+    return getScopeSize(getCurrentVariableScope());
+}
+int NASMCodeGenerator::getScopeSize(VariableScope const& scope){
     int size = 0;
-    for (auto& var : stackFrame){
+    for (auto& var : scope.variables){
         size += var.size;
     }
     return size;
 }
 
 void NASMCodeGenerator::popStackFrame(bool codeOnly){
-    emitIndented("; Destroy stack frame\n");
-    emitIndented("mov rsp, rbp\n");
-    emitIndented("pop rbp\n");
     if (!codeOnly){
-        if (stackFrames.empty()){
-            Error("Stack frame underflow");
+        while (getCurrentStackFrame().variableScopes.size()){
+            popVariableScope();
         }
+    }
+    else{
+        for (auto varScope = stackFrames.back().variableScopes.rbegin(); varScope != stackFrames.back().variableScopes.rend(); varScope++){
+            popVariableScope(*varScope);
+        }
+    }
+    emitIndented("; Destroy stack frame\n");
+    
+    // restore callee-saved registers
+    emitIndented("pop r15\n");
+    emitIndented("pop r14\n");
+    emitIndented("pop r13\n");
+    emitIndented("pop r12\n");
+    emitIndented("pop rbp\n");
+    emitIndented("pop rbx\n");
+    if (!codeOnly)
         stackFrames.pop_back();
-    }
 }
-void NASMCodeGenerator::pushVariableContext(){
-    stackFrames.emplace_back();
+void NASMCodeGenerator::pushVariableScope(){
+    stackFrames.back().variableScopes.emplace_back();
 }
-void NASMCodeGenerator::popVariableContext(){
-    if (stackFrames.empty()){
-        Error("Stack frame underflow");
-    }
-    emitIndented("add rsp, " + std::to_string(getScopeSize(stackFrames.back())) + "\n");
-    stackFrames.pop_back();
-    stackOffset -= getScopeSize(stackFrames.back());
+void NASMCodeGenerator::popVariableScope(){
+    popVariableScope(getCurrentVariableScope());
+    stackOffset -= getCurrentScopeSize();
+    getCurrentStackFrame().variableScopes.pop_back();
 }
-
+void NASMCodeGenerator::popVariableScope(VariableScope const& scope){
+    emitIndented("add rsp, " + std::to_string(getScopeSize(scope)) + "\n");
+}
+NASMCodeGenerator::StackFrame& NASMCodeGenerator::getCurrentStackFrame(){
+    return stackFrames.back();
+}
+NASMCodeGenerator::VariableScope& NASMCodeGenerator::getCurrentVariableScope(){
+    return stackFrames.back().variableScopes.back();
+}
 
 std::string NASMCodeGenerator::sizeToNASMType(int size){
     if (size == 8) return "qword";
@@ -129,7 +163,7 @@ std::string NASMCodeGenerator::sizeToNASMType(int size){
     else if (size == 2) return "word";
     else if (size == 1) return "byte";
     else{
-        Error("Invalid size");
+        Fatal("Invalid size ", size);
         return "";
     }
 }
@@ -146,6 +180,9 @@ void NASMCodeGenerator::visit(AstProgram* node){
         }
         else{
             Error("NASM Generator: Only functions are implemented!");
+            if (child->getType() == AstNodeType::AstVariableDeclaration)
+                printErrorToken(std::dynamic_pointer_cast<AstVariableDeclaration>(child)->token);
+            exit(1);
         }
     }
     emit("_start:\n");
@@ -175,11 +212,11 @@ void NASMCodeGenerator::visit(AstFunction* node){
 
 // statements
 void NASMCodeGenerator::visit(AstBlock* node){
-    pushVariableContext();
+    pushVariableScope();
     for (auto const& child : node->getChildren()){
         child->accept(this);
     }
-    popVariableContext();
+    popVariableScope();
 }
 void NASMCodeGenerator::visit(AstReturn* node){
     node->value->accept(this);
@@ -209,9 +246,11 @@ void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
 
-    loopInfo.push_back({increment_label, end_label});
+    getCurrentStackFrame().loopInfo.push_back({increment_label, end_label});
 
-    pushVariableContext();
+    pushVariableScope();
+    getCurrentVariableScope().hasLoop = true;
+    
     emitIndented("; For loop\n");
     emitIndented("; Initialization\n");
     node->variable->accept(this);
@@ -233,21 +272,25 @@ void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
     emitIndented("jmp " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
-    popVariableContext();
 
-    loopInfo.pop_back();
+    getCurrentVariableScope().hasLoop = false;
+    popVariableScope();
+
+    getCurrentStackFrame().loopInfo.pop_back();
 }
 void NASMCodeGenerator::visit(AstForLoopExpression* node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
 
-    loopInfo.push_back({increment_label, end_label});
+    getCurrentStackFrame().loopInfo.push_back({increment_label, end_label});
+    getCurrentVariableScope().hasLoop = true;
 
     emitIndented("; For loop\n");
     emitIndented("; Initialization\n");
     node->variable->accept(this);
 
+    emitIndented("; For loop\n");
     emitIndented(start_label + ":\n");
     indent();
     emitIndented("; Condition\n");
@@ -265,13 +308,15 @@ void NASMCodeGenerator::visit(AstForLoopExpression* node){
     dedent();
     emitIndented(end_label + ":\n");
 
-    loopInfo.pop_back();
+    getCurrentVariableScope().hasLoop = false;
+    getCurrentStackFrame().loopInfo.pop_back();
 }
 void NASMCodeGenerator::visit(AstWhileLoop* node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
-    loopInfo.push_back({start_label, end_label});
+    getCurrentStackFrame().loopInfo.push_back({start_label, end_label});
+    getCurrentVariableScope().hasLoop = true;
 
     emitIndented("; While loop\n");
     emitIndented(start_label + ":\n");
@@ -285,13 +330,15 @@ void NASMCodeGenerator::visit(AstWhileLoop* node){
     dedent();
     emitIndented(end_label + ":\n");
 
-    loopInfo.pop_back();
+    getCurrentVariableScope().hasLoop = false;
+    getCurrentStackFrame().loopInfo.pop_back();
 }
 void NASMCodeGenerator::visit(AstDoWhileLoop* node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
-    loopInfo.push_back({start_label, end_label});
+    getCurrentStackFrame().loopInfo.push_back({start_label, end_label});
+    getCurrentVariableScope().hasLoop = true;
 
     emitIndented("; Do loop\n");
     emitIndented(start_label + ":\n");
@@ -304,22 +351,42 @@ void NASMCodeGenerator::visit(AstDoWhileLoop* node){
     dedent();
     emitIndented(end_label + ":\n");
 
-    loopInfo.pop_back();
+    getCurrentVariableScope().hasLoop = false;
+    getCurrentStackFrame().loopInfo.pop_back();
 
 }
 void NASMCodeGenerator::visit(AstBreak* node){
-    if (loopInfo.empty()){
+    if (getCurrentStackFrame().loopInfo.empty()){
         Error("NASM Generator: Break statement outside of loop!");
     }
+
+    for (auto varScope = getCurrentStackFrame().variableScopes.rbegin(); varScope != getCurrentStackFrame().variableScopes.rend(); ++varScope){
+        if (varScope->hasLoop){
+            break;
+        }
+        else{
+            popVariableScope(*varScope);
+        }
+    }
+
     emitIndented("; Break\n");
-    emitIndented("jmp " + loopInfo.back().breakLabel + "\n");
+    emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().breakLabel + "\n");
 }
 void NASMCodeGenerator::visit(AstSkip* node){
-    if (loopInfo.empty()){
+    if (getCurrentStackFrame().loopInfo.empty()){
         Error("NASM Generator: Skip statement outside of loop!");
     }
+    for (auto varScope = getCurrentStackFrame().variableScopes.rbegin(); varScope != getCurrentStackFrame().variableScopes.rend(); ++varScope){
+        if (varScope->hasLoop){
+            break;
+        }
+        else{
+            popVariableScope(*varScope);
+        }
+    }
+
     emitIndented("; Skip\n");
-    emitIndented("jmp " + loopInfo.back().skipLabel + "\n");
+    emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().skipLabel + "\n");
 }
 
 
@@ -339,6 +406,9 @@ void NASMCodeGenerator::visit(AstUnary* node){
             emitIndented("sete al\n");
         default:
             Error("NASM Generator: Unary operator not implemented!");
+            printErrorToken(node->token);
+            exit(1);
+            break;
     }
 }
 void NASMCodeGenerator::visit(AstBinary* node){
@@ -453,17 +523,20 @@ void NASMCodeGenerator::visit(AstBinary* node){
         }
         default:
             Error("NASM Generator: Binary operator not implemented!");
+            printErrorToken(node->token);
+            exit(1);
+            break;
     }
 }
 void NASMCodeGenerator::visit(AstInteger* node){
     emitIndented("mov rax, " + std::to_string(node->value) + "\n");
 }
 void NASMCodeGenerator::visit(AstVariableAccess* node){
-    NASMVariable var = getVariable(node->name);
+    Variable var = getVariable(node->name);
     emitIndented("mov " + sizeToNASMType(var.size) + " rax, [rbp - " + std::to_string(var.stackOffset) + "]\n");
 }
 void NASMCodeGenerator::visit(AstVariableAssignment* node){
-    NASMVariable var = getVariable(node->name);
+    Variable var = getVariable(node->name);
     node->value->accept(this);
     emitIndented("mov " + sizeToNASMType(var.size) + " [rbp - " + std::to_string(var.stackOffset) + "], rax\n");
 }
@@ -493,7 +566,7 @@ void NASMCodeGenerator::visit(AstEmptyExpression* node){
 // declarations
 void NASMCodeGenerator::visit(AstVariableDeclaration* node){
     emitIndented("; Variable (" + node->name + ")\n");
-    NASMVariable var = addVariable(node);
+    Variable var = addVariable(node);
     if (node->value){
         node->value->accept(this);
         emitIndented("push " + sizeToNASMType(var.size) + " rax\n");
@@ -501,4 +574,49 @@ void NASMCodeGenerator::visit(AstVariableDeclaration* node){
     else{
         emitIndented("push " + sizeToNASMType(var.size) + " 0\n");
     }
+}
+
+
+void NASMCodeGenerator::printErrorToken(Token token){
+    int start = token.position.startPos;
+    int end = token.position.endPos;
+
+    std::string src = R_SharpSource;
+    src.replace(start, end - start, "\033[31m" + src.substr(start, end - start) + "\033[0m");
+
+    // print the error and 3 lines above it
+    std::stringstream ss;
+    int line = 1;
+    int column = 1;
+    int pos = 0;
+
+    for (char c : src) {
+        if (line >= token.position.line - 3 && line <= token.position.line) {
+            if (column == 1){
+                ss << line << "| ";
+            }
+            if (line == token.position.line && c == '\n') break;
+            ss << c;
+        }
+        pos++;
+        if (c == '\n') {
+            line++;
+            column = 1;
+        } else {
+            column++;
+        }
+    }
+
+    int prefixLen = (std::to_string(token.position.line) + "| ").length();
+
+    ss << "\n\033[31m" // enable red text
+        << std::string(prefixLen + token.position.column - 1, ' ') // print spaces before the error
+        << "^";
+    try {
+        ss << std::string(end - start - 1, '~'); // underline the error
+    }
+    catch(std::length_error){}
+
+    ss << "\033[0m"; // disable red text
+    Print(ss.str());
 }
