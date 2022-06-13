@@ -19,10 +19,10 @@ class NASMCodeGenerator : public AstVisitor {
         std::string generate();
 
         void visit(AstProgram* node) override;
-        // void visit(AstParameterList* node) override;
+        void visit(AstParameterList* node) override;
 
         void visit(AstFunction* node) override;
-        // void visit(AstFunctionDeclaration* node) override;
+        void visit(AstFunctionDeclaration* node) override;
 
         void visit(AstBlock* node) override;
         void visit(AstReturn* node) override;
@@ -43,7 +43,7 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstVariableAssignment* node) override;
         void visit(AstConditionalExpression* node) override;
         void visit(AstEmptyExpression* node) override;
-        // void visit(AstFunctionCall* node) override;
+        void visit(AstFunctionCall* node) override;
 
         // void visit(AstBuiltinType* node) override;
         // void visit(AstTypeModifier* node) override;
@@ -81,6 +81,8 @@ class NASMCodeGenerator : public AstVisitor {
         std::vector<StackFrame> stackFrames;
 
         std::string sizeToNASMType(int size);
+
+        std::vector<std::string> externFunctions;
 
         std::string source;
         int indentLevel;
