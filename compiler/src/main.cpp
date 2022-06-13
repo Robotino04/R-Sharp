@@ -188,7 +188,7 @@ int main(int argc, const char** argv) {
                 outputSource = CCodeGenerator(ast).generate();
                 break;
             case OutputFormat::NASM:
-                outputSource = NASMCodeGenerator(ast).generate();
+                outputSource = NASMCodeGenerator(ast, R_Sharp_Source).generate();
                 break;
         }
         Print(outputSource);
