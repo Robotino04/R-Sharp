@@ -21,7 +21,6 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(AstProgram* node) override;
         void visit(AstParameterList* node) override;
 
-        void visit(AstFunction* node) override;
         void visit(AstFunctionDeclaration* node) override;
 
         void visit(AstBlock* node) override;
@@ -84,13 +83,13 @@ class NASMCodeGenerator : public AstVisitor {
     public:
         struct Variable{
             std::string name;
-            std::string type;
+            std::shared_ptr<AstType> type;
             std::string accessStr;
             int size;
             bool initialized = true;
 
             bool operator==(Variable const& other) const{
-                return name == other.name && type == other.type && size == other.size;
+                return name == other.name && *type == *other.type && size == other.size;
             }
         };
         struct VariableScope{
@@ -120,9 +119,6 @@ class NASMCodeGenerator : public AstVisitor {
         std::string source_data;
         std::string source_bss;
         int indentLevel;
-
-
-        void printErrorToken(Token token);
 
         std::string R_SharpSource;
 };

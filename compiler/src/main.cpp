@@ -9,6 +9,8 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Parser.hpp"
 #include "R-Sharp/Utils.hpp"
+
+#include "R-Sharp/AstPrinter.hpp"
 #include "R-Sharp/CCodeGenerator.hpp"
 #include "R-Sharp/NASMCodeGenerator.hpp"
 #include "R-Sharp/ErrorPrinter.hpp"
@@ -151,11 +153,10 @@ int main(int argc, const char** argv) {
         tokens = cleanTokens(tokens);
     }
 
-    Print("--------------| Parsed tree |--------------");
+    Print("--------------| Parsing |--------------");
     {
         Parser parser = Parser(tokens, inputFilename);
         ast = parser.parse();
-        ast->printTree();
 
         Print("--------------| Syntax Errors |--------------");
         if (parser.hasErrors()) {
@@ -166,6 +167,11 @@ int main(int argc, const char** argv) {
         else{
             Print("No errors"); 
         }
+    }
+    Print("--------------| Raw AST |--------------");
+    {
+        AstPrinter printer(ast);
+        printer.print();
     }
     
     Print("--------------| Semantic Errors |--------------");
@@ -179,6 +185,11 @@ int main(int argc, const char** argv) {
         else{
             Print("No errors"); 
         }
+    }
+    Print("--------------| Typed AST |--------------");
+    {
+        AstPrinter printer(ast);
+        printer.print();
     }
 
     Print("--------------| Generated code |--------------");

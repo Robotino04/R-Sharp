@@ -19,6 +19,7 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 // Helper macros to make it easier to define AST nodes
 #define BASE(NAME) \
     NAME() = default; \
+    NAME(Token const& token) {this->token = token;} \
     AstNodeType getType() const override { return AstNodeType::NAME; } \
     void accept(AstVisitor* visitor) override{ visitor->visit(this); }
 
@@ -31,14 +32,14 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 
 #define GET_SINGLE_CHILDREN(...) \
     std::vector<std::shared_ptr<AstNode>> getChildren() const override{ \
-        return combineChildren(__VA_ARGS__); \
+        return combineChildren(semanticType, __VA_ARGS__); \
     }
 
 #define MULTI_CHILD(TYPE, VARIABLE_NAME) std::vector<std::shared_ptr<TYPE>> VARIABLE_NAME;
 
 #define GET_MULTI_CHILD(VARIABLE_NAME)\
     std::vector<std::shared_ptr<AstNode>> getChildren() const override{ \
-        std::vector<std::shared_ptr<AstNode>> internal_children; \
+        std::vector<std::shared_ptr<AstNode>> internal_children = {std::static_pointer_cast<AstNode>(semanticType)}; \
         for(auto& child : VARIABLE_NAME) \
             internal_children.push_back(std::static_pointer_cast<AstNode>(child)); \
         return internal_children; \
@@ -59,10 +60,6 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 
 #define DESTRUCTOR(NAME)\
     virtual ~NAME() = default;
-
-#define TOKEN(NAME) \
-    NAME(Token token){ this->token = token; } \
-    Token token;
 
 
 // The actual AST nodes
@@ -90,13 +87,6 @@ struct AstParameterList : public virtual AstNode {
 struct AstExpression : public virtual AstNode{
     DESTRUCTOR(AstExpression)
 };
-struct AstType : public virtual AstNode{
-    DESTRUCTOR(AstType)
-
-    GET_MULTI_CHILD(modifiers)
-
-    MULTI_CHILD(AstTypeModifier, modifiers)
-};
 struct AstBlockItem : public virtual AstNode{
     DESTRUCTOR(AstBlockItem)
 };
@@ -109,7 +99,6 @@ struct AstStatement : public AstBlockItem{
 struct AstErrorNode : public virtual AstNode{
     DESTRUCTOR(AstErrorNode)
     AstErrorNode() = default;
-    TOKEN(AstErrorNode)
 };
 struct AstProgramItem : public virtual AstNode{
     DESTRUCTOR(AstProgramItem)
@@ -117,39 +106,25 @@ struct AstProgramItem : public virtual AstNode{
 
 // ----------------------------------| Program Items |---------------------------------- //
 
-struct AstFunction : public AstProgramItem {
-    BASE(AstFunction)
-    TO_STRING_NAME(AstFunction)
-
-    GET_SINGLE_CHILDREN(parameters, body, returnType)
-
-    SINGLE_CHILD(AstParameterList, parameters)
-    SINGLE_CHILD(AstType, returnType)
-    SINGLE_CHILD(AstStatement, body)
-    TOKEN(AstFunction)
-};
-
 struct AstFunctionDeclaration : public AstProgramItem {
     BASE(AstFunctionDeclaration)
     TO_STRING_NAME(AstFunctionDeclaration)
 
-    GET_SINGLE_CHILDREN(parameters, returnType)
+    GET_SINGLE_CHILDREN(parameters, body)
 
+    SINGLE_CHILD(AstStatement, body)
     SINGLE_CHILD(AstParameterList, parameters)
-    SINGLE_CHILD(AstType, returnType)
-    TOKEN(AstFunctionDeclaration)
 };
+
 
 // ----------------------------------| Errors |---------------------------------- //
 
 struct AstErrorStatement : public AstStatement, public AstErrorNode {
     BASE(AstErrorStatement)
-    AstErrorStatement(Token token) : AstErrorNode(token){}
     TO_STRING_NAME(AstErrorStatement)
 };
 struct AstErrorProgramItem : public AstProgramItem, public AstErrorNode {
     BASE(AstErrorProgramItem)
-    AstErrorProgramItem(Token token) : AstErrorNode(token){}
     TO_STRING_NAME(AstErrorProgramItem)
 };
 // ----------------------------------| Statements |---------------------------------- //
@@ -170,7 +145,6 @@ struct AstReturn : public AstStatement {
     GET_SINGLE_CHILDREN(value)
 
     SINGLE_CHILD(AstExpression, value)
-    TOKEN(AstReturn)
 };
 
 struct AstExpressionStatement : public AstStatement {
@@ -193,7 +167,6 @@ struct AstConditionalStatement : public AstStatement {
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstStatement, trueStatement)
     SINGLE_CHILD(AstStatement, falseStatement)
-    TOKEN(AstConditionalStatement)
 };
 
 
@@ -205,7 +178,6 @@ struct AstWhileLoop : public AstStatement {
 
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstStatement, body)
-    TOKEN(AstWhileLoop)
 };
 
 
@@ -219,7 +191,6 @@ struct AstForLoopDeclaration : public AstStatement {
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstExpression, increment)
     SINGLE_CHILD(AstStatement, body)
-    TOKEN(AstForLoopDeclaration)
 };
 
 
@@ -233,7 +204,6 @@ struct AstForLoopExpression : public AstStatement {
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstExpression, increment)
     SINGLE_CHILD(AstStatement, body)
-    TOKEN(AstForLoopExpression)
 };
 
 
@@ -245,21 +215,18 @@ struct AstDoWhileLoop : public AstStatement {
 
     SINGLE_CHILD(AstStatement, body)
     SINGLE_CHILD(AstExpression, condition)
-    TOKEN(AstDoWhileLoop)
 };
 
 
 struct AstBreak : public AstStatement {
     BASE(AstBreak)
     TO_STRING(AstBreak)
-    TOKEN(AstBreak)
 };
 
 
 struct AstSkip : public AstStatement {
     BASE(AstSkip)
     TO_STRING(AstSkip)
-    TOKEN(AstSkip)
 };
 
 
@@ -267,7 +234,6 @@ struct AstSkip : public AstStatement {
 struct AstVariableAccess : public AstExpression {
     BASE(AstVariableAccess)
     TO_STRING_NAME(AstVariableAccess)
-    TOKEN(AstVariableAccess)
 };
 
 struct AstInteger : public AstExpression {
@@ -278,7 +244,6 @@ struct AstInteger : public AstExpression {
         return "AstInteger: " + std::to_string(value);
     }
     int64_t value;
-    TOKEN(AstInteger)
 };
 
 struct AstVariableAssignment : AstExpression{
@@ -289,21 +254,7 @@ struct AstVariableAssignment : AstExpression{
     GET_SINGLE_CHILDREN(value)
 
     SINGLE_CHILD(AstExpression, value)
-    TOKEN(AstVariableAssignment)
 };
-
-
-enum class AstUnaryType{
-    Negate,
-    LogicalNot,
-    BinaryNot,
-    None,
-};
-
-AstUnaryType toUnaryOperator(TokenType type);
-namespace std{
-    std::string to_string(AstUnaryType type);
-}
 
 struct AstUnary : public AstExpression {
     BASE(AstUnary)
@@ -315,36 +266,7 @@ struct AstUnary : public AstExpression {
 
     SINGLE_CHILD(AstExpression, value)
     AstUnaryType type = AstUnaryType::None;
-
-    TOKEN(AstUnary)
 };
-
-
-
-enum class AstBinaryType{
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-
-    Equal,
-    NotEqual,
-    LessThan,
-    LessThanOrEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
-
-    LogicalAnd,
-    LogicalOr,
-    
-    None,
-};
-
-AstBinaryType toBinaryOperator(TokenType type);
-namespace std{
-    std::string to_string(AstBinaryType type);
-}
 
 struct AstBinary : public AstExpression {
     BASE(AstBinary)
@@ -360,8 +282,6 @@ struct AstBinary : public AstExpression {
     SINGLE_CHILD(AstExpression, right)
 
     AstBinaryType type = AstBinaryType::None;
-
-    TOKEN(AstBinary)
 };
 struct AstConditionalExpression : public AstExpression {
     BASE(AstConditionalExpression)
@@ -386,30 +306,6 @@ struct AstFunctionCall : public AstExpression {
     GET_MULTI_CHILD(arguments)
 
     MULTI_CHILD(AstExpression, arguments)
-    TOKEN(AstFunctionCall)
-};
-
-// ----------------------------------| Types |---------------------------------- //
-struct AstTypeModifier : public virtual AstNode {
-    BASE(AstTypeModifier)
-    TO_STRING_NAME(AstTypeModifier)
-    TOKEN(AstTypeModifier)
-};
-
-struct AstBuiltinType : public AstType {
-    BASE(AstBuiltinType)
-    TO_STRING_NAME(AstBuiltinType)
-    TOKEN(AstBuiltinType)
-};
-
-struct AstArray : public AstType {
-    BASE(AstArray)
-    TO_STRING(AstArray)
-
-    CHILD_INIT(AstArray, AstType, type)
-    GET_SINGLE_CHILDREN(type)
-
-    SINGLE_CHILD(AstType, type)
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
@@ -417,13 +313,37 @@ struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem {
     BASE(AstVariableDeclaration)
     TO_STRING_NAME(AstVariableDeclaration)
 
-    GET_SINGLE_CHILDREN(type, value)
+    GET_SINGLE_CHILDREN(value)
 
-    SINGLE_CHILD(AstType, type)
     SINGLE_CHILD(AstExpression, value)
-    TOKEN(AstVariableDeclaration)
     bool isGlobal = false;
 };
+
+
+
+struct AstType : public AstNode{
+    AstType(RSharpType type);
+    AstType(RSharpType type, std::shared_ptr<AstType> subtype);
+    AstType(RSharpType type, std::vector<RSharpModifier> modifier);
+    AstType(RSharpType type, std::vector<RSharpModifier> modifier, std::shared_ptr<AstType> subtype);
+
+
+    BASE(AstType);
+    std::string toString() const override{
+        return "Semantic Type: " + std::to_string(this);
+    }
+
+    GET_SINGLE_CHILDREN(subtype)
+    SINGLE_CHILD(AstType, subtype)
+
+    RSharpType type = RSharpType::VOID;
+    std::vector<RSharpModifier> modifiers = {};
+};
+
+
+RSharpModifier stringToModifier(std::string const& str);
+RSharpType stringToType(std::string const& str);
+
 
 #undef BASE
 #undef GET_SINGLE_CHILDREN

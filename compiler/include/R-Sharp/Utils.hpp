@@ -9,3 +9,5 @@ std::string escapeString(std::string const& str);
 
 // removes comments and non-code tokens
 std::vector<Token> cleanTokens(std::vector<Token> const& tokens);
+
+void printErrorToken(Token token, std::string const& source);

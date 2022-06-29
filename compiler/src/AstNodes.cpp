@@ -1,18 +1,5 @@
 #include "R-Sharp/AstNodes.hpp"
 
-
-void AstNode::printTree(std::string prefix, bool isTail) const{
-    std::string nodeConnection = isTail ? "└── " : "├── ";
-    Print(prefix, nodeConnection, toString());
-
-    auto const& children = getChildren();
-    for (int i = 0; i < children.size(); i++) {
-        if (!children.at(i)) continue;
-        std::string newPrefix = prefix + (isTail ? "    " : "│   ");
-        children.at(i)->printTree(newPrefix, i == children.size()-1);
-    }
-}
-
 AstUnaryType toUnaryOperator(TokenType type){
     switch (type) {
         case TokenType::Minus:
@@ -62,6 +49,50 @@ AstBinaryType toBinaryOperator(TokenType type){
             Fatal("Invalid binary operator");
             return AstBinaryType::None;
     }
+}
+
+
+bool operator==(AstVariableDeclaration const& a, AstVariableDeclaration const& b){
+    if (a.name.size() && b.name.size() && a.name != b.name){
+        return false;
+    }
+    if (a.semanticType && b.semanticType && *a.semanticType != *b.semanticType)
+        return false;
+    
+
+    return true;
+}
+bool operator!=(AstVariableDeclaration const& a, AstVariableDeclaration const& b){
+    return !(a==b);
+}
+
+bool operator==(AstFunctionDeclaration const& a, AstFunctionDeclaration const& b){
+    if (a.name != b.name){
+        return false;
+    }
+    if (a.semanticType && b.semanticType && *a.semanticType != *b.semanticType){
+        return false;
+    }
+    if (a.parameters && b.parameters && *a.parameters != *b.parameters){
+        return false;
+    }
+    return true;
+}
+
+bool operator==(AstParameterList const& a, AstParameterList const& b){
+    if (a.parameters.size() != b.parameters.size()){
+        return false;
+    }
+
+    for (int i=0; i<a.parameters.size(); i++){
+        if (*a.parameters.at(i) != *b.parameters.at(i)){
+            return false;
+        }
+    }
+    return true;
+}
+bool operator!=(AstParameterList const& a, AstParameterList const& b){
+    return !(a==b);
 }
 
 namespace std{

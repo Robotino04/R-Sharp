@@ -81,7 +81,6 @@ class Parser{
 
         std::shared_ptr<AstStatement> parseStatement();
         std::shared_ptr<AstExpression> parseExpression();
-        std::shared_ptr<AstType> parseType();
         std::shared_ptr<AstDeclaration> parseDeclaration();
         std::shared_ptr<AstBlockItem> parseBlockItem();
 
@@ -108,12 +107,11 @@ class Parser{
         std::shared_ptr<AstVariableAccess> parseVariableAccess();
         std::shared_ptr<AstFunctionCall> parseFunctionCall();
 
-
-        std::shared_ptr<AstBuiltinType> parseBuiltinType();
-        std::shared_ptr<AstTypeModifier> parseTypeModifier();
-        std::shared_ptr<AstArray> parseArray();
-
         std::shared_ptr<AstVariableDeclaration> parseVariableDeclaration();
+
+
+        std::shared_ptr<AstType> parseType();
+        std::shared_ptr<AstType> parseArray();
 
         // helpers
         std::shared_ptr<AstStatement> parseForLoop();
