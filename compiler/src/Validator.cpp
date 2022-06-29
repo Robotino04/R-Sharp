@@ -1,28 +1,8 @@
 #include "R-Sharp/Validator.hpp"
 #include "R-Sharp/AstNodes.hpp"
+#include "R-Sharp/Utils.hpp"
 
 #include <sstream>
-
-
-std::string to_string(std::shared_ptr<AstTypeModifier> node){
-    return node->name;
-}
-std::string to_string(std::shared_ptr<AstType> node){
-    std::string result;
-    if (node->getType() == AstNodeType::AstArray){
-        auto node2 = std::static_pointer_cast<AstArray>(node);
-        result =  "[" + to_string(node2->type) + "]";
-    }
-    else if (node->getType() == AstNodeType::AstBuiltinType){
-        auto node2 = std::static_pointer_cast<AstBuiltinType>(node);
-        result = node2->name;
-    }
-
-    for (auto const& modifier : node->modifiers){
-        result += " " + to_string(modifier);
-    }
-    return result;
-}
 
 Validator::Validator(std::shared_ptr<AstNode> root, std::string const& filename, std::string const& source){
     this->root = root;
@@ -55,7 +35,7 @@ void Validator::popContext(){
     }
     variableContexts.pop_back();
 }
-bool Validator::isVariableDeclared(ValidatorVariable testVar){
+bool Validator::isVariableDeclared(AstVariableDeclaration const& testVar){
     for (auto it = variableContexts.rbegin(); it != variableContexts.rend(); it++){
         if (it->end() != std::find(it->begin(), it->end(), testVar)){
             return true;
@@ -63,38 +43,48 @@ bool Validator::isVariableDeclared(ValidatorVariable testVar){
     }
     return false;
 }
-bool Validator::isVariableDefinable(ValidatorVariable testVar){
+bool Validator::isVariableDefinable(AstVariableDeclaration const& testVar){
     auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), testVar);
+
     if (it == variableContexts.back().end()){
         return true;
     }
     else{
         if (it->isGlobal && testVar.isGlobal){
-            return !it->defined;
+            return !it->value;
         }
         else{
             return false;
         }
     }
 }
-void Validator::addVariable(ValidatorVariable var){
+void Validator::addVariable(AstVariableDeclaration const& var){
     auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), var);
     if (it == variableContexts.back().end()){
     variableContexts.back().push_back(var);
     }
-    else if (var.defined){
-        it->defined = true;
+    else if (var.value){
+        it->value = var.value;
     }
 }
+AstVariableDeclaration* Validator::getVariable(AstVariableDeclaration const& var){
+    for (auto it = variableContexts.rbegin(); it != variableContexts.rend(); it++){
+        auto it2 = std::find(it->begin(), it->end(), var);
+        if (it2 != it->end()){
+            return &(*it2);
+        }
+    }
+    return nullptr;
+}
 
 
-bool Validator::isFunctionDeclared(ValidatorFunction testFunc){
+bool Validator::isFunctionDeclared(AstFunctionDeclaration const& testFunc){
     return std::find(functions.begin(), functions.end(), testFunc) != functions.end();
 }
-bool Validator::isFunctionDeclarable(ValidatorFunction testFunc){
-    for (auto func : functions){
+bool Validator::isFunctionDeclarable(AstFunctionDeclaration const& testFunc){
+    for (auto const& func : functions){
         if (func.name == testFunc.name){
-            if (testFunc.parameters.size() == func.parameters.size()){
+            if (testFunc.parameters->parameters.size() == func.parameters->parameters.size()){
                 return true;
             }   
             else{
@@ -104,219 +94,247 @@ bool Validator::isFunctionDeclarable(ValidatorFunction testFunc){
     }
     return true;
 }
-bool Validator::isFunctionDefinable(ValidatorFunction testFunc){
+bool Validator::isFunctionDefinable(AstFunctionDeclaration const& testFunc){
     bool isDeclarable = isFunctionDeclarable(testFunc);
     if (isFunctionDeclared(testFunc)){
         auto it = std::find(functions.begin(), functions.end(), testFunc);
-        if (it->defined){
+        if (it->body){
             return false;
         }
     }
     return isDeclarable;
 }
-void Validator::addFunction(ValidatorFunction func){
+void Validator::addFunction(AstFunctionDeclaration const& func){
     auto it = std::find(functions.begin(), functions.end(), func);
+
     if (it == functions.end()){
         functions.push_back(func);
     }
-    else if (func.defined){
-        it->defined = true;
+    else if (func.body){
+        it->body = func.body;
+    }
+}
+AstFunctionDeclaration* Validator::getFunction(AstFunctionDeclaration const& func){
+    auto it = std::find(functions.begin(), functions.end(), func);
+    if (it == functions.end()){
+        return nullptr;
+    }
+    else{
+        return &(*it);
     }
 }
 
+void Validator::requireIdenticalTypes(AstNode* a, AstNode* b, std::string msg){
+    requireType(a);
+    requireType(b);
+    if (*a->semanticType != *b->semanticType){
+        if ((a->semanticType->type == RSharpType::I32 || a->semanticType->type == RSharpType::I64)
+         && (b->semanticType->type == RSharpType::I32 || b->semanticType->type == RSharpType::I64)
+        ){
+            Warning("using conversion between ", std::to_string(a->semanticType.get()), " and ", std::to_string(b->semanticType.get()));
+            return;
+        }
+
+        hasError = true;
+        Error("Error: ", msg);
+        printErrorToken(a->token, source);
+        printErrorToken(b->token, source);
+    }
+}
+void Validator::requireType(AstNode* node){
+    if (!node->semanticType){
+        hasError = true;
+        Error("INTERNAL ERROR: operand doesn't have a semanticType");
+        printErrorToken(node->token, source);
+        exit(1);
+    }
+}
 
 void Validator::visit(AstBlock* node){
     pushContext();
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
-    }
+    AstVisitor::visit((AstNode*)node);
     popContext();
+}
+void Validator::visit(AstReturn* node){
+    AstVisitor::visit((AstNode*)node);
+    node->semanticType = node->value->semanticType;
+}
+void Validator::visit(AstExpressionStatement* node){
+    AstVisitor::visit((AstNode*)node);
+    node->semanticType = node->expression->semanticType;
 }
 void Validator::visit(AstForLoopDeclaration* node){
     pushContext();
     numLoops++;
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
-    }
+    AstVisitor::visit((AstNode*)node);
     numLoops--;
     popContext();
 }
 void Validator::visit(AstForLoopExpression* node){
     numLoops++;
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
-    }
+    AstVisitor::visit((AstNode*)node);
     numLoops--;
 }
 void Validator::visit(AstWhileLoop* node){
     numLoops++;
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
-    }
+    AstVisitor::visit((AstNode*)node);
     numLoops--;
 }
 void Validator::visit(AstDoWhileLoop* node){
     numLoops++;
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
-    }
+    AstVisitor::visit((AstNode*)node);
     numLoops--;
 }
 void Validator::visit(AstBreak* node){
     if (numLoops == 0){
         hasError = true;
         Error("Break statement outside loop");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }
 }
 void Validator::visit(AstSkip* node){
     if (numLoops == 0){
         hasError = true;
         Error("Skip statement outside loop");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }
 }
 
+void Validator::visit(AstUnary* node){
+    AstVisitor::visit((AstNode*)node);
+    requireType(node->value.get());
+    node->semanticType = node->value->semanticType;
+}
+void Validator::visit(AstBinary* node){
+    AstVisitor::visit((AstNode*)node);
+    requireIdenticalTypes(node->left.get(), node->right.get(), "Binary operands don't match in semantical type");
+    node->semanticType = node->left->semanticType;
+}
 void Validator::visit(AstVariableAccess* node){
-    if (!isVariableDeclared({node->name, ""})){
+    AstVariableDeclaration testVar;
+    testVar.name = node->name;
+    if (isVariableDeclared(testVar)){
+        auto var = getVariable(testVar);
+        if (var){
+            node->semanticType = var->semanticType;
+        }
+        else{
+            Fatal("INTERNAL ERROR: variable declared but not found in variable stack");
+        }
+    }
+    else{
         hasError = true;
         Error("Error: variable \"", node->name, "\" is not declared");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }
 }
 void Validator::visit(AstVariableAssignment* node){
-    if (!isVariableDeclared({node->name, ""})){
+    AstVisitor::visit((AstNode*)node);
+    AstVariableDeclaration testVar;
+    testVar.name = node->name;
+    requireType(node->value.get());
+    testVar.semanticType = node->value->semanticType;
+    node->semanticType = node->value->semanticType;
+    if (!isVariableDeclared(testVar)){
         hasError = true;
         Error("Error: variable \"", node->name, "\" is not declared");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }
 }
 void Validator::visit(AstVariableDeclaration* node){
-    ValidatorVariable var = {node->name, to_string(node->type), false, node->isGlobal};
+    AstVisitor::visit((AstNode*)node);
+    if (node->value){
+        requireIdenticalTypes(node, node->value.get(),
+            "value assigned to variable of different semantical type");
+    }
     if (node->isGlobal){
-        if (isFunctionDeclared({var.name, ""})){
+        AstFunctionDeclaration testFunc;
+        testFunc.name = node->name;
+        if (isFunctionDeclared(testFunc)){
             hasError = true;
-            Error("Error: global variable \"", var.name, "\" is already declared as a function");
-            printErrorToken(node->token);
+            Error("Error: global variable \"", node->name, "\" is already declared as a function");
+            printErrorToken(node->token, source);
         }
         if (node->value && node->value->getType() != AstNodeType::AstInteger){
             hasError = true;
-            Error("Error: global variable \"", var.name, "\" must be initialized to a constant value");
-            printErrorToken(node->token);
+            Error("Error: global variable \"", node->name, "\" must be initialized to a constant value");
+            printErrorToken(node->token, source);
         }
     }
-    if (!isVariableDefinable(var)){
+    if (!isVariableDefinable(*node)){
         hasError = true;
         Error("Error: variable \"", node->name, "\" is defined multiple times");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }else{
-        addVariable(var);
+        addVariable(*node);
     }
 }
+void Validator::visit(AstConditionalExpression* node){
+    AstVisitor::visit((AstNode*)node);
+    requireType(node->condition.get());
+    requireType(node->trueExpression.get());
+    requireType(node->falseExpression.get());
+
+    requireIdenticalTypes(node->falseExpression.get(), node->trueExpression.get(),
+        "true and false ternary expressions don't match in semantic type");
+
+    node->semanticType = node->trueExpression->semanticType;
+}
 void Validator::visit(AstFunctionCall* node){
-    ValidatorFunction thisFunc = {node->name, "", {}, false};
+    AstFunctionDeclaration testFunc;
+    testFunc.name = node->name;
+    testFunc.parameters = std::make_shared<AstParameterList>();
     for (auto arg : node->arguments){
-        thisFunc.parameters.push_back({"", ""});
+        testFunc.parameters->parameters.push_back(std::make_shared<AstVariableDeclaration>());
+        testFunc.parameters->parameters.back()->semanticType = arg->semanticType;
     }
-    if (!isFunctionDeclared(thisFunc)){
+
+    if (isFunctionDeclared(testFunc)){
+        node->semanticType = getFunction(testFunc)->semanticType;
+    }
+    else{
         hasError = true;
         Error("Error: function \"", node->name, "\" is not declared (wrong number of arguments?)");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }
 }
 void Validator::visit(AstFunctionDeclaration* node){
-    ValidatorFunction thisFunc = {node->name, to_string(node->returnType), {}, false};
-    for (auto param : node->parameters->parameters){
-        thisFunc.parameters.push_back({param->name, to_string(param->type)});
-    }
-
-    if (isVariableDeclared({node->name, ""})){
+    AstVariableDeclaration testVar;
+    testVar.name = node->name;
+    if (isVariableDeclared(testVar)){
         hasError = true;
         Error("Error: function \"", node->name, "\" is already declared as a variable");
-        printErrorToken(node->token);
+        printErrorToken(node->token, source);
     }
 
-    if (isFunctionDeclarable(thisFunc)){
-        addFunction(thisFunc);
+    if (node->body){
+        if (isFunctionDefinable(*node)){
+            addFunction(*node);
+        }
+        else{
+            hasError = true;
+            Error("Error: function \"", node->name, "\" is already defined");
+            printErrorToken(node->token, source);
+        }
     }
     else{
-        hasError = true;
-        Error("Error: function \"", node->name, "\" is already declared (possibly with different parameters)");
-        printErrorToken(node->token);
+        if (isFunctionDeclarable(*node)){
+            addFunction(*node);
+        }
+        else{
+            hasError = true;
+            Error("Error: function \"", node->name, "\" is already declared (possibly with different parameters)");
+            printErrorToken(node->token, source);
+        }
     }
-    addFunction(thisFunc);
-}
-void Validator::visit(AstFunction* node){
-    ValidatorFunction thisFunc = {node->name, to_string(node->returnType), {}, true};
-    for (auto param : node->parameters->parameters){
-        thisFunc.parameters.push_back({param->name, to_string(param->type)});
-    }
-
-    if (isVariableDeclared({node->name, ""})){
-        hasError = true;
-        Error("Error: function \"", node->name, "\" is already declared as a variable");
-        printErrorToken(node->token);
-    }
-
-    if (isFunctionDefinable(thisFunc)){
-        addFunction(thisFunc);
-    }
-    else{
-        hasError = true;
-        Error("Error: function \"", node->name, "\" is already declared with different parameters");
-        printErrorToken(node->token);
-    }
+    
     // push the function context to include parameters
-    pushContext();
-    for (auto const& child : node->getChildren()){
-        child->accept(this);
+    if (node->body){
+        pushContext();
+        AstVisitor::visit((AstNode*)node);
+        // force the function body to use the same context as the parameters
+        forceContextCollapse();
+        node->body->accept(this);
+        // since the context is collapsed, the function body has alredy popped the context
     }
-    // force the function body to use the same context as the parameters
-    forceContextCollapse();
-    node->body->accept(this);
-    // since the context is collapsed, the function body has alredy popped the context
-}
-
-void Validator::printErrorToken(Token token){
-    int start = token.position.startPos;
-    int end = token.position.endPos;
-
-    std::string src = source;
-    src.replace(start, end - start, "\033[31m" + src.substr(start, end - start) + "\033[0m");
-
-    // print the error and 3 lines above it
-    std::stringstream ss;
-    int line = 1;
-    int column = 1;
-    int pos = 0;
-
-    for (char c : src) {
-        if (line >= token.position.line - 3 && line <= token.position.line) {
-            if (column == 1){
-                ss << line << "| ";
-            }
-            if (line == token.position.line && c == '\n') break;
-            ss << c;
-        }
-        pos++;
-        if (c == '\n') {
-            line++;
-            column = 1;
-        } else {
-            column++;
-        }
-    }
-
-    int prefixLen = (std::to_string(token.position.line) + "| ").length();
-
-    ss << "\n\033[31m" // enable red text
-        << std::string(prefixLen + token.position.column - 1, ' ') // print spaces before the error
-        << "^";
-    try {
-        ss << std::string(end - start - 1, '~'); // underline the error
-    }
-    catch(std::length_error){}
-
-    ss << "\033[0m"; // disable red text
-    Print(ss.str());
 }

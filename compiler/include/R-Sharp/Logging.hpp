@@ -81,21 +81,21 @@ namespace Internals{
 
 template<typename ...Args>
 inline void Fatal(Args&& ...args){
-    Internals::printToStream(std::cerr, Internals::colorRed, "[ERROR]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
+    Internals::printToStream(std::cout, Internals::colorRed, "[ERROR]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
     exit(1);
 }
 template<typename ...Args>
 inline void Error(Args&& ...args){
     Internals::registerError();
-    Internals::printToStream(std::cerr, Internals::colorRed, "[ERROR]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
+    Internals::printToStream(std::cout, Internals::colorRed, "[ERROR]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
 }
 template<typename ...Args>
 inline void Warning(Args&& ...args){
-    Internals::printToStream(std::clog, Internals::colorYellow, "[WARNING]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
+    Internals::printToStream(std::cout, Internals::colorYellow, "[WARNING]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
 }
 template<typename ...Args>
 inline void Log(Args&& ...args){
-    Internals::printToStream(std::clog, Internals::colorBrightBlue, "[LOG]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
+    Internals::printToStream(std::cout, Internals::colorBrightBlue, "[LOG]", Internals::getContext(), ": ", Internals::colorReset, args..., '\n');
 }
 template<typename ...Args>
 inline void Print(Args&& ...args){

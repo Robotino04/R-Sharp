@@ -52,7 +52,7 @@ void CCodeGenerator::visit(AstProgram* node){
 void CCodeGenerator::visit(AstParameterList* node){
     emit("(");
     for (auto const& parameter : node->parameters) {
-        parameter->type->accept(this);
+        // parameter->type->accept(this);
         emit(" " + parameter->name);
 
         if (parameter != node->parameters.back()) {
@@ -63,27 +63,27 @@ void CCodeGenerator::visit(AstParameterList* node){
 }
 
 // program items
-void CCodeGenerator::visit(AstFunction* node){
-    node->returnType->accept(this);
+void CCodeGenerator::visit(AstFunctionDeclaration* node){
+    node->semanticType->accept(this);
     emit(" " + node->name);
     node->parameters->accept(this);
 
-    if (node->body->getType() == AstNodeType::AstBlock)
-        node->body->accept(this);
+    if (node->body){
+        if (node->body->getType() == AstNodeType::AstBlock)
+            node->body->accept(this);
+        else{
+            emit("{\n");
+            indent();
+            node->body->accept(this);
+            dedent();
+            emit("\n");
+            emitIndented("}");
+        }
+    }
     else{
-        emit("{\n");
-        indent();
-        node->body->accept(this);
-        dedent();
-        emit("\n}");
+        emit(";\n");
     }
 
-}
-void CCodeGenerator::visit(AstFunctionDeclaration* node){
-    node->returnType->accept(this);
-    emit(" " + node->name);
-    node->parameters->accept(this);
-    emit(";");
 }
 
 // Statements
@@ -301,44 +301,27 @@ void CCodeGenerator::visit(AstFunctionCall* node){
     }
     emit(")");
 }
-
-
-// Types
-void CCodeGenerator::visit(AstBuiltinType* node){
-    for (auto const& modifier : node->modifiers) {
-        modifier->accept(this);
-        emit(" ");
-    }
-    if (node->name == "i64"){
-        emit("int64_t");
-    }
-    else if (node->name == "i32"){
-        emit("int32_t");
-    }
-    else{
-        Fatal("Invalid builtin type ", node->name);
-    }
-}
-void CCodeGenerator::visit(AstArray* node){
-    node->type->accept(this);
-    emit("*");
-    for (auto const& modifier : node->modifiers) {
-        modifier->accept(this);
-        emit(" ");
-    }
-}
-void CCodeGenerator::visit(AstTypeModifier* node){
-    emit(node->name);
-}
-
 // Declarations
 void CCodeGenerator::visit(AstVariableDeclaration* node){
     emitIndented("");
-    node->type->accept(this);
+    node->semanticType->accept(this);
     emit(" " + node->name);
     if (node->value){
         emit(" = ");
         node->value->accept(this);
     }
     emit(";");
+}
+void CCodeGenerator::visit(AstType* node){
+    if (node->modifiers.size() != 0){
+        Fatal("Type modifiers aren't implemented yet");
+    }
+    switch (node->type){
+        case RSharpType::I32: emit("int32_t"); break;
+        case RSharpType::I64: emit("int64_t"); break;
+
+        default:
+            Fatal("Unimplemented type Nr.", static_cast<int>(node->type));
+            break;
+    }
 }

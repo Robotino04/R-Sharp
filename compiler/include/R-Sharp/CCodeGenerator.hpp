@@ -14,7 +14,6 @@ class CCodeGenerator : public AstVisitor {
         void visit(AstProgram* node) override;
         void visit(AstParameterList* node) override;
 
-        void visit(AstFunction* node) override;
         void visit(AstFunctionDeclaration* node) override;
 
         void visit(AstBlock* node) override;
@@ -37,11 +36,8 @@ class CCodeGenerator : public AstVisitor {
         void visit(AstConditionalExpression* node) override;
         void visit(AstFunctionCall* node) override;
 
-        void visit(AstBuiltinType* node) override;
-        void visit(AstTypeModifier* node) override;
-        void visit(AstArray* node) override;
-
         void visit(AstVariableDeclaration* node) override;
+        void visit(AstType* node) override;
 
     private:
         void indent();

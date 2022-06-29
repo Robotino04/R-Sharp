@@ -1,6 +1,7 @@
 #include "R-Sharp/NASMCodeGenerator.hpp"
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/AstNodes.hpp"
+#include "R-Sharp/Utils.hpp"
 
 #include <sstream>
 
@@ -109,21 +110,30 @@ std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
 NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
     Variable var;
     var.name = node->name;
-    if (node->type->getType() == AstNodeType::AstBuiltinType)
-        var.type = std::static_pointer_cast<AstBuiltinType>(node->type)->name;
-    else{
-        Error("Only builtin types are supported");
-        printErrorToken(node->token);
+    var.type = node->semanticType;
+    
+    // if (node->type->getType() == AstNodeType::AstBuiltinType)
+    //     var.type = std::static_pointer_cast<AstBuiltinType>(node->type)->name;
+    // else{
+    //     Error("Only builtin types are supported");
+    //     printErrorToken(node->token, R_SharpSource);
+    //     exit(1);
+    // }
+    if (!var.type){
+        Error("INTERNAL ERROR: AstVariableDeclaration has no semanticType");
+        printErrorToken(node->token, R_SharpSource);
         exit(1);
     }
-    if (var.type == "i64"){
+    if (var.type->type == RSharpType::I64){
         var.size = 8;
     }
-    else if (var.type == "i32"){
+    else if (var.type->type == RSharpType::I32){
         var.size = 4;
     }
     else{
-        Fatal("Only i64 and i32 are supported");
+        Error("Unsupported type Nr.", static_cast<int>(var.type->type));
+        printErrorToken(node->token, R_SharpSource);
+        exit(1);
     }
 
     if (node->isGlobal){
@@ -132,7 +142,7 @@ NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(AstVariableDeclaratio
             auto match = std::find(globalScope.variables.begin(), globalScope.variables.end(), var);
             if (match->initialized){
                 Error("Variable " + var.name + " is already defined");
-                printErrorToken(node->token);
+                printErrorToken(node->token, R_SharpSource);
                 exit(1);
             }
             else{
@@ -249,7 +259,8 @@ std::string NASMCodeGenerator::sizeToNASMType(int size){
 // program
 void NASMCodeGenerator::visit(AstProgram* node){
     for (auto const& child : node->getChildren()){
-        if (child->getType() == AstNodeType::AstFunction || child->getType() == AstNodeType::AstFunctionDeclaration){
+        if (!child) continue;
+        if (child->getType() == AstNodeType::AstFunctionDeclaration){
             child->accept(this);
         }
         else if (child->getType() == AstNodeType::AstVariableDeclaration){
@@ -288,33 +299,36 @@ void NASMCodeGenerator::visit(AstParameterList* node){
 }
 
 // definitions
-void NASMCodeGenerator::visit(AstFunction* node){
-    emitIndented("; Function " + node->name + "\n\n");
-    emitIndented("global " + node->name + "\n");
-    emitIndented(node->name + ":\n");
-    indent();
-    pushStackFrame();
+void NASMCodeGenerator::visit(AstFunctionDeclaration* node){
 
-    node->parameters->accept(this);
-    node->body->accept(this);
+    if (node->body){
+        emitIndented("; Function " + node->name + "\n\n");
+        emitIndented("global " + node->name + "\n");
+        emitIndented(node->name + ":\n");
+        indent();
+        pushStackFrame();
 
-    popStackFrame();
-    emitIndented("mov rax, 0\n");
-    emitIndented("ret\n");
-    dedent();
+        node->parameters->accept(this);
+        node->body->accept(this);
 
-    // remove this function from externFunctions
-    for (auto it = externFunctions.begin(); it != externFunctions.end(); it++){
-        if (*it == node->name){
-            externFunctions.erase(it);
-            break;
+        popStackFrame();
+        emitIndented("mov rax, 0\n");
+        emitIndented("ret\n");
+        dedent();
+
+        // remove this function from externFunctions
+        for (auto it = externFunctions.begin(); it != externFunctions.end(); it++){
+            if (*it == node->name){
+                externFunctions.erase(it);
+                break;
+            }
         }
     }
-}
-void NASMCodeGenerator::visit(AstFunctionDeclaration* node){
-    // add function to externFunctions if it is not already there
-    if (std::find(externFunctions.begin(), externFunctions.end(), node->name) == externFunctions.end()){
-        externFunctions.push_back(node->name);
+    else{
+        // add function to externFunctions if it is not already there
+        if (std::find(externFunctions.begin(), externFunctions.end(), node->name) == externFunctions.end()){
+            externFunctions.push_back(node->name);
+        }
     }
 }
 
@@ -323,7 +337,7 @@ void NASMCodeGenerator::visit(AstFunctionDeclaration* node){
 void NASMCodeGenerator::visit(AstBlock* node){
     pushVariableScope();
     for (auto const& child : node->getChildren()){
-        child->accept(this);
+        if (child) child->accept(this);
     }
     popVariableScope();
 }
@@ -516,7 +530,7 @@ void NASMCodeGenerator::visit(AstUnary* node){
             break;
         default:
             Error("NASM Generator: Unary operator not implemented!");
-            printErrorToken(node->token);
+            printErrorToken(node->token, R_SharpSource);
             exit(1);
             break;
     }
@@ -633,7 +647,7 @@ void NASMCodeGenerator::visit(AstBinary* node){
         }
         default:
             Error("NASM Generator: Binary operator not implemented!");
-            printErrorToken(node->token);
+            printErrorToken(node->token, R_SharpSource);
             exit(1);
             break;
     }
@@ -679,7 +693,7 @@ void NASMCodeGenerator::visit(AstFunctionCall* node){
 
     if (node->arguments.size() > 6){
         Error("NASM Generator: More than 6 parameters are not supported yet!");
-        printErrorToken(node->token);
+        printErrorToken(node->token, R_SharpSource);
         exit(1);
     }
     // save registers
@@ -740,7 +754,7 @@ void NASMCodeGenerator::visit(AstVariableDeclaration* node){
         }
         if (node->value->getType() != AstNodeType::AstInteger){
             Error("NASM Generator: Global variable must be of type integer!");
-            printErrorToken(node->token);
+            printErrorToken(node->token, R_SharpSource);
             exit(1);
         }
         auto intNode = std::static_pointer_cast<AstInteger>(node->value);
@@ -756,7 +770,7 @@ void NASMCodeGenerator::visit(AstVariableDeclaration* node){
             case 8: emit("    dq " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
             default:
                 Error("NASM Generator: Global variable size not supported!");
-                printErrorToken(node->token);
+                printErrorToken(node->token, R_SharpSource);
                 exit(1);
                 break;
         }
@@ -771,49 +785,4 @@ void NASMCodeGenerator::visit(AstVariableDeclaration* node){
             emitIndented("push " + sizeToNASMType(var.size) + " 0\n");
         }
     }
-}
-
-
-void NASMCodeGenerator::printErrorToken(Token token){
-    int start = token.position.startPos;
-    int end = token.position.endPos;
-
-    std::string src = R_SharpSource;
-    src.replace(start, end - start, "\033[31m" + src.substr(start, end - start) + "\033[0m");
-
-    // print the error and 3 lines above it
-    std::stringstream ss;
-    int line = 1;
-    int column = 1;
-    int pos = 0;
-
-    for (char c : src) {
-        if (line >= token.position.line - 3 && line <= token.position.line) {
-            if (column == 1){
-                ss << line << "| ";
-            }
-            if (line == token.position.line && c == '\n') break;
-            ss << c;
-        }
-        pos++;
-        if (c == '\n') {
-            line++;
-            column = 1;
-        } else {
-            column++;
-        }
-    }
-
-    int prefixLen = (std::to_string(token.position.line) + "| ").length();
-
-    ss << "\n\033[31m" // enable red text
-        << std::string(prefixLen + token.position.column - 1, ' ') // print spaces before the error
-        << "^";
-    try {
-        ss << std::string(end - start - 1, '~'); // underline the error
-    }
-    catch(std::length_error){}
-
-    ss << "\033[0m"; // disable red text
-    Print(ss.str());
 }

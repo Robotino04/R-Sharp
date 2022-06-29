@@ -12,7 +12,6 @@ enum class AstNodeType {
     AstProgram,
     AstParameterList,
 
-    AstFunction,
     AstFunctionDeclaration,
 
     AstErrorStatement,
@@ -39,21 +38,9 @@ enum class AstNodeType {
     AstFunctionCall,
 
     AstVariableDeclaration,
-    AstBuiltinType,
-    AstTypeModifier,
-    AstArray,
+    AstType
 };
 
-struct AstNode{
-    virtual ~AstNode() = default;
-
-    void printTree(std::string prefix="", bool isTail=true) const;
-
-    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {};};
-    virtual AstNodeType getType() const = 0;
-    virtual std::string toString() const = 0;
-    virtual void accept(AstVisitor* visitor) = 0;
-};
 
 // forward declarations for all the AST nodes
 struct AstProgram;
@@ -63,12 +50,10 @@ struct AstErrorProgramItem;
 
 struct AstStatement;
 struct AstExpression;
-struct AstType;
 struct AstDeclaration;
 struct AstBlockItem;
 struct AstProgramItem;
 
-struct AstFunction;
 struct AstFunctionDeclaration;
 
 struct AstBlock;
@@ -91,9 +76,78 @@ struct AstConditionalExpression;
 struct AstEmptyExpression;
 struct AstFunctionCall;
 
-struct AstBuiltinType;
-struct AstTypeModifier;
-struct AstParameterList;
-struct AstArray;
-
 struct AstVariableDeclaration;
+struct AstParameterList;
+struct AstType;
+
+struct AstNode{
+    virtual ~AstNode() = default;
+    AstNode() = default;
+
+    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {std::static_pointer_cast<AstNode>(semanticType)};};
+    virtual AstNodeType getType() const = 0;
+    virtual std::string toString() const = 0;
+    virtual void accept(AstVisitor* visitor) = 0;
+
+    std::shared_ptr<AstType> semanticType = nullptr;
+    Token token;
+};
+
+
+enum class RSharpType{
+    NONE,
+    VOID,
+    I32,
+    I64,
+    ARRAY,
+};
+enum class RSharpModifier{
+    NONE,
+    CONST,
+};
+
+enum class AstBinaryType{
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+
+    LogicalAnd,
+    LogicalOr,
+    
+    None,
+};
+enum class AstUnaryType{
+    Negate,
+    LogicalNot,
+    BinaryNot,
+    None,
+};
+
+
+bool operator==(AstType const& a, AstType const& b);
+bool operator!=(AstType const& a, AstType const& b);
+bool operator==(AstVariableDeclaration const& a, AstVariableDeclaration const& b);
+bool operator!=(AstVariableDeclaration const& a, AstVariableDeclaration const& b);
+bool operator==(AstFunctionDeclaration const& a, AstFunctionDeclaration const& b);
+bool operator==(AstParameterList const& a, AstParameterList const& b);
+bool operator!=(AstParameterList const& a, AstParameterList const& b);
+
+
+AstUnaryType toUnaryOperator(TokenType type);
+AstBinaryType toBinaryOperator(TokenType type);
+
+namespace std{
+    std::string to_string(AstUnaryType type);
+    std::string to_string(AstBinaryType type);
+    std::string to_string(const AstType* type);
+    std::string to_string(RSharpModifier mod);
+}

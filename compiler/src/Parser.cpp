@@ -142,12 +142,12 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         }
         catch(ParsingError const& e){}
 
-        std::shared_ptr<AstFunction> function = std::make_shared<AstFunction>(consume(TokenType::ID));
+        auto function = std::make_shared<AstFunctionDeclaration>(consume(TokenType::ID));
         function->name = function->token.value;
 
         function->parameters = parseParameterList();
         consume(TokenType::Colon);
-        function->returnType = parseType();
+        function->semanticType = parseType();
 
         if (match(TokenType::Semicolon)){
             // it is a function declaration
@@ -155,7 +155,7 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
             auto decl = std::make_shared<AstFunctionDeclaration>(function->token);
             decl->name = function->name;
             decl->parameters = function->parameters;
-            decl->returnType = function->returnType;
+            decl->semanticType = function->semanticType;
             return decl;
         }
         else{
@@ -234,26 +234,6 @@ std::shared_ptr<AstExpression> Parser::parseExpression() {
     }
     else{
         return parseConditionalExpression();
-    }
-}
-std::shared_ptr<AstType> Parser::parseType() {
-    std::vector<std::shared_ptr<AstTypeModifier>> typeModifiers;
-    while (match(TokenType::TypeModifier)) {
-        typeModifiers.push_back(parseTypeModifier());
-    }
-    if (match(TokenType::LeftBracket)) {
-        auto type = parseArray();
-        type->modifiers = typeModifiers;
-        return type;
-    }
-    else if (match(TokenType::Typename)) {
-        auto type = parseBuiltinType();
-        type->modifiers = typeModifiers;
-        return type;
-    }
-    else {
-        parserError("Expected typename, type modifier or array but got ", getCurrentToken());
-        return nullptr;
     }
 }
 std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
@@ -493,6 +473,7 @@ std::shared_ptr<AstInteger> Parser::parseNumber() {
     if (iss.fail()) {
         parserError("Expected number but got ", number->token);
     }
+    number->semanticType = std::make_shared<AstType>(RSharpType::I64);
     return number;
 }
 std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
@@ -524,15 +505,44 @@ std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
 }
 
 
-std::shared_ptr<AstBuiltinType> Parser::parseBuiltinType() {
-    std::shared_ptr<AstBuiltinType> type = std::make_shared<AstBuiltinType>(consume(TokenType::Typename));
-    type->name = type->token.value;
-    return type;
+std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
+    std::shared_ptr<AstVariableDeclaration> variable = std::make_shared<AstVariableDeclaration>(consume(TokenType::Identifier));
+    variable->name = variable->token.value;
+    consume(TokenType::Colon);
+    variable->semanticType = parseType();
+    if (match(TokenType::Assign)) {
+        consume(TokenType::Assign);
+        variable->value = parseExpression();
+    }
+    return variable;
 }
-std::shared_ptr<AstTypeModifier> Parser::parseTypeModifier() {
-    std::shared_ptr<AstTypeModifier> typeModifier = std::make_shared<AstTypeModifier>(consume(TokenType::TypeModifier));
-    typeModifier->name = typeModifier->token.value;
-    return typeModifier;
+
+
+std::shared_ptr<AstType> Parser::parseType() {
+    std::vector<RSharpModifier> typeModifiers;
+    while (match(TokenType::TypeModifier)) {
+        auto modifier = stringToModifier(consume(TokenType::TypeModifier).value);
+        if (modifier == RSharpModifier::NONE) {
+            parserError("Unknown type modifier ", getCurrentToken());
+        }
+        typeModifiers.push_back(modifier);
+    }
+    if (match(TokenType::LeftBracket)) {
+        auto type = parseArray();
+        type->modifiers = typeModifiers;
+        return type;
+    }
+    else if (match(TokenType::Typename)) {
+        auto type = stringToType(consume(TokenType::Typename).value);
+        if (type == RSharpType::NONE) {
+            parserError("Unknown type ", getCurrentToken());
+        }
+        return std::make_shared<AstType>(type, typeModifiers);
+    }
+    else {
+        parserError("Expected typename, type modifier or array but got ", getCurrentToken());
+        return nullptr;
+    }
 }
 std::shared_ptr<AstParameterList> Parser::parseParameterList() {
     std::shared_ptr<AstParameterList> parameterList = std::make_shared<AstParameterList>();
@@ -546,27 +556,13 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
     consume(TokenType::RightParen);
     return parameterList;
 }
-std::shared_ptr<AstArray> Parser::parseArray() {
-    std::shared_ptr<AstArray> array = std::make_shared<AstArray>();
+std::shared_ptr<AstType> Parser::parseArray() {
+    auto array = std::make_shared<AstType>();
     consume(TokenType::LeftBracket);
-    array->type = parseType();
+    array->subtype = parseType();
     consume(TokenType::RightBracket);
     return array;
 }
-
-
-std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
-    std::shared_ptr<AstVariableDeclaration> variable = std::make_shared<AstVariableDeclaration>(consume(TokenType::Identifier));
-    variable->name = variable->token.value;
-    consume(TokenType::Colon);
-    variable->type = parseType();
-    if (match(TokenType::Assign)) {
-        consume(TokenType::Assign);
-        variable->value = parseExpression();
-    }
-    return variable;
-}
-
 
 // helpers
 std::shared_ptr<AstExpression> Parser::parseOptionalExpression(){
