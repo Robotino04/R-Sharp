@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.0)
 cmake_policy(SET CMP0110 NEW)
 project("R Sharp")
 enable_testing()
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ";${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
 
 macro(add_valiadtive_test test_name test_file, out_dir out_lang)
     add_test(NAME "${test_name} (${out_lang})" COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir} ${out_lang})
