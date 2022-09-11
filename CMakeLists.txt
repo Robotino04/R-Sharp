@@ -23,7 +23,13 @@ foreach(test_file ${RSHARP_TESTS})
     get_filename_component(test_filename ${test_name}, NAME_WE)
 
     add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "c")
-    add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "nasm")
+    
+    # only add tests for the native architecture
+    if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "x86_64")
+        add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "nasm")
+    else(${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+        add_valiadtive_test("${test_dir}/${test_filename}" ${test_file} "${CMAKE_BINARY_DIR}/tests/${test_dir}" "aarch64")
+    endif()
 
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/tests/${test_dir}")
 endforeach()
@@ -40,11 +46,14 @@ endforeach(test_file)
 
 list(REMOVE_DUPLICATES TEST_GROUPS)
 
+
 foreach(group ${TEST_GROUPS})
-add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "/${group}/" DEPENDS rsc compilerTester)
-add_custom_target(test_${group}_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(nasm\\)\"" DEPENDS rsc compilerTester)
-add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(c\\)\"" DEPENDS rsc compilerTester)
+    add_custom_target(test_${group} COMMAND ${CMAKE_CTEST_COMMAND} -R "/${group}/" DEPENDS rsc compilerTester)
+    add_custom_target(test_${group}_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(nasm\\)\"" DEPENDS rsc compilerTester)
+    add_custom_target(test_${group}_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(c\\)\"" DEPENDS rsc compilerTester)
+    add_custom_target(test_${group}_aarch64 COMMAND ${CMAKE_CTEST_COMMAND} -R "\"/${group}/.*\\(aarch64\\)\"" DEPENDS rsc compilerTester)
 endforeach(group)
 
 add_custom_target(test_nasm COMMAND ${CMAKE_CTEST_COMMAND} -R "\".*\\(nasm\\)\"" DEPENDS rsc compilerTester)
+add_custom_target(test_aarch64 COMMAND ${CMAKE_CTEST_COMMAND} -R "\".*\\(aarch64\\)\"" DEPENDS rsc compilerTester)
 add_custom_target(test_c COMMAND ${CMAKE_CTEST_COMMAND} -R "\".*\\(c\\)\"" DEPENDS rsc compilerTester)

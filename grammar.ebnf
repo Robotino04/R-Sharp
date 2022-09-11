@@ -51,3 +51,6 @@ parameter-list = <name> ':' <type-or-array> {',' <variable>}
 
 declaration = <name> ':' <type-or-array> ['=' <expression>] ';'
 assignment = <name> '=' <expression>
+
+name = '_' | <letter> {<letter> | <digit>}
+letter = ''

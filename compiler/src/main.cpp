@@ -13,6 +13,7 @@
 #include "R-Sharp/AstPrinter.hpp"
 #include "R-Sharp/CCodeGenerator.hpp"
 #include "R-Sharp/NASMCodeGenerator.hpp"
+#include "R-Sharp/AArch64CodeGenerator.hpp"
 #include "R-Sharp/ErrorPrinter.hpp"
 #include "R-Sharp/Validator.hpp"
 
@@ -78,7 +79,8 @@ std::string tokensToString(std::vector<Token> const& tokens) {
 
 enum class OutputFormat {
     C,
-    NASM
+    NASM,
+    AArch64,
 };
 
 int main(int argc, const char** argv) {
@@ -111,9 +113,14 @@ int main(int argc, const char** argv) {
                 std::string format = argv[i+1];
                 if (format == "c") {
                     outputFormat = OutputFormat::C;
-                } else if (format == "nasm") {
+                }
+                else if (format == "nasm") {
                     outputFormat = OutputFormat::NASM;
-                } else {
+                }
+                else if (format == "aarch64") {
+                    outputFormat = OutputFormat::AArch64;
+                }
+                else {
                     Error("Unknown output format \"" + format + "\"");
                     return 1;
                 }
@@ -201,6 +208,9 @@ int main(int argc, const char** argv) {
             case OutputFormat::NASM:
                 outputSource = NASMCodeGenerator(ast, R_Sharp_Source).generate();
                 break;
+            case OutputFormat::AArch64:
+                outputSource = AArch64CodeGenerator(ast, R_Sharp_Source).generate();
+                break;
         }
         Print(outputSource);
     }
@@ -211,6 +221,9 @@ int main(int argc, const char** argv) {
             break;
         case OutputFormat::NASM:
             temporaryFile += ".asm";
+            break;
+        case OutputFormat::AArch64:
+            temporaryFile += ".S";
             break;
         default:
             Fatal("Unknown output format");
@@ -229,6 +242,17 @@ int main(int argc, const char** argv) {
 
     switch(outputFormat) {
         case OutputFormat::C:{
+            Print("--------------| Compiling using gcc |--------------");
+            std::string command = "gcc " + temporaryFile + " -o " + outputFilename;
+            Print("Executing: ", command);
+            int success = !system(command.c_str());
+            if (success)
+                Print("Compilation successful.");
+            else
+                Fatal("Compilation failed.");
+            break;
+        }
+        case OutputFormat::AArch64:{
             Print("--------------| Compiling using gcc |--------------");
             std::string command = "gcc " + temporaryFile + " -o " + outputFilename;
             Print("Executing: ", command);
