@@ -348,11 +348,10 @@ void AArch64CodeGenerator::visit(AstConditionalStatement* node){
 
     node->condition->accept(this);
     emitIndented("// If statement\n");
-    emitIndented("cmp x0, 0\n");
-    emitIndented("je " + else_label + "\n");
+    emitIndented("cbz x0, " + else_label + "\n");
     indent();
     node->trueStatement->accept(this);
-    emitIndented("jmp " + end_label + "\n");
+    emitIndented("b " + end_label + "\n");
     dedent();
     emitIndented(else_label + ":\n");
     indent();
@@ -651,11 +650,10 @@ void AArch64CodeGenerator::visit(AstConditionalExpression* node){
     std::string end = getUniqueLabel("end");
     node->condition->accept(this);
     emitIndented("// Conditional Expression\n");
-    emitIndented("cmp x0, 0\n");
-    emitIndented("je " + false_clause + "\n");
+    emitIndented("cbz x0, " + false_clause + "\n");
     emitIndented(true_clause + ":\n"); indent();
     node->trueExpression->accept(this);
-    emitIndented("jmp " + end + "\n");
+    emitIndented("b " + end + "\n");
     dedent();
     emitIndented(false_clause + ":\n"); indent();
     node->falseExpression->accept(this);
