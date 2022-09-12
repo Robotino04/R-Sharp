@@ -63,12 +63,15 @@ std::string AArch64CodeGenerator::generate(){
     // collect the uninitialized global variables
     for (auto& var : globalScope.variables){
         if (!var.initialized){
-            emit(var.accessStr.substr(1, var.accessStr.size()-2) + ":\n", BinarySection::BSS);
+            emit(".align 8\n", BinarySection::BSS);
+            emit(var.accessStr + ":\n", BinarySection::BSS);
             switch(var.size){
-                case 1: emit("    .byte 1\n", BinarySection::BSS); break;
-                case 2: emit("    .2byte 1\n", BinarySection::BSS); break;
-                case 4: emit("    .4byte 1\n", BinarySection::BSS); break;
-                case 8: emit("    .8byte 1\n", BinarySection::BSS); break;
+                case 1:
+                case 2:
+                case 4:
+                case 8:
+                    emit("    .space " + std::to_string(var.size) + "\n", BinarySection::BSS);
+                    break;
                 default: Fatal("Unsupported variable size (" + std::to_string(var.size) + ")");
             }
         }
@@ -117,6 +120,7 @@ AArch64CodeGenerator::Variable AArch64CodeGenerator::addVariable(AstVariableDecl
     Variable var;
     var.name = node->name;
     var.type = node->semanticType;
+    var.isGlobal = node->isGlobal;
     
     // if (node->type->getType() == AstNodeType::AstBuiltinType)
     //     var.type = std::static_pointer_cast<AstBuiltinType>(node->type)->name;
@@ -160,7 +164,7 @@ AArch64CodeGenerator::Variable AArch64CodeGenerator::addVariable(AstVariableDecl
         }
 
         globalVariables.push_back(node->name);
-        var.accessStr = "[" + getUniqueLabel(node->name) + "]";
+        var.accessStr = getUniqueLabel(node->name);
         var.initialized = node->value != nullptr;
         globalScope.variables.push_back(var);
     }
@@ -631,7 +635,13 @@ void AArch64CodeGenerator::visit(AstVariableAccess* node){
 void AArch64CodeGenerator::visit(AstVariableAssignment* node){
     Variable var = getVariable(node->name);
     node->value->accept(this);
-    emitIndented("str x0, " + var.accessStr + "\n");
+    if (var.isGlobal){
+        emitIndented("ldr x9, =" + var.accessStr + "\n");
+        emitIndented("str x0, [x9]\n");
+    }
+    else{
+        emitIndented("str x0, " + var.accessStr + "\n");
+    }
 }
 void AArch64CodeGenerator::visit(AstConditionalExpression* node){
     std::string true_clause = getUniqueLabel("true_expression");
@@ -703,16 +713,15 @@ void AArch64CodeGenerator::visit(AstVariableDeclaration* node){
             exit(1);
         }
         auto intNode = std::static_pointer_cast<AstInteger>(node->value);
-        emit("    ; Global Variable (" + node->name + ")\n", BinarySection::Data);
-        // remove the brackets from the name
-        std::string label = var.accessStr.substr(1, var.accessStr.size()-2);
-        emit("    global " + label + "\n", BinarySection::Data);
-        emit(label + ":\n", BinarySection::Data);
+        emit("    // Global Variable (" + node->name + ")\n", BinarySection::Data);
+        
+        emit("    .global " + var.accessStr + "\n", BinarySection::Data);
+        emit(var.accessStr + ":\n", BinarySection::Data);
         switch(var.size){
-            case 1: emit("    db " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 2: emit("    dw " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 4: emit("    dd " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 8: emit("    dq " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 1: emit("    .byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 2: emit("    .2byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 4: emit("    .4byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 8: emit("    .8byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
             default:
                 Error("AArch64 Generator: Global variable size not supported!");
                 printErrorToken(node->token, R_SharpSource);

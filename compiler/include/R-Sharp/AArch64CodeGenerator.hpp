@@ -88,6 +88,7 @@ class AArch64CodeGenerator : public AstVisitor {
             int size;
             int stackSize;
             bool initialized = true;
+            bool isGlobal = false;
 
             bool operator==(Variable const& other) const{
                 return name == other.name && *type == *other.type && size == other.size;
