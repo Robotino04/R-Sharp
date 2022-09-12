@@ -62,8 +62,6 @@ class AArch64CodeGenerator : public AstVisitor {
         void emitIndented(std::string const& str, BinarySection section = BinarySection::Text);
 
         void emitSyscall(Syscall callNr, std::string const& arg1="", std::string const& arg2="", std::string const& arg3="", std::string const& arg4="", std::string const& arg5="", std::string const& arg6="");
-        void emitPush(std::string source);
-        void emitPop(std::string destination);
 
         std::string getUniqueLabel(std::string const& prefix);
         int labelCounter = 0;

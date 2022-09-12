@@ -52,7 +52,7 @@ void CCodeGenerator::visit(AstProgram* node){
 void CCodeGenerator::visit(AstParameterList* node){
     emit("(");
     for (auto const& parameter : node->parameters) {
-        // parameter->type->accept(this);
+        parameter->semanticType->accept(this);
         emit(" " + parameter->name);
 
         if (parameter != node->parameters.back()) {
