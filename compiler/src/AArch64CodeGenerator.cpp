@@ -371,8 +371,7 @@ void AArch64CodeGenerator::visit(AstForLoopDeclaration* node){
     indent();
     emitIndented("// Condition\n");
     node->condition->accept(this);
-    emitIndented("cmp x0, 0\n");
-    emitIndented("je " + end_label + "\n");
+    emitIndented("cbz x0, " + end_label + "\n");
     emitIndented("// Body\n");
     node->body->accept(this);
     dedent();
@@ -380,7 +379,7 @@ void AArch64CodeGenerator::visit(AstForLoopDeclaration* node){
     emitIndented(increment_label + ":\n");
     indent();
     node->increment->accept(this);
-    emitIndented("jmp " + start_label + "\n");
+    emitIndented("b " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
 
@@ -406,8 +405,7 @@ void AArch64CodeGenerator::visit(AstForLoopExpression* node){
     indent();
     emitIndented("// Condition\n");
     node->condition->accept(this);
-    emitIndented("cmp x0, 0\n");
-    emitIndented("je " + end_label + "\n");
+    emitIndented("cbz x0, " + end_label + "\n");
     emitIndented("// Body\n");
     node->body->accept(this);
     dedent();
@@ -415,7 +413,7 @@ void AArch64CodeGenerator::visit(AstForLoopExpression* node){
     emitIndented(increment_label + ":\n");
     indent();
     node->increment->accept(this);
-    emitIndented("jmp " + start_label + "\n");
+    emitIndented("b " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
 
@@ -433,11 +431,10 @@ void AArch64CodeGenerator::visit(AstWhileLoop* node){
     emitIndented(start_label + ":\n");
     indent();
     node->condition->accept(this);
-    emitIndented("cmp x0, 0\n");
-    emitIndented("je " + end_label + "\n");
+    emitIndented("cbz x0, " + end_label + "\n");
     emitIndented("// Body\n");
     node->body->accept(this);
-    emitIndented("jmp " + start_label + "\n");
+    emitIndented("b " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
 
@@ -457,8 +454,7 @@ void AArch64CodeGenerator::visit(AstDoWhileLoop* node){
     emitIndented("// Body\n");
     node->body->accept(this);
     node->condition->accept(this);
-    emitIndented("cmp x0, 0\n");
-    emitIndented("jne " + start_label + "\n");
+    emitIndented("cbnz x0, " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
 
@@ -481,7 +477,7 @@ void AArch64CodeGenerator::visit(AstBreak* node){
     }
 
     emitIndented("// Break\n");
-    emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().breakLabel + "\n");
+    emitIndented("b " + getCurrentStackFrame().loopInfo.back().breakLabel + "\n");
 }
 void AArch64CodeGenerator::visit(AstSkip* node){
     if (getCurrentStackFrame().loopInfo.empty()){
@@ -497,7 +493,7 @@ void AArch64CodeGenerator::visit(AstSkip* node){
     }
 
     emitIndented("// Skip\n");
-    emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().skipLabel + "\n");
+    emitIndented("b " + getCurrentStackFrame().loopInfo.back().skipLabel + "\n");
 }
 
 
