@@ -1,7 +1,7 @@
 # R# (R-Sharp)
 [![CMake](https://github.com/Robotino04/R-Sharp/actions/workflows/cmake.yml/badge.svg)](https://github.com/Robotino04/R-Sharp/actions/workflows/cmake.yml)
 
-A general purpose programming language inspired by C/C++. 
+A general purpose programming language.
 
 
 ## Unit Tests
