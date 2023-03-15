@@ -98,6 +98,7 @@ enum class RSharpType{
     NONE,
     I32,
     I64,
+    ErrorType,
 };
 
 enum class AstBinaryType{

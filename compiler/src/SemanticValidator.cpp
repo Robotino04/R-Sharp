@@ -1,16 +1,16 @@
-#include "R-Sharp/Validator.hpp"
+#include "R-Sharp/SemanticValidator.hpp"
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Utils.hpp"
 
 #include <sstream>
 
-Validator::Validator(std::shared_ptr<AstNode> root, std::string const& filename, std::string const& source){
+SemanticValidator::SemanticValidator(std::shared_ptr<AstNode> root, std::string const& filename, std::string const& source){
     this->root = root;
     this->filename = filename;
     this->source = source;
 }
 
-void Validator::validate(){
+void SemanticValidator::validate(){
     variableContexts.clear();
     variableContexts.emplace_back();
     functions.clear();
@@ -19,23 +19,23 @@ void Validator::validate(){
 
     root->accept(this);
 }
-bool Validator::hasErrors(){
+bool SemanticValidator::hasErrors(){
     return hasError;
 }
 
-void Validator::pushContext(){
+void SemanticValidator::pushContext(){
     if (!collapseContexts){
         variableContexts.emplace_back();
     }
     collapseContexts = false;
 }
-void Validator::popContext(){
+void SemanticValidator::popContext(){
     if (variableContexts.empty()){
-        Error("Invalid context pop (internal error)");
+        Error("INTERNAL ERROR: Invalid context pop");
     }
     variableContexts.pop_back();
 }
-bool Validator::isVariableDeclared(AstVariableDeclaration const& testVar){
+bool SemanticValidator::isVariableDeclared(AstVariableDeclaration const& testVar){
     for (auto it = variableContexts.rbegin(); it != variableContexts.rend(); it++){
         if (it->end() != std::find(it->begin(), it->end(), testVar)){
             return true;
@@ -43,7 +43,7 @@ bool Validator::isVariableDeclared(AstVariableDeclaration const& testVar){
     }
     return false;
 }
-bool Validator::isVariableDefinable(AstVariableDeclaration const& testVar){
+bool SemanticValidator::isVariableDefinable(AstVariableDeclaration const& testVar){
     auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), testVar);
 
     if (it == variableContexts.back().end()){
@@ -58,7 +58,7 @@ bool Validator::isVariableDefinable(AstVariableDeclaration const& testVar){
         }
     }
 }
-void Validator::addVariable(AstVariableDeclaration const& var){
+void SemanticValidator::addVariable(AstVariableDeclaration const& var){
     auto it = std::find(variableContexts.back().begin(), variableContexts.back().end(), var);
     if (it == variableContexts.back().end()){
     variableContexts.back().push_back(var);
@@ -67,7 +67,7 @@ void Validator::addVariable(AstVariableDeclaration const& var){
         it->value = var.value;
     }
 }
-AstVariableDeclaration* Validator::getVariable(AstVariableDeclaration const& var){
+AstVariableDeclaration* SemanticValidator::getVariable(AstVariableDeclaration const& var){
     for (auto it = variableContexts.rbegin(); it != variableContexts.rend(); it++){
         auto it2 = std::find(it->begin(), it->end(), var);
         if (it2 != it->end()){
@@ -78,10 +78,10 @@ AstVariableDeclaration* Validator::getVariable(AstVariableDeclaration const& var
 }
 
 
-bool Validator::isFunctionDeclared(AstFunctionDeclaration const& testFunc){
+bool SemanticValidator::isFunctionDeclared(AstFunctionDeclaration const& testFunc){
     return std::find(functions.begin(), functions.end(), testFunc) != functions.end();
 }
-bool Validator::isFunctionDeclarable(AstFunctionDeclaration const& testFunc){
+bool SemanticValidator::isFunctionDeclarable(AstFunctionDeclaration const& testFunc){
     for (auto const& func : functions){
         if (func.name == testFunc.name){
             if (testFunc.parameters->parameters.size() == func.parameters->parameters.size()){
@@ -94,7 +94,7 @@ bool Validator::isFunctionDeclarable(AstFunctionDeclaration const& testFunc){
     }
     return true;
 }
-bool Validator::isFunctionDefinable(AstFunctionDeclaration const& testFunc){
+bool SemanticValidator::isFunctionDefinable(AstFunctionDeclaration const& testFunc){
     bool isDeclarable = isFunctionDeclarable(testFunc);
     if (isFunctionDeclared(testFunc)){
         auto it = std::find(functions.begin(), functions.end(), testFunc);
@@ -104,7 +104,7 @@ bool Validator::isFunctionDefinable(AstFunctionDeclaration const& testFunc){
     }
     return isDeclarable;
 }
-void Validator::addFunction(AstFunctionDeclaration const& func){
+void SemanticValidator::addFunction(AstFunctionDeclaration const& func){
     auto it = std::find(functions.begin(), functions.end(), func);
 
     if (it == functions.end()){
@@ -114,7 +114,7 @@ void Validator::addFunction(AstFunctionDeclaration const& func){
         it->body = func.body;
     }
 }
-AstFunctionDeclaration* Validator::getFunction(AstFunctionDeclaration const& func){
+AstFunctionDeclaration* SemanticValidator::getFunction(AstFunctionDeclaration const& func){
     auto it = std::find(functions.begin(), functions.end(), func);
     if (it == functions.end()){
         return nullptr;
@@ -124,9 +124,10 @@ AstFunctionDeclaration* Validator::getFunction(AstFunctionDeclaration const& fun
     }
 }
 
-void Validator::requireIdenticalTypes(AstNode* a, AstNode* b, std::string msg){
+void SemanticValidator::requireIdenticalTypes(AstNode* a, AstNode* b, std::string msg){
     requireType(a);
-    requireType(b);
+    requireType(b); 
+    if (*a->semanticType == RSharpType::ErrorType || *b->semanticType == RSharpType::ErrorType) return;
     if (*a->semanticType != *b->semanticType){
         if ((a->semanticType->type == RSharpType::I32 || a->semanticType->type == RSharpType::I64)
          && (b->semanticType->type == RSharpType::I32 || b->semanticType->type == RSharpType::I64)
@@ -141,7 +142,7 @@ void Validator::requireIdenticalTypes(AstNode* a, AstNode* b, std::string msg){
         printErrorToken(b->token, source);
     }
 }
-void Validator::requireType(AstNode* node){
+void SemanticValidator::requireType(AstNode* node){
     if (!node->semanticType){
         hasError = true;
         Error("INTERNAL ERROR: operand doesn't have a semanticType");
@@ -150,49 +151,49 @@ void Validator::requireType(AstNode* node){
     }
 }
 
-void Validator::visit(AstBlock* node){
+void SemanticValidator::visit(AstBlock* node){
     pushContext();
     AstVisitor::visit((AstNode*)node);
     popContext();
 }
-void Validator::visit(AstReturn* node){
+void SemanticValidator::visit(AstReturn* node){
     AstVisitor::visit((AstNode*)node);
     node->semanticType = node->value->semanticType;
 }
-void Validator::visit(AstExpressionStatement* node){
+void SemanticValidator::visit(AstExpressionStatement* node){
     AstVisitor::visit((AstNode*)node);
     node->semanticType = node->expression->semanticType;
 }
-void Validator::visit(AstForLoopDeclaration* node){
+void SemanticValidator::visit(AstForLoopDeclaration* node){
     pushContext();
     numLoops++;
     AstVisitor::visit((AstNode*)node);
     numLoops--;
     popContext();
 }
-void Validator::visit(AstForLoopExpression* node){
+void SemanticValidator::visit(AstForLoopExpression* node){
     numLoops++;
     AstVisitor::visit((AstNode*)node);
     numLoops--;
 }
-void Validator::visit(AstWhileLoop* node){
+void SemanticValidator::visit(AstWhileLoop* node){
     numLoops++;
     AstVisitor::visit((AstNode*)node);
     numLoops--;
 }
-void Validator::visit(AstDoWhileLoop* node){
+void SemanticValidator::visit(AstDoWhileLoop* node){
     numLoops++;
     AstVisitor::visit((AstNode*)node);
     numLoops--;
 }
-void Validator::visit(AstBreak* node){
+void SemanticValidator::visit(AstBreak* node){
     if (numLoops == 0){
         hasError = true;
         Error("Break statement outside loop");
         printErrorToken(node->token, source);
     }
 }
-void Validator::visit(AstSkip* node){
+void SemanticValidator::visit(AstSkip* node){
     if (numLoops == 0){
         hasError = true;
         Error("Skip statement outside loop");
@@ -200,17 +201,23 @@ void Validator::visit(AstSkip* node){
     }
 }
 
-void Validator::visit(AstUnary* node){
+void SemanticValidator::visit(AstUnary* node){
     AstVisitor::visit((AstNode*)node);
     requireType(node->value.get());
     node->semanticType = node->value->semanticType;
 }
-void Validator::visit(AstBinary* node){
+void SemanticValidator::visit(AstBinary* node){
     AstVisitor::visit((AstNode*)node);
     requireIdenticalTypes(node->left.get(), node->right.get(), "Binary operands don't match in semantical type");
-    node->semanticType = node->left->semanticType;
+    
+    if (node->left->semanticType->type == RSharpType::ErrorType || node->right->semanticType->type == RSharpType::ErrorType){
+        node->semanticType->type = RSharpType::ErrorType;
+    }
+    else{
+        node->semanticType = node->left->semanticType;
+    }
 }
-void Validator::visit(AstVariableAccess* node){
+void SemanticValidator::visit(AstVariableAccess* node){
     AstVariableDeclaration testVar;
     testVar.name = node->name;
     if (isVariableDeclared(testVar)){
@@ -228,7 +235,7 @@ void Validator::visit(AstVariableAccess* node){
         printErrorToken(node->token, source);
     }
 }
-void Validator::visit(AstVariableAssignment* node){
+void SemanticValidator::visit(AstVariableAssignment* node){
     AstVisitor::visit((AstNode*)node);
     AstVariableDeclaration testVar;
     testVar.name = node->name;
@@ -241,7 +248,7 @@ void Validator::visit(AstVariableAssignment* node){
         printErrorToken(node->token, source);
     }
 }
-void Validator::visit(AstVariableDeclaration* node){
+void SemanticValidator::visit(AstVariableDeclaration* node){
     AstVisitor::visit((AstNode*)node);
     if (node->value){
         requireIdenticalTypes(node, node->value.get(),
@@ -269,7 +276,7 @@ void Validator::visit(AstVariableDeclaration* node){
         addVariable(*node);
     }
 }
-void Validator::visit(AstConditionalExpression* node){
+void SemanticValidator::visit(AstConditionalExpression* node){
     AstVisitor::visit((AstNode*)node);
     requireType(node->condition.get());
     requireType(node->trueExpression.get());
@@ -280,7 +287,7 @@ void Validator::visit(AstConditionalExpression* node){
 
     node->semanticType = node->trueExpression->semanticType;
 }
-void Validator::visit(AstFunctionCall* node){
+void SemanticValidator::visit(AstFunctionCall* node){
     AstFunctionDeclaration testFunc;
     testFunc.name = node->name;
     testFunc.parameters = std::make_shared<AstParameterList>();
@@ -298,7 +305,7 @@ void Validator::visit(AstFunctionCall* node){
         printErrorToken(node->token, source);
     }
 }
-void Validator::visit(AstFunctionDeclaration* node){
+void SemanticValidator::visit(AstFunctionDeclaration* node){
     AstVariableDeclaration testVar;
     testVar.name = node->name;
     if (isVariableDeclared(testVar)){

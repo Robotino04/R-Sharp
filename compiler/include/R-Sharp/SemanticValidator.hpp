@@ -4,9 +4,9 @@
 
 #include <vector>
 
-class Validator : public AstVisitor{
+class SemanticValidator : public AstVisitor{
     public:
-        Validator(std::shared_ptr<AstNode> root, std::string const& filename, std::string const& source);
+        SemanticValidator(std::shared_ptr<AstNode> root, std::string const& filename, std::string const& source);
         void validate();
         bool hasErrors();
 

@@ -15,7 +15,7 @@
 #include "R-Sharp/NASMCodeGenerator.hpp"
 #include "R-Sharp/AArch64CodeGenerator.hpp"
 #include "R-Sharp/ErrorPrinter.hpp"
-#include "R-Sharp/Validator.hpp"
+#include "R-Sharp/SemanticValidator.hpp"
 
 void printHelp(const char* programName) {
     std::cout << "Usage: " << programName << " [options] [input file]" << std::endl;
@@ -182,7 +182,7 @@ int main(int argc, const char** argv) {
     
     Print("--------------| Semantic Errors |--------------");
     {
-        Validator validator(ast, inputFilename, R_Sharp_Source);
+        SemanticValidator validator(ast, inputFilename, R_Sharp_Source);
         validator.validate();
 
         if (validator.hasErrors()) {
