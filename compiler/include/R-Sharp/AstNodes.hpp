@@ -324,8 +324,6 @@ struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem {
 struct AstType : public AstNode{
     AstType(RSharpType type);
     AstType(RSharpType type, std::shared_ptr<AstType> subtype);
-    AstType(RSharpType type, std::vector<RSharpModifier> modifier);
-    AstType(RSharpType type, std::vector<RSharpModifier> modifier, std::shared_ptr<AstType> subtype);
 
 
     BASE(AstType);
@@ -336,12 +334,10 @@ struct AstType : public AstNode{
     GET_SINGLE_CHILDREN(subtype)
     SINGLE_CHILD(AstType, subtype)
 
-    RSharpType type = RSharpType::VOID;
-    std::vector<RSharpModifier> modifiers = {};
+    RSharpType type = RSharpType::NONE;
 };
 
 
-RSharpModifier stringToModifier(std::string const& str);
 RSharpType stringToType(std::string const& str);
 
 

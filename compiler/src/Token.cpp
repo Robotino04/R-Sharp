@@ -16,7 +16,6 @@ namespace std{
             case TokenType::Comment: return "Comment";
             case TokenType::Number: return "Number";
             case TokenType::Typename: return "Typename";
-            case TokenType::TypeModifier: return "TypeModifier";
 
             case TokenType::Semicolon: return "Semicolon";
             case TokenType::Colon: return "Colon";

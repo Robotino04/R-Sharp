@@ -96,14 +96,8 @@ struct AstNode{
 
 enum class RSharpType{
     NONE,
-    VOID,
     I32,
     I64,
-    ARRAY,
-};
-enum class RSharpModifier{
-    NONE,
-    CONST,
 };
 
 enum class AstBinaryType{
@@ -145,9 +139,9 @@ bool operator!=(AstParameterList const& a, AstParameterList const& b);
 AstUnaryType toUnaryOperator(TokenType type);
 AstBinaryType toBinaryOperator(TokenType type);
 
+// TODO: remove because undefined behaviour 
 namespace std{
     std::string to_string(AstUnaryType type);
     std::string to_string(AstBinaryType type);
     std::string to_string(const AstType* type);
-    std::string to_string(RSharpModifier mod);
 }

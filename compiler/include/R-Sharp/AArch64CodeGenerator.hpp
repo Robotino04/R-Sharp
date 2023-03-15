@@ -43,8 +43,6 @@ class AArch64CodeGenerator : public AstVisitor {
         void visit(AstFunctionCall* node) override;
 
         // void visit(AstBuiltinType* node) override;
-        // void visit(AstTypeModifier* node) override;
-        // void visit(AstArray* node) override;
 
         void visit(AstVariableDeclaration* node) override;
 

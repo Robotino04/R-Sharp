@@ -1,56 +1,54 @@
-program = {<function> | <function-declaration>}
+program = {function | functionDeclaration};
 
-function = <name> '(' [<parameter-list>] ')' ':' <type-or-array> <statement>
-function-declaration = <name> '(' [<parameter-list>] ')' ':' <type-or-array> ';'
-block-item = <declaration> | <statement>
+function = identifier, "(", [parameterList], ")", ":", type, statement;
+functionDeclaration = identifier, "(", [parameterList], ")", ":", type, ";";
+blockItem = declaration | statement;
 
-return = 'return' <expression> ';'
+return = 'return', expression, ";";
 
-for = 'for' '(' <optional-expression> ';' <optional-expression> ';' <optional-expression> ')' <statement>
-    | 'for' '(' <declaration> ';' <optional-expression> ';' <optional-expression> ')' <statement>
-do = 'do' <statement> 'while' '(' <expression> ')' ';'
-while = 'while' '(' <expression> ')' <statement>
-break = 'break' ';'
-skip = 'skip' ';'
+for = 'for', "(", optionalExpression, ";", optionalExpression, ";", optionalExpression, ")", statement
+    | 'for', "(", declaration, ";", optionalExpression, ";", optionalExpression, ")", statement;
+do = 'do', statement, 'while', "(", expression, ")", ";";
+while = 'while', "(", expression, ")", statement;
+break = 'break', ";";
+skip = 'skip', ";";
 
-optional-expression = [<expression>]
+optionalExpression = [expression];
 
-statement = <return>
-          | <declaration>
-          | <optional-expression> ';'
-          | '{' {<block-item>} '}'
-          | <for>
-          | <do>
-          | <while>
-          | <break>
-          | <skip>
-          | <if>
+statement = return
+          | declaration
+          | (optionalExpression, ";")
+          | ("{", {blockItem}, "}")
+          | for
+          | do
+          | while
+          | break
+          | skip
+          | if;
 
-<function-call> = <name> '(' [<expression> {',' <expression>}] ')'
+functionCall = identifier, "(", [expression, {",", expression}], ")";
 
-if = 'if' '(' <expression> ')' <statement> {elif} [<else>]
-elif = 'elif' '(' <expression> ')' <statement>
-else = 'else' <statement>
+if = 'if', "(", expression, ")", statement, {elif}, [else];
+elif = 'elif', "(", expression, ")", statement;
+else = 'else', statement;
 
 
-expression = <assignment> | <conditional-exp>
-conditional-exp = <logical-or-exp> ['?' <expression> ':' <expression>]
-logical-or-exp = <logical-and-exp> {'||' <logical-and-exp>}
-logical-and-exp = <equality-exp> {'&&' <equality-ex>}
-equality-exp = <relational-exp> {('==' | '!=') <relational-exp>}
-relational-exp = <additive-exp> {('<' | '>' | '<=' | '>=') <additive-exp>}
-additive-exp = <term> {('+' | '-') <term>}
-term = <factor> {('*' | '/' | '%') <factor>}
-factor = '(' <expression> ')' | <number> | ('-' | '~' | '!') <factor> | <name> | <function-call>
+expression = assignment | conditionalExp;
+conditionalExp = logicalOrExp, ["?", expression ":" expression];
+logicalOrExp = logicalAndExp, {"||", logicalAndExp};
+logicalAndExp = equalityExp, {"&&", equalityExp};
+equalityExp = relationalExp, {("==" | "!="), relationalExp};
+relationalExp = additiveExp, {("<" | ">" | "<=" | ">="), additiveExp};
+additiveExp = term, {("+" | "-"), term};
+term = factor, {("*" | "/" | "%"), factor};
+factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | identifier | functionCall;
 
-type-mod = 'const'
-type = {<type-mod>} ('i64' | 'i32' | 'char')
-type-or-array = <type> | '[' <type> ']'
+type = 'i64' | 'i32' | 'char';
 
-parameter-list = <name> ':' <type-or-array> {',' <variable>}
+parameterList = identifier ":" type {"," variable};
 
-declaration = <name> ':' <type-or-array> ['=' <expression>] ';'
-assignment = <name> '=' <expression>
+declaration = identifier ":" type ["=" expression] ";";
+assignment = identifier "=" expression;
 
-name = '_' | <letter> {<letter> | <digit>}
-letter = ''
+identifier = "_" | letter, {letter | digit};
+letter = "";

@@ -48,7 +48,6 @@ std::string tokensToString(std::vector<Token> const& tokens) {
             case TokenType::ID: ss << token.value; break;
             case TokenType::Number: ss << token.value; break;
             case TokenType::Typename: ss << token.value << " "; break;
-            case TokenType::TypeModifier: ss << token.value << " "; break;
             case TokenType::Semicolon: ss << token.value << "\n"; break;
             case TokenType::Colon: ss << token.value << " "; break;
             case TokenType::Comma: ss << token.value << " "; break;

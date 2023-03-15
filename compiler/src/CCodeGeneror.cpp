@@ -313,9 +313,6 @@ void CCodeGenerator::visit(AstVariableDeclaration* node){
     emit(";");
 }
 void CCodeGenerator::visit(AstType* node){
-    if (node->modifiers.size() != 0){
-        Fatal("Type modifiers aren't implemented yet");
-    }
     switch (node->type){
         case RSharpType::I32: emit("int32_t"); break;
         case RSharpType::I64: emit("int64_t"); break;

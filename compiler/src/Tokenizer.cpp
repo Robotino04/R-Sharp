@@ -192,8 +192,6 @@ Token Tokenizer::nextToken(){
 
         else KEYWORD_TOKEN("i32", TokenType::Typename)
         else KEYWORD_TOKEN("i64", TokenType::Typename)
-        else KEYWORD_TOKEN("char", TokenType::Typename)
-        else KEYWORD_TOKEN("const", TokenType::TypeModifier)
 
         else SIMPLE_TOKEN(';', TokenType::Semicolon)
         else SIMPLE_TOKEN(',', TokenType::Comma)

@@ -111,7 +111,6 @@ class Parser{
 
 
         std::shared_ptr<AstType> parseType();
-        std::shared_ptr<AstType> parseArray();
 
         // helpers
         std::shared_ptr<AstStatement> parseForLoop();

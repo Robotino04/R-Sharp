@@ -243,7 +243,7 @@ std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
         return decl;
     }
     else {
-        parserError("Expected typename, type modifier or array but got ", getCurrentToken());
+        parserError("Expected typename but got ", getCurrentToken());
         return nullptr;
     }
 }
@@ -519,28 +519,15 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
 
 
 std::shared_ptr<AstType> Parser::parseType() {
-    std::vector<RSharpModifier> typeModifiers;
-    while (match(TokenType::TypeModifier)) {
-        auto modifier = stringToModifier(consume(TokenType::TypeModifier).value);
-        if (modifier == RSharpModifier::NONE) {
-            parserError("Unknown type modifier ", getCurrentToken());
-        }
-        typeModifiers.push_back(modifier);
-    }
-    if (match(TokenType::LeftBracket)) {
-        auto type = parseArray();
-        type->modifiers = typeModifiers;
-        return type;
-    }
-    else if (match(TokenType::Typename)) {
+    if (match(TokenType::Typename)) {
         auto type = stringToType(consume(TokenType::Typename).value);
         if (type == RSharpType::NONE) {
             parserError("Unknown type ", getCurrentToken());
         }
-        return std::make_shared<AstType>(type, typeModifiers);
+        return std::make_shared<AstType>(type);
     }
     else {
-        parserError("Expected typename, type modifier or array but got ", getCurrentToken());
+        parserError("Expected typename but got ", getCurrentToken());
         return nullptr;
     }
 }
@@ -555,13 +542,6 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
     }
     consume(TokenType::RightParen);
     return parameterList;
-}
-std::shared_ptr<AstType> Parser::parseArray() {
-    auto array = std::make_shared<AstType>();
-    consume(TokenType::LeftBracket);
-    array->subtype = parseType();
-    consume(TokenType::RightBracket);
-    return array;
 }
 
 // helpers
