@@ -11,33 +11,33 @@ class CCodeGenerator : public AstVisitor {
 
         std::string generate();
 
-        void visit(AstProgram* node) override;
-        void visit(AstParameterList* node) override;
+        void visit(std::shared_ptr<AstProgram> node) override;
+        void visit(std::shared_ptr<AstParameterList> node) override;
 
-        void visit(AstFunctionDeclaration* node) override;
+        void visit(std::shared_ptr<AstFunctionDeclaration> node) override;
 
-        void visit(AstBlock* node) override;
-        void visit(AstReturn* node) override;
-        void visit(AstExpressionStatement* node) override;
-        void visit(AstConditionalStatement* node) override;
-        void visit(AstForLoopDeclaration* node) override;
-        void visit(AstForLoopExpression* node) override;
-        void visit(AstWhileLoop* node) override;
-        void visit(AstDoWhileLoop* node) override;
-        void visit(AstBreak* node) override;
-        void visit(AstSkip* node) override;
-        void visit(AstErrorStatement* node) override;
+        void visit(std::shared_ptr<AstBlock> node) override;
+        void visit(std::shared_ptr<AstReturn> node) override;
+        void visit(std::shared_ptr<AstExpressionStatement> node) override;
+        void visit(std::shared_ptr<AstConditionalStatement> node) override;
+        void visit(std::shared_ptr<AstForLoopDeclaration> node) override;
+        void visit(std::shared_ptr<AstForLoopExpression> node) override;
+        void visit(std::shared_ptr<AstWhileLoop> node) override;
+        void visit(std::shared_ptr<AstDoWhileLoop> node) override;
+        void visit(std::shared_ptr<AstBreak> node) override;
+        void visit(std::shared_ptr<AstSkip> node) override;
+        void visit(std::shared_ptr<AstErrorStatement> node) override;
 
-        void visit(AstUnary* node) override;
-        void visit(AstBinary* node) override;
-        void visit(AstInteger* node) override;
-        void visit(AstVariableAccess* node) override;
-        void visit(AstVariableAssignment* node) override;
-        void visit(AstConditionalExpression* node) override;
-        void visit(AstFunctionCall* node) override;
+        void visit(std::shared_ptr<AstUnary> node) override;
+        void visit(std::shared_ptr<AstBinary> node) override;
+        void visit(std::shared_ptr<AstInteger> node) override;
+        void visit(std::shared_ptr<AstVariableAccess> node) override;
+        void visit(std::shared_ptr<AstVariableAssignment> node) override;
+        void visit(std::shared_ptr<AstConditionalExpression> node) override;
+        void visit(std::shared_ptr<AstFunctionCall> node) override;
 
-        void visit(AstVariableDeclaration* node) override;
-        void visit(AstType* node) override;
+        void visit(std::shared_ptr<AstVariableDeclaration> node) override;
+        void visit(std::shared_ptr<AstType> node) override;
 
     private:
         void indent();

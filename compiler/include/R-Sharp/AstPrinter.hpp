@@ -14,7 +14,7 @@ class AstPrinter: public AstVisitor{
             root->accept(this);
         }
 
-        void visit(AstNode* node) override{
+        void visit(std::shared_ptr<AstNode> node) override{
             std::string oldPrefix = prefix;
             bool isThisTail = isTail;
 

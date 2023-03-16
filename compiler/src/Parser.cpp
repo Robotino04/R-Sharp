@@ -136,7 +136,9 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         try{
             TokenRestorer _(*this);
             auto var = parseVariableDeclaration();
-            var->isGlobal = true;
+            var->variable = std::make_shared<SemanticVariableData>();
+            var->variable->isGlobal = true;
+            var->variable->name = var->name;
             consume(TokenType::Semicolon);
             return var;
         }
@@ -160,7 +162,13 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         }
         else{
             // a full function definition
-            function->body = parseStatement();
+            auto body = parseStatement();
+            if (body->getType() == AstNodeType::AstBlock)
+                function->body = std::dynamic_pointer_cast<AstBlock>(body);
+            else{
+                function->body = std::make_shared<AstBlock>();
+                function->body->items.push_back(body);
+            }
             return function;
         }
     }
@@ -239,6 +247,9 @@ std::shared_ptr<AstExpression> Parser::parseExpression() {
 std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
     if (match({TokenType::ID, TokenType::Colon})){
         auto decl = parseVariableDeclaration();
+        decl->variable = std::make_shared<SemanticVariableData>();
+        decl->variable->name = decl->name;
+        decl->variable->type = decl->semanticType->type;
         consume(TokenType::Semicolon);
         return decl;
     }
@@ -312,13 +323,16 @@ std::shared_ptr<AstConditionalStatement> Parser::parseConditionalStatement() {
 std::shared_ptr<AstForLoopDeclaration> Parser::parseForLoopDeclaration() {
     std::shared_ptr<AstForLoopDeclaration> forLoop = std::make_shared<AstForLoopDeclaration>(consume(TokenType::For));
     consume(TokenType::LeftParen);
-    forLoop->variable = parseVariableDeclaration();
+    auto variable = parseVariableDeclaration();
     consume(TokenType::Semicolon);
     forLoop->condition = parseOptionalExpression();
     consume(TokenType::Semicolon);
     forLoop->increment = parseOptionalExpression();
     consume(TokenType::RightParen);
-    forLoop->body = parseStatement();
+    auto body = parseStatement();
+    forLoop->body = std::make_shared<AstBlock>();
+    forLoop->body->items.push_back(variable);
+    forLoop->body->items.push_back(body);
     return forLoop;
 }
 std::shared_ptr<AstForLoopExpression> Parser::parseForLoopExpression() {
@@ -514,6 +528,9 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
         consume(TokenType::Assign);
         variable->value = parseExpression();
     }
+    variable->variable = std::make_shared<SemanticVariableData>();
+    variable->variable->name = variable->name;
+    variable->variable->type = variable->semanticType->type;
     return variable;
 }
 

@@ -107,13 +107,13 @@ std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
     return prefix + "_" + std::to_string(labelCounter++);
 }
 
-NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(AstVariableDeclaration* node){
+NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(std::shared_ptr<AstVariableDeclaration> node){
     Variable var;
     var.name = node->name;
     var.type = node->semanticType;
     
     // if (node->type->getType() == AstNodeType::AstBuiltinType)
-    //     var.type = std::static_pointer_cast<AstBuiltinType>(node->type)->name;
+    //     var.type = std::dynamic_pointer_cast<AstBuiltinType>(node->type)->name;
     // else{
     //     Error("Only builtin types are supported");
     //     printErrorToken(node->token, R_SharpSource);
@@ -136,7 +136,7 @@ NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(AstVariableDeclaratio
         exit(1);
     }
 
-    if (node->isGlobal){
+    if (node->variable->isGlobal){
         // test if the variable is already declared
         if (std::find(globalScope.variables.begin(), globalScope.variables.end(), var) != globalScope.variables.end()){
             auto match = std::find(globalScope.variables.begin(), globalScope.variables.end(), var);
@@ -257,7 +257,7 @@ std::string NASMCodeGenerator::sizeToNASMType(int size){
 }
 
 // program
-void NASMCodeGenerator::visit(AstProgram* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     for (auto const& child : node->getChildren()){
         if (!child) continue;
         if (child->getType() == AstNodeType::AstFunctionDeclaration){
@@ -276,7 +276,7 @@ void NASMCodeGenerator::visit(AstProgram* node){
         emitIndented("extern " + func + "\n");
     }
 }
-void NASMCodeGenerator::visit(AstParameterList* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
     int argumentNumber = 0;
     for (auto const& child : node->parameters){
         child->accept(this);
@@ -299,7 +299,7 @@ void NASMCodeGenerator::visit(AstParameterList* node){
 }
 
 // definitions
-void NASMCodeGenerator::visit(AstFunctionDeclaration* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
 
     if (node->body){
         emitIndented("; Function " + node->name + "\n\n");
@@ -334,19 +334,19 @@ void NASMCodeGenerator::visit(AstFunctionDeclaration* node){
 
 
 // statements
-void NASMCodeGenerator::visit(AstBlock* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     pushVariableScope();
     for (auto const& child : node->getChildren()){
         if (child) child->accept(this);
     }
     popVariableScope();
 }
-void NASMCodeGenerator::visit(AstReturn* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstReturn> node){
     node->value->accept(this);
     popStackFrame(true);
     emitIndented("ret\n");
 }
-void NASMCodeGenerator::visit(AstConditionalStatement* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     std::string else_label = getUniqueLabel("else");
     std::string end_label = getUniqueLabel("end");
 
@@ -364,7 +364,7 @@ void NASMCodeGenerator::visit(AstConditionalStatement* node){
     dedent();
     emitIndented(end_label + ":\n");
 }
-void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
@@ -376,7 +376,7 @@ void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
     
     emitIndented("; For loop\n");
     emitIndented("; Initialization\n");
-    node->variable->accept(this);
+    node->body->items.at(0)->accept(this);
 
     emitIndented("; For loop\n");
     emitIndented(start_label + ":\n");
@@ -386,7 +386,7 @@ void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
     emitIndented("cmp rax, 0\n");
     emitIndented("je " + end_label + "\n");
     emitIndented("; Body\n");
-    node->body->accept(this);
+    node->body->items.at(1)->accept(this);
     dedent();
     emitIndented("; Increment\n");
     emitIndented(increment_label + ":\n");
@@ -401,7 +401,7 @@ void NASMCodeGenerator::visit(AstForLoopDeclaration* node){
 
     getCurrentStackFrame().loopInfo.pop_back();
 }
-void NASMCodeGenerator::visit(AstForLoopExpression* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
@@ -434,7 +434,7 @@ void NASMCodeGenerator::visit(AstForLoopExpression* node){
     getCurrentVariableScope().hasLoop = false;
     getCurrentStackFrame().loopInfo.pop_back();
 }
-void NASMCodeGenerator::visit(AstWhileLoop* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
@@ -456,7 +456,7 @@ void NASMCodeGenerator::visit(AstWhileLoop* node){
     getCurrentVariableScope().hasLoop = false;
     getCurrentStackFrame().loopInfo.pop_back();
 }
-void NASMCodeGenerator::visit(AstDoWhileLoop* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
@@ -478,7 +478,7 @@ void NASMCodeGenerator::visit(AstDoWhileLoop* node){
     getCurrentStackFrame().loopInfo.pop_back();
 
 }
-void NASMCodeGenerator::visit(AstBreak* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstBreak> node){
     if (getCurrentStackFrame().loopInfo.empty()){
         Error("NASM Generator: Break statement outside of loop!");
     }
@@ -495,7 +495,7 @@ void NASMCodeGenerator::visit(AstBreak* node){
     emitIndented("; Break\n");
     emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().breakLabel + "\n");
 }
-void NASMCodeGenerator::visit(AstSkip* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
     if (getCurrentStackFrame().loopInfo.empty()){
         Error("NASM Generator: Skip statement outside of loop!");
     }
@@ -514,7 +514,7 @@ void NASMCodeGenerator::visit(AstSkip* node){
 
 
 // expressions
-void NASMCodeGenerator::visit(AstUnary* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstUnary> node){
     node->value->accept(this);
     switch (node->type){
         case AstUnaryType::Negate:
@@ -535,7 +535,7 @@ void NASMCodeGenerator::visit(AstUnary* node){
             break;
     }
 }
-void NASMCodeGenerator::visit(AstBinary* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
     node->left->accept(this);
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
@@ -652,21 +652,21 @@ void NASMCodeGenerator::visit(AstBinary* node){
             break;
     }
 }
-void NASMCodeGenerator::visit(AstInteger* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emitIndented("; Integer " + std::to_string(node->value) + "\n");
     emitIndented("mov rax, " + std::to_string(node->value) + "\n");
 }
-void NASMCodeGenerator::visit(AstVariableAccess* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     emitIndented("; Variable Access(" + node->name + ")\n");
     Variable var = getVariable(node->name);
     emitIndented("mov " + sizeToNASMType(var.size) + " rax, " + var.accessStr + "\n");
 }
-void NASMCodeGenerator::visit(AstVariableAssignment* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     Variable var = getVariable(node->name);
     node->value->accept(this);
     emitIndented("mov " + sizeToNASMType(var.size) + " " + var.accessStr + ", rax\n");
 }
-void NASMCodeGenerator::visit(AstConditionalExpression* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     std::string true_clause = getUniqueLabel("true_expression");
     std::string false_clause = getUniqueLabel("false_expression");
     std::string end = getUniqueLabel("end");
@@ -683,11 +683,11 @@ void NASMCodeGenerator::visit(AstConditionalExpression* node){
     dedent();
     emitIndented(end + ":\n");
 }
-void NASMCodeGenerator::visit(AstEmptyExpression* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
     emitIndented("; Empty Expression\n");
     emitIndented("mov rax, 1\n");
 }
-void NASMCodeGenerator::visit(AstFunctionCall* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     // rdi, rsi, rdx, rcx, r8, and r9 are used for parameters
     // more than 6 parameters are not supported yet
 
@@ -746,9 +746,9 @@ void NASMCodeGenerator::visit(AstFunctionCall* node){
 
 
 // declarations
-void NASMCodeGenerator::visit(AstVariableDeclaration* node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     Variable var = addVariable(node);
-    if (node->isGlobal){
+    if (node->variable->isGlobal){
         if (!node->value){
             return;
         }
@@ -757,7 +757,7 @@ void NASMCodeGenerator::visit(AstVariableDeclaration* node){
             printErrorToken(node->token, R_SharpSource);
             exit(1);
         }
-        auto intNode = std::static_pointer_cast<AstInteger>(node->value);
+        auto intNode = std::dynamic_pointer_cast<AstInteger>(node->value);
         emit("    ; Global Variable (" + node->name + ")\n", BinarySection::Data);
         // remove the brackets from the name
         std::string label = var.accessStr.substr(1, var.accessStr.size()-2);

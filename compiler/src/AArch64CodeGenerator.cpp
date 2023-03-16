@@ -116,14 +116,14 @@ std::string AArch64CodeGenerator::getUniqueLabel(std::string const& prefix){
     return prefix + "_" + std::to_string(labelCounter++);
 }
 
-AArch64CodeGenerator::Variable AArch64CodeGenerator::addVariable(AstVariableDeclaration* node){
+AArch64CodeGenerator::Variable AArch64CodeGenerator::addVariable(std::shared_ptr<AstVariableDeclaration> node){
     Variable var;
     var.name = node->name;
     var.type = node->semanticType;
-    var.isGlobal = node->isGlobal;
+    var.isGlobal = node->variable->isGlobal;
     
     // if (node->type->getType() == AstNodeType::AstBuiltinType)
-    //     var.type = std::static_pointer_cast<AstBuiltinType>(node->type)->name;
+    //     var.type = std::dynamic_pointer_cast<AstBuiltinType>(node->type)->name;
     // else{
     //     Error("Only builtin types are supported");
     //     printErrorToken(node->token, R_SharpSource);
@@ -148,7 +148,7 @@ AArch64CodeGenerator::Variable AArch64CodeGenerator::addVariable(AstVariableDecl
         exit(1);
     }
 
-    if (node->isGlobal){
+    if (node->variable->isGlobal){
         // test if the variable is already declared
         if (std::find(globalScope.variables.begin(), globalScope.variables.end(), var) != globalScope.variables.end()){
             auto match = std::find(globalScope.variables.begin(), globalScope.variables.end(), var);
@@ -257,7 +257,7 @@ std::string AArch64CodeGenerator::sizeToAArch64Type(int size){
 }
 
 // program
-void AArch64CodeGenerator::visit(AstProgram* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstProgram> node){
     for (auto const& child : node->getChildren()){
         if (!child) continue;
         if (child->getType() == AstNodeType::AstFunctionDeclaration){
@@ -276,7 +276,7 @@ void AArch64CodeGenerator::visit(AstProgram* node){
         emitIndented(".extern " + func + "\n");
     }
 }
-void AArch64CodeGenerator::visit(AstParameterList* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node){
     int argumentNumber = 0;
     for (auto const& child : node->parameters){
         if (argumentNumber == 0) emitIndented("mov x9, x0\n");
@@ -292,7 +292,7 @@ void AArch64CodeGenerator::visit(AstParameterList* node){
 }
 
 // definitions
-void AArch64CodeGenerator::visit(AstFunctionDeclaration* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
 
     if (node->body){
         emitIndented("// Function " + node->name + "\n\n");
@@ -327,19 +327,19 @@ void AArch64CodeGenerator::visit(AstFunctionDeclaration* node){
 
 
 // statements
-void AArch64CodeGenerator::visit(AstBlock* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstBlock> node){
     pushVariableScope();
     for (auto const& child : node->getChildren()){
         if (child) child->accept(this);
     }
     popVariableScope();
 }
-void AArch64CodeGenerator::visit(AstReturn* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstReturn> node){
     node->value->accept(this);
     popStackFrame(true);
     emitIndented("ret\n");
 }
-void AArch64CodeGenerator::visit(AstConditionalStatement* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     std::string else_label = getUniqueLabel("else");
     std::string end_label = getUniqueLabel("end");
 
@@ -356,7 +356,7 @@ void AArch64CodeGenerator::visit(AstConditionalStatement* node){
     dedent();
     emitIndented(end_label + ":\n");
 }
-void AArch64CodeGenerator::visit(AstForLoopDeclaration* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
@@ -368,7 +368,7 @@ void AArch64CodeGenerator::visit(AstForLoopDeclaration* node){
     
     emitIndented("// For loop\n");
     emitIndented("// Initialization\n");
-    node->variable->accept(this);
+    node->body->items.at(0)->accept(this);
 
     emitIndented("// For loop\n");
     emitIndented(start_label + ":\n");
@@ -377,7 +377,7 @@ void AArch64CodeGenerator::visit(AstForLoopDeclaration* node){
     node->condition->accept(this);
     emitIndented("cbz x0, " + end_label + "\n");
     emitIndented("// Body\n");
-    node->body->accept(this);
+    node->body->items.at(1)->accept(this);
     dedent();
     emitIndented("// Increment\n");
     emitIndented(increment_label + ":\n");
@@ -392,7 +392,7 @@ void AArch64CodeGenerator::visit(AstForLoopDeclaration* node){
 
     getCurrentStackFrame().loopInfo.pop_back();
 }
-void AArch64CodeGenerator::visit(AstForLoopExpression* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
@@ -424,7 +424,7 @@ void AArch64CodeGenerator::visit(AstForLoopExpression* node){
     getCurrentVariableScope().hasLoop = false;
     getCurrentStackFrame().loopInfo.pop_back();
 }
-void AArch64CodeGenerator::visit(AstWhileLoop* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
@@ -445,7 +445,7 @@ void AArch64CodeGenerator::visit(AstWhileLoop* node){
     getCurrentVariableScope().hasLoop = false;
     getCurrentStackFrame().loopInfo.pop_back();
 }
-void AArch64CodeGenerator::visit(AstDoWhileLoop* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
@@ -466,7 +466,7 @@ void AArch64CodeGenerator::visit(AstDoWhileLoop* node){
     getCurrentStackFrame().loopInfo.pop_back();
 
 }
-void AArch64CodeGenerator::visit(AstBreak* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstBreak> node){
     if (getCurrentStackFrame().loopInfo.empty()){
         Error("AArch64 Generator: Break statement outside of loop!");
     }
@@ -483,7 +483,7 @@ void AArch64CodeGenerator::visit(AstBreak* node){
     emitIndented("// Break\n");
     emitIndented("b " + getCurrentStackFrame().loopInfo.back().breakLabel + "\n");
 }
-void AArch64CodeGenerator::visit(AstSkip* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstSkip> node){
     if (getCurrentStackFrame().loopInfo.empty()){
         Error("AArch64 Generator: Skip statement outside of loop!");
     }
@@ -502,7 +502,7 @@ void AArch64CodeGenerator::visit(AstSkip* node){
 
 
 // expressions
-void AArch64CodeGenerator::visit(AstUnary* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstUnary> node){
     node->value->accept(this);
     switch (node->type){
         case AstUnaryType::Negate:
@@ -522,7 +522,7 @@ void AArch64CodeGenerator::visit(AstUnary* node){
             break;
     }
 }
-void AArch64CodeGenerator::visit(AstBinary* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
     node->left->accept(this);
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
@@ -623,16 +623,16 @@ void AArch64CodeGenerator::visit(AstBinary* node){
             break;
     }
 }
-void AArch64CodeGenerator::visit(AstInteger* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emitIndented("// Integer " + std::to_string(node->value) + "\n");
     emitIndented("mov x0, " + std::to_string(node->value) + "\n");
 }
-void AArch64CodeGenerator::visit(AstVariableAccess* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     emitIndented("// Variable Access(" + node->name + ")\n");
     Variable var = getVariable(node->name);
     emitIndented("ldr x0, " + var.accessStr + "\n");
 }
-void AArch64CodeGenerator::visit(AstVariableAssignment* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     Variable var = getVariable(node->name);
     node->value->accept(this);
     if (var.isGlobal){
@@ -643,7 +643,7 @@ void AArch64CodeGenerator::visit(AstVariableAssignment* node){
         emitIndented("str x0, " + var.accessStr + "\n");
     }
 }
-void AArch64CodeGenerator::visit(AstConditionalExpression* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     std::string true_clause = getUniqueLabel("true_expression");
     std::string false_clause = getUniqueLabel("false_expression");
     std::string end = getUniqueLabel("end");
@@ -659,11 +659,11 @@ void AArch64CodeGenerator::visit(AstConditionalExpression* node){
     dedent();
     emitIndented(end + ":\n");
 }
-void AArch64CodeGenerator::visit(AstEmptyExpression* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
     emitIndented("// Empty Expression\n");
     emitIndented("mov x0, 1\n");
 }
-void AArch64CodeGenerator::visit(AstFunctionCall* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     // rdi, rsi, rdx, rcx, r8, and r9 are used for parameters
     // more than 6 parameters are not supported yet
 
@@ -701,9 +701,9 @@ void AArch64CodeGenerator::visit(AstFunctionCall* node){
 
 
 // declarations
-void AArch64CodeGenerator::visit(AstVariableDeclaration* node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     Variable var = addVariable(node);
-    if (node->isGlobal){
+    if (node->variable->isGlobal){
         if (!node->value){
             return;
         }
@@ -712,7 +712,7 @@ void AArch64CodeGenerator::visit(AstVariableDeclaration* node){
             printErrorToken(node->token, R_SharpSource);
             exit(1);
         }
-        auto intNode = std::static_pointer_cast<AstInteger>(node->value);
+        auto intNode = std::dynamic_pointer_cast<AstInteger>(node->value);
         emit("    // Global Variable (" + node->name + ")\n", BinarySection::Data);
         
         emit("    .global " + var.accessStr + "\n", BinarySection::Data);

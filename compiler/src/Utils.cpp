@@ -34,7 +34,7 @@ void printErrorToken(Token token, std::string const& source){
     int end = token.position.endPos;
 
     std::string src = source;
-    src.replace(start, end - start, "\033[31m" + src.substr(start, end - start) + "\033[0m");
+    src.replace(start, end - start, ANSI::set4BitColor(ANSI::Red) + src.substr(start, end - start) + ANSI::reset());
 
     // print the error and 3 lines above it
     std::stringstream ss;
@@ -66,7 +66,7 @@ void printErrorToken(Token token, std::string const& source){
 
     int prefixLen = (std::to_string(token.position.line) + "| ").length();
 
-    ss << "\n\033[31m" // enable red text
+    ss << "\n" << ANSI::set4BitColor(ANSI::Red) // enable red text
         << std::string(prefixLen + token.position.column - 1, ' ') // print spaces before the error
         << "^";
     try {
@@ -74,6 +74,6 @@ void printErrorToken(Token token, std::string const& source){
     }
     catch(std::length_error){}
 
-    ss << "\033[0m"; // disable red text
+    ss << ANSI::reset(); // disable red text
     Print(ss.str());
 }

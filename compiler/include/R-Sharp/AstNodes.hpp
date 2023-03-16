@@ -12,7 +12,7 @@
 template<typename... Args>
 std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
     std::vector<std::shared_ptr<AstNode>> children;
-    (children.push_back(std::static_pointer_cast<AstNode>(args)), ...);
+    (children.push_back(std::dynamic_pointer_cast<AstNode>(args)), ...);
     return children;
 }
 
@@ -21,7 +21,7 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
     NAME() = default; \
     NAME(Token const& token) {this->token = token;} \
     AstNodeType getType() const override { return AstNodeType::NAME; } \
-    void accept(AstVisitor* visitor) override{ visitor->visit(this); }
+    void accept(AstVisitor* visitor) override{ visitor->visit(shared_from_this()); }
 
 #define CHILD_INIT(NAME, TYPE, VARIABLE_NAME) \
     NAME(std::shared_ptr<TYPE> child) : VARIABLE_NAME(child) {}
@@ -39,9 +39,9 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 
 #define GET_MULTI_CHILD(VARIABLE_NAME)\
     std::vector<std::shared_ptr<AstNode>> getChildren() const override{ \
-        std::vector<std::shared_ptr<AstNode>> internal_children = {std::static_pointer_cast<AstNode>(semanticType)}; \
+        std::vector<std::shared_ptr<AstNode>> internal_children = {std::dynamic_pointer_cast<AstNode>(semanticType)}; \
         for(auto& child : VARIABLE_NAME) \
-            internal_children.push_back(std::static_pointer_cast<AstNode>(child)); \
+            internal_children.push_back(std::dynamic_pointer_cast<AstNode>(child)); \
         return internal_children; \
     } \
 
@@ -62,9 +62,20 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
     virtual ~NAME() = default;
 
 
+struct SemanticVariableData{
+    bool isGlobal = false;
+    bool isDefined = false;
+    RSharpType type;
+    std::string name;
+
+    bool operator ==(SemanticVariableData other) const{
+        return isGlobal == other.isGlobal && type == type;
+    }
+};
+
 // The actual AST nodes
 // ----------------------------------| Program |---------------------------------- //
-struct AstProgram : public virtual AstNode {
+struct AstProgram : public virtual AstNode, public std::enable_shared_from_this<AstProgram> {
     BASE(AstProgram)
     TO_STRING(AstProgram)
 
@@ -73,7 +84,7 @@ struct AstProgram : public virtual AstNode {
     MULTI_CHILD(AstProgramItem, items)
 };
 
-struct AstParameterList : public virtual AstNode {
+struct AstParameterList : public virtual AstNode, public std::enable_shared_from_this<AstParameterList> {
     BASE(AstParameterList)
     TO_STRING(AstParameterList)
 
@@ -106,38 +117,40 @@ struct AstProgramItem : public virtual AstNode{
 
 // ----------------------------------| Program Items |---------------------------------- //
 
-struct AstFunctionDeclaration : public AstProgramItem {
+struct AstFunctionDeclaration : public AstProgramItem, public std::enable_shared_from_this<AstFunctionDeclaration> {
     BASE(AstFunctionDeclaration)
     TO_STRING_NAME(AstFunctionDeclaration)
 
     GET_SINGLE_CHILDREN(parameters, body)
 
-    SINGLE_CHILD(AstStatement, body)
+    SINGLE_CHILD(AstBlock, body)
     SINGLE_CHILD(AstParameterList, parameters)
 };
 
 
 // ----------------------------------| Errors |---------------------------------- //
 
-struct AstErrorStatement : public AstStatement, public AstErrorNode {
+struct AstErrorStatement : public AstStatement, public AstErrorNode, public std::enable_shared_from_this<AstErrorStatement> {
     BASE(AstErrorStatement)
     TO_STRING_NAME(AstErrorStatement)
 };
-struct AstErrorProgramItem : public AstProgramItem, public AstErrorNode {
+struct AstErrorProgramItem : public AstProgramItem, public AstErrorNode, public std::enable_shared_from_this<AstErrorProgramItem> {
     BASE(AstErrorProgramItem)
     TO_STRING_NAME(AstErrorProgramItem)
 };
 // ----------------------------------| Statements |---------------------------------- //
-struct AstBlock : public AstStatement {
+struct AstBlock : public AstStatement, public std::enable_shared_from_this<AstBlock> {
     BASE(AstBlock)
     TO_STRING(AstBlock)
 
     GET_MULTI_CHILD(items)
 
     MULTI_CHILD(AstBlockItem, items)
+
+    std::vector<std::shared_ptr<SemanticVariableData>> variables;
 };
 
-struct AstReturn : public AstStatement {
+struct AstReturn : public AstStatement, public std::enable_shared_from_this<AstReturn> {
     BASE(AstReturn)
     TO_STRING(AstReturn)
 
@@ -147,7 +160,7 @@ struct AstReturn : public AstStatement {
     SINGLE_CHILD(AstExpression, value)
 };
 
-struct AstExpressionStatement : public AstStatement {
+struct AstExpressionStatement : public AstStatement, public std::enable_shared_from_this<AstExpressionStatement> {
     BASE(AstExpressionStatement)
     TO_STRING(AstExpressionStatement)
 
@@ -158,7 +171,7 @@ struct AstExpressionStatement : public AstStatement {
 };
 
 
-struct AstConditionalStatement : public AstStatement {
+struct AstConditionalStatement : public AstStatement, public std::enable_shared_from_this<AstConditionalStatement> {
     BASE(AstConditionalStatement)
     TO_STRING(AstConditionalStatement)
 
@@ -170,7 +183,7 @@ struct AstConditionalStatement : public AstStatement {
 };
 
 
-struct AstWhileLoop : public AstStatement {
+struct AstWhileLoop : public AstStatement, public std::enable_shared_from_this<AstWhileLoop> {
     BASE(AstWhileLoop)
     TO_STRING(AstWhileLoop)
 
@@ -181,20 +194,22 @@ struct AstWhileLoop : public AstStatement {
 };
 
 
-struct AstForLoopDeclaration : public AstStatement {
+struct AstForLoopDeclaration : public AstStatement, public std::enable_shared_from_this<AstForLoopDeclaration> {
     BASE(AstForLoopDeclaration)
     TO_STRING(AstForLoopDeclaration)
 
-    GET_SINGLE_CHILDREN(variable, condition, increment, body)
+    // body first is important because it contains the initialization 
+    GET_SINGLE_CHILDREN(body, condition, increment)
 
-    SINGLE_CHILD(AstVariableDeclaration, variable)
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstExpression, increment)
-    SINGLE_CHILD(AstStatement, body)
+
+    // contains 0: the initialization;  1: the actual loop body
+    SINGLE_CHILD(AstBlock, body)
 };
 
 
-struct AstForLoopExpression : public AstStatement {
+struct AstForLoopExpression : public AstStatement, public std::enable_shared_from_this<AstForLoopExpression> {
     BASE(AstForLoopExpression)
     TO_STRING(AstForLoopExpression)
 
@@ -207,7 +222,7 @@ struct AstForLoopExpression : public AstStatement {
 };
 
 
-struct AstDoWhileLoop : public AstStatement {
+struct AstDoWhileLoop : public AstStatement, public std::enable_shared_from_this<AstDoWhileLoop> {
     BASE(AstDoWhileLoop)
     TO_STRING(AstDoWhileLoop)
 
@@ -218,25 +233,27 @@ struct AstDoWhileLoop : public AstStatement {
 };
 
 
-struct AstBreak : public AstStatement {
+struct AstBreak : public AstStatement, public std::enable_shared_from_this<AstBreak> {
     BASE(AstBreak)
     TO_STRING(AstBreak)
 };
 
 
-struct AstSkip : public AstStatement {
+struct AstSkip : public AstStatement, public std::enable_shared_from_this<AstSkip> {
     BASE(AstSkip)
     TO_STRING(AstSkip)
 };
 
 
 // ----------------------------------| Expressions |---------------------------------- //
-struct AstVariableAccess : public AstExpression {
+struct AstVariableAccess : public AstExpression, public std::enable_shared_from_this<AstVariableAccess> {
     BASE(AstVariableAccess)
     TO_STRING_NAME(AstVariableAccess)
+
+    std::shared_ptr<SemanticVariableData> variable;
 };
 
-struct AstInteger : public AstExpression {
+struct AstInteger : public AstExpression, public std::enable_shared_from_this<AstInteger> {
     BASE(AstInteger)
     AstInteger(int64_t value): value(value){}
     
@@ -246,7 +263,7 @@ struct AstInteger : public AstExpression {
     int64_t value;
 };
 
-struct AstVariableAssignment : AstExpression{
+struct AstVariableAssignment : AstExpression, public std::enable_shared_from_this<AstVariableAssignment>{
     BASE(AstVariableAssignment)
     TO_STRING_NAME(AstVariableAssignment)
 
@@ -254,9 +271,11 @@ struct AstVariableAssignment : AstExpression{
     GET_SINGLE_CHILDREN(value)
 
     SINGLE_CHILD(AstExpression, value)
+
+    std::shared_ptr<SemanticVariableData> variable;
 };
 
-struct AstUnary : public AstExpression {
+struct AstUnary : public AstExpression, public std::enable_shared_from_this<AstUnary> {
     BASE(AstUnary)
     AstUnary(AstUnaryType op, std::shared_ptr<AstExpression> value): type(op), value(value){}
     std::string toString() const override{
@@ -268,7 +287,7 @@ struct AstUnary : public AstExpression {
     AstUnaryType type = AstUnaryType::None;
 };
 
-struct AstBinary : public AstExpression {
+struct AstBinary : public AstExpression, public std::enable_shared_from_this<AstBinary> {
     BASE(AstBinary)
     AstBinary(std::shared_ptr<AstExpression> left, AstBinaryType type, std::shared_ptr<AstExpression> right)
         : left(left), type(type), right(right){}
@@ -283,7 +302,7 @@ struct AstBinary : public AstExpression {
 
     AstBinaryType type = AstBinaryType::None;
 };
-struct AstConditionalExpression : public AstExpression {
+struct AstConditionalExpression : public AstExpression, public std::enable_shared_from_this<AstConditionalExpression> {
     BASE(AstConditionalExpression)
     TO_STRING(AstConditionalExpression)
 
@@ -294,12 +313,12 @@ struct AstConditionalExpression : public AstExpression {
     SINGLE_CHILD(AstExpression, falseExpression)
 };
 
-struct AstEmptyExpression : public AstExpression {
+struct AstEmptyExpression : public AstExpression, public std::enable_shared_from_this<AstEmptyExpression> {
     BASE(AstEmptyExpression)
     TO_STRING(AstEmptyExpression)
 };
 
-struct AstFunctionCall : public AstExpression {
+struct AstFunctionCall : public AstExpression, public std::enable_shared_from_this<AstFunctionCall> {
     BASE(AstFunctionCall)
     TO_STRING_NAME(AstFunctionCall)
 
@@ -309,19 +328,20 @@ struct AstFunctionCall : public AstExpression {
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
-struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem {
+struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem, public std::enable_shared_from_this<AstVariableDeclaration> {
     BASE(AstVariableDeclaration)
     TO_STRING_NAME(AstVariableDeclaration)
 
     GET_SINGLE_CHILDREN(value)
 
     SINGLE_CHILD(AstExpression, value)
-    bool isGlobal = false;
+    
+    std::shared_ptr<SemanticVariableData> variable;
 };
 
 
 
-struct AstType : public AstNode{
+struct AstType : public AstNode, public std::enable_shared_from_this<AstType>{
     AstType(RSharpType type);
     AstType(RSharpType type, std::shared_ptr<AstType> subtype);
 

@@ -41,6 +41,7 @@ enum class AstNodeType {
     AstType
 };
 
+struct SemanticVariableData;
 
 // forward declarations for all the AST nodes
 struct AstProgram;
@@ -84,7 +85,7 @@ struct AstNode{
     virtual ~AstNode() = default;
     AstNode() = default;
 
-    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {std::static_pointer_cast<AstNode>(semanticType)};};
+    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {std::dynamic_pointer_cast<AstNode>(semanticType)};};
     virtual AstNodeType getType() const = 0;
     virtual std::string toString() const = 0;
     virtual void accept(AstVisitor* visitor) = 0;

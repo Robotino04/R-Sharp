@@ -41,7 +41,7 @@ void CCodeGenerator::blockNextIndentedEmit(){
     indentedEmitBlocked = true;
 }
 
-void CCodeGenerator::visit(AstProgram* node){
+void CCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     // stdint.h provides the int64_t type
     emit("#include <stdint.h>\n\n");
     for (auto& function : node->items) {
@@ -49,7 +49,7 @@ void CCodeGenerator::visit(AstProgram* node){
         emit("\n");
     }
 }
-void CCodeGenerator::visit(AstParameterList* node){
+void CCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
     emit("(");
     for (auto const& parameter : node->parameters) {
         parameter->semanticType->accept(this);
@@ -63,22 +63,13 @@ void CCodeGenerator::visit(AstParameterList* node){
 }
 
 // program items
-void CCodeGenerator::visit(AstFunctionDeclaration* node){
+void CCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
     node->semanticType->accept(this);
     emit(" " + node->name);
     node->parameters->accept(this);
 
     if (node->body){
-        if (node->body->getType() == AstNodeType::AstBlock)
-            node->body->accept(this);
-        else{
-            emit("{\n");
-            indent();
-            node->body->accept(this);
-            dedent();
-            emit("\n");
-            emitIndented("}");
-        }
+        node->body->accept(this);
     }
     else{
         emit(";\n");
@@ -87,7 +78,7 @@ void CCodeGenerator::visit(AstFunctionDeclaration* node){
 }
 
 // Statements
-void CCodeGenerator::visit(AstBlock* node){
+void CCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     emitIndented("{\n");
     indent();
     for (auto const& statement : node->items) {
@@ -97,18 +88,17 @@ void CCodeGenerator::visit(AstBlock* node){
     dedent();
     emitIndented("}\n");
 }
-void CCodeGenerator::visit(AstReturn* node){
-
+void CCodeGenerator::visit(std::shared_ptr<AstReturn> node){
     emitIndented("return ");
     node->value->accept(this);
     emit(";");
 }
-void CCodeGenerator::visit(AstExpressionStatement* node){
+void CCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
     emitIndented("");
     node->expression->accept(this);
     emit(";");
 }
-void CCodeGenerator::visit(AstConditionalStatement* node){
+void CCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     emitIndented("if (");
     node->condition->accept(this);
     emit(") ");
@@ -121,27 +111,24 @@ void CCodeGenerator::visit(AstConditionalStatement* node){
         node->falseStatement->accept(this);
     }
 }
-void CCodeGenerator::visit(AstForLoopDeclaration* node){
+void CCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     emitIndented("for (");
     blockNextIndentedEmit();
-    node->variable->accept(this);
+    node->body->items.at(0)->accept(this);
     emit(" ");
     node->condition->accept(this);
     emit("; ");
     node->increment->accept(this);
     emit(") ");
-    if (node->body->getType() == AstNodeType::AstBlock)
-        node->body->accept(this);
-    else{
-        emit("{\n");
-        indent();
-        node->body->accept(this);
-        dedent();
-        emit("\n");
-        emitIndented("}");
-    }
+
+    emit("{\n");
+    indent();
+    node->body->items.at(1)->accept(this);
+    dedent();
+    emit("\n");
+    emitIndented("}");
 }
-void CCodeGenerator::visit(AstForLoopExpression* node){
+void CCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     emitIndented("for (");
     node->variable->accept(this);
     emit("; ");
@@ -159,7 +146,7 @@ void CCodeGenerator::visit(AstForLoopExpression* node){
         emit("\n}");
     }
 }
-void CCodeGenerator::visit(AstWhileLoop* node){
+void CCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     emitIndented("while (");
     node->condition->accept(this);
     emit(") ");
@@ -173,7 +160,7 @@ void CCodeGenerator::visit(AstWhileLoop* node){
         emit("\n}");
     }
 }
-void CCodeGenerator::visit(AstDoWhileLoop* node){
+void CCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     emitIndented("do ");
     if (node->body->getType() == AstNodeType::AstBlock)
         node->body->accept(this);
@@ -189,21 +176,21 @@ void CCodeGenerator::visit(AstDoWhileLoop* node){
     node->condition->accept(this);
     emit(");");
 }
-void CCodeGenerator::visit(AstBreak* node){
+void CCodeGenerator::visit(std::shared_ptr<AstBreak> node){
     emitIndented("break;");
 }
-void CCodeGenerator::visit(AstSkip* node){
+void CCodeGenerator::visit(std::shared_ptr<AstSkip> node){
     emitIndented("continue;");
 }
-void CCodeGenerator::visit(AstErrorStatement* node){
+void CCodeGenerator::visit(std::shared_ptr<AstErrorStatement> node){
     emitIndented("// Error(\"" + node->name + "\");");
 }
 
 // Expressions
-void CCodeGenerator::visit(AstInteger* node){
+void CCodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emit(std::to_string(node->value));
 }
-void CCodeGenerator::visit(AstUnary* node){
+void CCodeGenerator::visit(std::shared_ptr<AstUnary> node){
     emit("(");
     switch (node->type) {
         case AstUnaryType::Negate:
@@ -222,7 +209,7 @@ void CCodeGenerator::visit(AstUnary* node){
     node->value->accept(this);
     emit(")");
 }
-void CCodeGenerator::visit(AstBinary* node){
+void CCodeGenerator::visit(std::shared_ptr<AstBinary> node){
     emit("(");
     node->left->accept(this);
     switch (node->type){
@@ -275,15 +262,15 @@ void CCodeGenerator::visit(AstBinary* node){
     node->right->accept(this);
     emit(")");
 }
-void CCodeGenerator::visit(AstVariableAccess* node){
+void CCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     emit(node->name);
 }
-void CCodeGenerator::visit(AstVariableAssignment* node){
+void CCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     emit("(" + node->name + " = ");
     node->value->accept(this);
     emit(")");
 }
-void CCodeGenerator::visit(AstConditionalExpression* node){
+void CCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     emit("(");
     node->condition->accept(this);
     emit(" ? ");
@@ -292,7 +279,7 @@ void CCodeGenerator::visit(AstConditionalExpression* node){
     node->falseExpression->accept(this);
     emit(")");
 }
-void CCodeGenerator::visit(AstFunctionCall* node){
+void CCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     emit(node->name + "(");
     for (int i = 0; i < node->arguments.size(); i++){
         node->arguments[i]->accept(this);
@@ -302,7 +289,7 @@ void CCodeGenerator::visit(AstFunctionCall* node){
     emit(")");
 }
 // Declarations
-void CCodeGenerator::visit(AstVariableDeclaration* node){
+void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     emitIndented("");
     node->semanticType->accept(this);
     emit(" " + node->name);
@@ -312,7 +299,7 @@ void CCodeGenerator::visit(AstVariableDeclaration* node){
     }
     emit(";");
 }
-void CCodeGenerator::visit(AstType* node){
+void CCodeGenerator::visit(std::shared_ptr<AstType> node){
     switch (node->type){
         case RSharpType::I32: emit("int32_t"); break;
         case RSharpType::I64: emit("int64_t"); break;

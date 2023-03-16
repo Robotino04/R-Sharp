@@ -1,41 +1,44 @@
 #include "R-Sharp/AstVisitor.hpp"
 #include "R-Sharp/AstNodes.hpp"
 
-#define VISTITOR_FN(NAME) void AstVisitor::visit(NAME* node) {visit(static_cast<AstNode*>(node));}
+#define VISITOR_FN(NAME) void AstVisitor::visit(std::shared_ptr<NAME> node) {visit(std::dynamic_pointer_cast<AstNode>(node));}
 
-void AstVisitor::visit(AstNode* node) {
+void AstVisitor::visit(std::shared_ptr<AstNode> node) {
     for (auto& child : node->getChildren()) {
         if (child) child->accept(this);
     }
 }
 
-VISTITOR_FN(AstProgram);
+VISITOR_FN(AstProgram)
 
-VISTITOR_FN(AstErrorStatement);
-VISTITOR_FN(AstErrorProgramItem);
+VISITOR_FN(AstErrorStatement)
+VISITOR_FN(AstErrorProgramItem)
 
-VISTITOR_FN(AstFunctionDeclaration);
-VISTITOR_FN(AstParameterList);
+VISITOR_FN(AstFunctionDeclaration)
+VISITOR_FN(AstParameterList)
 
-VISTITOR_FN(AstBlock);
-VISTITOR_FN(AstReturn);
-VISTITOR_FN(AstExpressionStatement);
-VISTITOR_FN(AstConditionalStatement);
-VISTITOR_FN(AstForLoopDeclaration);
-VISTITOR_FN(AstForLoopExpression);
-VISTITOR_FN(AstWhileLoop);
-VISTITOR_FN(AstDoWhileLoop);
-VISTITOR_FN(AstBreak);
-VISTITOR_FN(AstSkip);
+VISITOR_FN(AstBlock)
+VISITOR_FN(AstReturn)
+VISITOR_FN(AstExpressionStatement)
+VISITOR_FN(AstConditionalStatement)
+VISITOR_FN(AstForLoopDeclaration)
+VISITOR_FN(AstForLoopExpression)
+VISITOR_FN(AstWhileLoop)
+VISITOR_FN(AstDoWhileLoop)
+VISITOR_FN(AstBreak)
+VISITOR_FN(AstSkip)
 
-VISTITOR_FN(AstUnary);
-VISTITOR_FN(AstBinary);
-VISTITOR_FN(AstInteger);
-VISTITOR_FN(AstVariableAccess);
-VISTITOR_FN(AstVariableAssignment);
-VISTITOR_FN(AstConditionalExpression);
-VISTITOR_FN(AstEmptyExpression);
-VISTITOR_FN(AstFunctionCall);
+VISITOR_FN(AstUnary)
+VISITOR_FN(AstBinary)
+VISITOR_FN(AstInteger)
+VISITOR_FN(AstVariableAccess)
+VISITOR_FN(AstVariableAssignment)
+VISITOR_FN(AstConditionalExpression)
+VISITOR_FN(AstEmptyExpression)
+VISITOR_FN(AstFunctionCall)
 
-VISTITOR_FN(AstVariableDeclaration);
-VISTITOR_FN(AstType);
+VISITOR_FN(AstVariableDeclaration)
+VISITOR_FN(AstType)
+
+
+#undef VISITOR_FN
