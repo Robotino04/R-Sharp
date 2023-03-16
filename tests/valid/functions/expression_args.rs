@@ -1,5 +1,5 @@
 /*
-return: 14
+executionExitCode: 14
 */
 
 add(a: i64, b: i64): i64 {

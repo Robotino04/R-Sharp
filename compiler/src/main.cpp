@@ -17,12 +17,28 @@
 #include "R-Sharp/ErrorPrinter.hpp"
 #include "R-Sharp/SemanticValidator.hpp"
 
+enum class ReturnValue{
+    NormalExit = 0,
+    UnknownError = 1,
+    SyntaxError = 2,
+    SemanticError = 3,
+    AssemblingError = 4,
+};
+
 void printHelp(const char* programName) {
-    std::cout << "Usage: " << programName << " [options] [input file]" << std::endl;
-    std::cout << "Options:" << std::endl;
-    std::cout << "  -h, --help\t\t\t\tPrint this help message" << std::endl;
-    std::cout << "  -o, --output <file>\t\t\tOutput file" << std::endl;
-    std::cout << "  -f, --format <format>\t\t\tOutput format (c, nasm)" << std::endl;
+    std::cout << "Usage: " << programName << " [options] [input file]\n";
+    std::cout <<
+R"(Options:
+  -h, --help                Print this help message
+  -o, --output <file>       Output file
+  -f, --format <format>     Output format (c, nasm)
+
+Return values:
+  0     Everything OK
+  1     Something unknown went wrong
+  2     There were syntax errors
+  3     There were semantic errors
+  4     There were assembling errors\n)";
 }
 
 std::stringstream& indent(std::stringstream& ss, int indentLevel) {
@@ -89,14 +105,14 @@ int main(int argc, const char** argv) {
 
     if (argc < 2) {
         printHelp(argv[0]);
-        return 1;
+        return static_cast<int>(ReturnValue::UnknownError);
     }
 
     for (int i=1; i<argc; i++){
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
             printHelp(argv[0]);
-            return 0;
+            return static_cast<int>(ReturnValue::NormalExit);
         }
         else if (arg == "-o" || arg == "--output") {
             if (i+1 < argc) {
@@ -104,7 +120,7 @@ int main(int argc, const char** argv) {
                 i++;
             } else {
                 Error("Missing output file");
-                return 1;
+                return static_cast<int>(ReturnValue::UnknownError);
             }
         }
         else if (arg == "-f" || arg == "--format") {
@@ -121,12 +137,12 @@ int main(int argc, const char** argv) {
                 }
                 else {
                     Error("Unknown output format \"" + format + "\"");
-                    return 1;
+                    return static_cast<int>(ReturnValue::UnknownError);
                 }
                 i++;
             } else {
                 Error("Missing output format");
-                return 1;
+                return static_cast<int>(ReturnValue::UnknownError);
             }
         }
         else {
@@ -136,7 +152,7 @@ int main(int argc, const char** argv) {
                 inputFilename = arg;
             } else {
                 Error("Invalid argument: ", arg);
-                return 1;
+                return static_cast<int>(ReturnValue::UnknownError);
             }
         }
     }
@@ -168,7 +184,8 @@ int main(int argc, const char** argv) {
         if (parser.hasErrors()) {
             ErrorPrinter printer(ast, inputFilename, R_Sharp_Source);
             printer.print();
-            Fatal("Parsing errors.");
+            Error("Parsing errors.");
+            return static_cast<int>(ReturnValue::SyntaxError);
         }
         else{
             Print("No errors"); 
@@ -186,7 +203,8 @@ int main(int argc, const char** argv) {
         validator.validate();
 
         if (validator.hasErrors()) {
-            Fatal("Semantic errors.");
+            Error("Semantic errors.");
+            return static_cast<int>(ReturnValue::SemanticError);
         }
         else{
             Print("No errors"); 
@@ -225,7 +243,8 @@ int main(int argc, const char** argv) {
             temporaryFile += ".S";
             break;
         default:
-            Fatal("Unknown output format");
+            Error("Unknown output format");
+            return static_cast<int>(ReturnValue::UnknownError);
             break;
     }
 
@@ -236,7 +255,7 @@ int main(int argc, const char** argv) {
         outputFile.close();
     } else {
         Error("Could not open file: ", temporaryFile);
-        return 1;
+        return static_cast<int>(ReturnValue::UnknownError);
     }
 
     switch(outputFormat) {
@@ -247,8 +266,10 @@ int main(int argc, const char** argv) {
             int success = !system(command.c_str());
             if (success)
                 Print("Compilation successful.");
-            else
-                Fatal("Compilation failed.");
+            else{
+                Error("Compilation failed.");
+                return static_cast<int>(ReturnValue::AssemblingError);
+            }
             break;
         }
         case OutputFormat::AArch64:{
@@ -258,8 +279,10 @@ int main(int argc, const char** argv) {
             int success = !system(command.c_str());
             if (success)
                 Print("Compilation successful.");
-            else
-                Fatal("Compilation failed.");
+            else{
+                Error("Compilation failed.");
+                return static_cast<int>(ReturnValue::AssemblingError);
+            }
             break;
         }
         case OutputFormat::NASM:{
@@ -269,8 +292,10 @@ int main(int argc, const char** argv) {
             int success = !system(command.c_str());
             if (success)
                 Print("Assembling successful.");
-            else
-                Fatal("Assembling failed.");
+            else{
+                Error("Assembling failed.");
+                return static_cast<int>(ReturnValue::AssemblingError);
+            }
 
             Print("--------------| Linking using gcc |--------------");
             command = "gcc -no-pie " + outputFilename + ".o -o " + outputFilename;
@@ -278,15 +303,18 @@ int main(int argc, const char** argv) {
             success = !system(command.c_str());
             if (success)
                 Print("Linking successful.");
-            else
-                Fatal("Linking failed.");
+            else{
+                Error("Linking failed.");
+                return static_cast<int>(ReturnValue::AssemblingError);
+            }
             
             break;
         }
         default:
-            Fatal("Unsupported output format");
+            Error("Unsupported output format");
+            return static_cast<int>(ReturnValue::UnknownError);
             break;
     }
 
-    return 0;
+    return static_cast<int>(ReturnValue::NormalExit);
 }

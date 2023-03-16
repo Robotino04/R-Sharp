@@ -264,15 +264,19 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAccess> node){
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    if (!isVariableDeclared(node->name)){
+    if (isVariableDeclared(node->name)){
+        requireType(node->value);
+        node->variable = getVariable(node->name);
+        node->semanticType = std::make_shared<AstType>();
+        node->semanticType->type = node->variable->type;
+    }
+    else{
         hasError = true;
         Error("Error: variable \"", node->name, "\" is not declared");
         printErrorToken(node->token, source);
+        node->semanticType = std::make_shared<AstType>();
+        node->semanticType->type = RSharpType::ErrorType;
     }
-    requireType(node->value);
-    node->variable = getVariable(node->name);
-    node->semanticType = std::make_shared<AstType>();
-    node->semanticType->type = node->variable->type;
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
     // visit the children

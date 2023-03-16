@@ -1,5 +1,5 @@
 /*
-return: 6
+executionExitCode: 6
 */
 
 twice(x: i64): i64{

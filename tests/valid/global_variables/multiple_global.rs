@@ -1,5 +1,5 @@
 /*
-return: 12
+executionExitCode: 12
 */
 
 a: i64 = 3;

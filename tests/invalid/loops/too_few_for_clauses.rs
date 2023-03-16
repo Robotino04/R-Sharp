@@ -1,5 +1,5 @@
 /*
-fail: 1
+compilationExitCode: 2
 */
 
 main(): i32 {

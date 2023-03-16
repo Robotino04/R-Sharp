@@ -1,5 +1,5 @@
 /*
-return: 1
+executionExitCode: 1
 */
 
 // This is valid, bacause R# uses the C++ ternary operator.

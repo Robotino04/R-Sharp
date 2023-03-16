@@ -17,7 +17,7 @@ void CCodeGenerator::indent(){
 }
 void CCodeGenerator::dedent(){
     if (!indentLevel){
-        Error("Indentation error");
+        Error("INTERNAL ERROR: Indentation error");
         return;
     }
     indentLevel--;

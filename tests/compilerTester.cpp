@@ -5,8 +5,16 @@
 #include <memory>
 #include <functional>
 
+enum class ReturnValue{
+    NormalExit = 0,
+    UnknownError = 1,
+    SyntaxError = 2,
+    SemanticError = 3,
+    AssemblingError = 4,
+};
+
 struct ExecutionResults{
-    bool failed = false;
+    int compilationReturnValue = static_cast<int>(ReturnValue::NormalExit);
     bool skipped = false;
     int returnValue = 0;
     std::string output = "";
@@ -29,7 +37,7 @@ std::string escapeString(std::string const& str) {
 }
 
 ExecutionResults parseExpectations(std::string filename){
-    ExecutionResults validations;
+    ExecutionResults expectedResult;
     std::ifstream input(filename);
     
     std::string line;
@@ -48,17 +56,17 @@ ExecutionResults parseExpectations(std::string filename){
         }
 
 
-        if (line.find("return: ") != std::string::npos) {
+        if (line.find("executionExitCode: ") != std::string::npos) {
             // extract the return value
-            validations.returnValue = std::stoi(line.substr(line.find(": ") + 2));
+            expectedResult.returnValue = std::stoi(line.substr(line.find(": ") + 2));
         }
-        else if (line.find("fail: ") != std::string::npos) {
+        else if (line.find("compilationExitCode: ") != std::string::npos) {
             // the program is expected to fail
-            validations.failed = std::stoi(line.substr(line.find(": ") + 2));
+            expectedResult.compilationReturnValue = std::stoi(line.substr(line.find(": ") + 2));
         }
         else if (line.find("skip: ") != std::string::npos) {
             // the program should be ignored until the missing features are implemented
-            validations.skipped = std::stoi(line.substr(line.find(": ") + 2));
+            expectedResult.skipped = std::stoi(line.substr(line.find(": ") + 2));
         }
         else if (line.find("output: ") != std::string::npos) {
             // parse a string enclosed in quotes by itterating over the characters
@@ -67,13 +75,13 @@ ExecutionResults parseExpectations(std::string filename){
                 if (output[i] == '\\') {
                     i++;
                     if (output[i] == 'n') {
-                        validations.output += '\n';
+                        expectedResult.output += '\n';
                     }
                     else if (output[i] == 't') {
-                        validations.output += '\t';
+                        expectedResult.output += '\t';
                     }
                     else if (output[i] == '\\') {
-                        validations.output += '\\';
+                        expectedResult.output += '\\';
                     }
                     else {
                         std::cout << "Error: unknown escape sequence \\" << output[i] << " on line " << lineNumber << std::endl;
@@ -89,37 +97,60 @@ ExecutionResults parseExpectations(std::string filename){
                     exit(1);
                     }
                     else {
-                        validations.output += '*' + output[i];
+                        expectedResult.output += '*' + output[i];
                     }
                 }
                 else {
-                    validations.output += output[i];
+                    expectedResult.output += output[i];
                 }
             }
         }
     }
 
-    return validations;
+    return expectedResult;
 }
 
 bool validate(ExecutionResults real, ExecutionResults expected){
     bool isValid = true;
     std::cout << "Validation:";
-    std::cout << "\n\texpected program to fail: " << std::boolalpha << expected.failed << std::noboolalpha;
-    std::cout << "\n\tactual program failed: " << std::boolalpha << real.failed << std::noboolalpha;
-    if (real.failed != expected.failed) {
+
+    std::cout << "\n\tCompilation exit code: " << real.compilationReturnValue << " (expected " << expected.compilationReturnValue << ") ";
+    if (real.compilationReturnValue != expected.compilationReturnValue) {
         isValid = false;
+        std::cout << "✗";
     }
-    std::cout << "\n\texpected return value: " << expected.returnValue << " (interpreted as " << (int)((int8_t)expected.returnValue) << ")";
-    std::cout << "\n\tactual return value: " << real.returnValue << " (interpreted as " << ((int)(int8_t)real.returnValue) << ")";
-    if ((int8_t)real.returnValue != (int8_t)expected.returnValue) {
-        isValid = false;
+    else{
+        std::cout << "✓";
     }
-    std::cout << "\n\texpected output: \"" << escapeString(expected.output) << "\"";
-    std::cout << "\n\tactual output: \"" << escapeString(real.output) << "\"";
-    if (real.output != expected.output) {
-        isValid = false;
+    bool printExecution = (expected.compilationReturnValue == static_cast<int>(ReturnValue::NormalExit));
+    
+    if (printExecution){
+        std::cout << "\n\tExecution exit code: " << real.returnValue << " (expected " << expected.returnValue << ") ";
+        if (real.returnValue != expected.returnValue) {
+            isValid = false;
+            std::cout << "✗";
+        }
+        else
+            std::cout << "✓";
     }
+    else{
+        std::cout << "\n\tExecution exit code: [not executed] (expected " << expected.returnValue << ") ✗";
+    }
+
+
+    if (printExecution){
+        std::cout << "\n\tExecution output: \"" << escapeString(real.output) << "\" (expected \"" << escapeString(expected.output) << "\") ";
+        if (real.output != expected.output) {
+            isValid = false;
+            std::cout << "✗";
+        }
+        else
+            std::cout << "✓";
+    }
+    else{
+        std::cout << "\n\tExecution output: [not executed] (expected " << expected.returnValue << ") ✗";
+    }
+
 
     if (isValid) {
         std::cout << "\nPASSED\n" << std::endl;
@@ -130,8 +161,8 @@ bool validate(ExecutionResults real, ExecutionResults expected){
     return isValid;
 }
 
-constexpr int getExitStatus(int status) {
-    return (int)WEXITSTATUS(status);
+constexpr int8_t getExitStatus(int status) {
+    return (int8_t)WEXITSTATUS(status);
 }
 
 struct CommandResult {
@@ -199,11 +230,9 @@ int main(int argc, char** argv) {
     std::cout << "Compiling: " << command << std::endl;
     auto compilerResult = exec(command);
 
-    if (compilerResult.returnCode != 0) {
-        realResults.failed = true;
-    }
+    realResults.compilationReturnValue = compilerResult.returnCode;
 
-    if (!realResults.failed){
+    if (realResults.compilationReturnValue == static_cast<int>(ReturnValue::NormalExit)){
         auto programResult = exec(outputFile);
 
         realResults.returnValue = programResult.returnCode;
@@ -219,7 +248,7 @@ int main(int argc, char** argv) {
             return 0;
         }
         
-        if (realResults.failed) {
+        if (realResults.compilationReturnValue != static_cast<int>(ReturnValue::NormalExit)) {
             std::cout << "Compiling Failed: \n" << std::endl;
             std::cout << compilerResult.output << std::endl;
         }

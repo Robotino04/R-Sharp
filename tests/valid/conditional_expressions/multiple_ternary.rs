@@ -1,5 +1,5 @@
 /*
-return: 10
+executionExitCode: 10
 */
 
 main(): i32 {

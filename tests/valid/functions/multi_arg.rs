@@ -1,5 +1,5 @@
 /*
-return: 4
+executionExitCode: 4
 */
 
 sub_3(x: i64, y: i64, z: i64): i64 {

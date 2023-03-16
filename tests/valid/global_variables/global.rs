@@ -1,5 +1,5 @@
 /*
-return: 7
+executionExitCode: 7
 */
 
 foo: i64 = 4;

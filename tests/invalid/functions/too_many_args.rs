@@ -1,5 +1,5 @@
 /*
-fail: 1
+compilationExitCode: 3
 */
 
 foo(a: i64): i64 {

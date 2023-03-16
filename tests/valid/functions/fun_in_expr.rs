@@ -1,5 +1,5 @@
 /*
-return: 16
+executionExitCode: 16
 */
 
 sum(a: i64, b: i64): i64 {

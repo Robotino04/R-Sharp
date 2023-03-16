@@ -1,5 +1,5 @@
 /*
-return: 4
+executionExitCode: 4
 */
 
 foo(a: i64): i64;

@@ -1,5 +1,5 @@
 /*
-return: 0
+executionExitCode: 0
 */
 
 three(): i64 {
