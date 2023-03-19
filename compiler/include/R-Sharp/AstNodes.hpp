@@ -67,10 +67,17 @@ struct SemanticVariableData{
     bool isDefined = false;
     RSharpType type;
     std::string name;
+    int sizeInBytes = 0;
+    std::string accessStr;
 
     bool operator ==(SemanticVariableData other) const{
         return isGlobal == other.isGlobal && type == type;
     }
+};
+
+struct SemanticLoopData{
+    std::string breakAccessString;
+    std::string skipAccessString;
 };
 
 // The actual AST nodes
@@ -82,6 +89,9 @@ struct AstProgram : public virtual AstNode, public std::enable_shared_from_this<
     GET_MULTI_CHILD(items)
 
     MULTI_CHILD(AstProgramItem, items)
+
+    std::shared_ptr<AstBlock> globalScope;
+    std::vector<std::shared_ptr<SemanticVariableData>> uninitializedGlobalVariables;
 };
 
 struct AstParameterList : public virtual AstNode, public std::enable_shared_from_this<AstParameterList> {
@@ -91,6 +101,8 @@ struct AstParameterList : public virtual AstNode, public std::enable_shared_from
     GET_MULTI_CHILD(parameters)
 
     MULTI_CHILD(AstVariableDeclaration, parameters)
+
+    std::shared_ptr<AstBlock> parameterBlock;
 };
 
 
@@ -148,6 +160,11 @@ struct AstBlock : public AstStatement, public std::enable_shared_from_this<AstBl
     MULTI_CHILD(AstBlockItem, items)
 
     std::vector<std::shared_ptr<SemanticVariableData>> variables;
+    int sizeOfLocalVariables = 0;
+    bool hasLoopCurrently = false;
+    std::string name;
+    // if the block got merged, it doesn't have to clean up the stack
+    bool isMerged = false;
 };
 
 struct AstReturn : public AstStatement, public std::enable_shared_from_this<AstReturn> {
@@ -158,6 +175,8 @@ struct AstReturn : public AstStatement, public std::enable_shared_from_this<AstR
     GET_SINGLE_CHILDREN(value)
 
     SINGLE_CHILD(AstExpression, value)
+
+    std::vector<std::weak_ptr<AstBlock>> containedScopes;
 };
 
 struct AstExpressionStatement : public AstStatement, public std::enable_shared_from_this<AstExpressionStatement> {
@@ -191,6 +210,8 @@ struct AstWhileLoop : public AstStatement, public std::enable_shared_from_this<A
 
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstStatement, body)
+    
+    std::shared_ptr<SemanticLoopData> loop;
 };
 
 
@@ -199,13 +220,16 @@ struct AstForLoopDeclaration : public AstStatement, public std::enable_shared_fr
     TO_STRING(AstForLoopDeclaration)
 
     // body first is important because it contains the initialization 
-    GET_SINGLE_CHILDREN(body, condition, increment)
+    GET_SINGLE_CHILDREN(initialization, condition, increment, body)
 
+    SINGLE_CHILD(AstVariableDeclaration, initialization)
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstExpression, increment)
 
-    // contains 0: the initialization;  1: the actual loop body
-    SINGLE_CHILD(AstBlock, body)
+    SINGLE_CHILD(AstStatement, body)
+
+    std::shared_ptr<AstBlock> initializationContext;
+    std::shared_ptr<SemanticLoopData> loop;
 };
 
 
@@ -219,6 +243,8 @@ struct AstForLoopExpression : public AstStatement, public std::enable_shared_fro
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstExpression, increment)
     SINGLE_CHILD(AstStatement, body)
+    
+    std::shared_ptr<SemanticLoopData> loop;
 };
 
 
@@ -230,18 +256,26 @@ struct AstDoWhileLoop : public AstStatement, public std::enable_shared_from_this
 
     SINGLE_CHILD(AstStatement, body)
     SINGLE_CHILD(AstExpression, condition)
+
+    std::shared_ptr<SemanticLoopData> loop;
 };
 
 
 struct AstBreak : public AstStatement, public std::enable_shared_from_this<AstBreak> {
     BASE(AstBreak)
     TO_STRING(AstBreak)
+
+    std::shared_ptr<SemanticLoopData> loop;
+    std::vector<std::weak_ptr<AstBlock>> containedScopes;
 };
 
 
 struct AstSkip : public AstStatement, public std::enable_shared_from_this<AstSkip> {
     BASE(AstSkip)
     TO_STRING(AstSkip)
+
+    std::shared_ptr<SemanticLoopData> loop;
+    std::vector<std::weak_ptr<AstBlock>> containedScopes;
 };
 
 

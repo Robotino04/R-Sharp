@@ -368,7 +368,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     
     emitIndented("// For loop\n");
     emitIndented("// Initialization\n");
-    node->body->items.at(0)->accept(this);
+    node->initialization->accept(this);
 
     emitIndented("// For loop\n");
     emitIndented(start_label + ":\n");
@@ -377,7 +377,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     node->condition->accept(this);
     emitIndented("cbz x0, " + end_label + "\n");
     emitIndented("// Body\n");
-    node->body->items.at(1)->accept(this);
+    node->body->accept(this);
     dedent();
     emitIndented("// Increment\n");
     emitIndented(increment_label + ":\n");

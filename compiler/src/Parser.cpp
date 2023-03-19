@@ -323,16 +323,22 @@ std::shared_ptr<AstConditionalStatement> Parser::parseConditionalStatement() {
 std::shared_ptr<AstForLoopDeclaration> Parser::parseForLoopDeclaration() {
     std::shared_ptr<AstForLoopDeclaration> forLoop = std::make_shared<AstForLoopDeclaration>(consume(TokenType::For));
     consume(TokenType::LeftParen);
-    auto variable = parseVariableDeclaration();
+    forLoop->initialization = parseVariableDeclaration();
     consume(TokenType::Semicolon);
     forLoop->condition = parseOptionalExpression();
     consume(TokenType::Semicolon);
     forLoop->increment = parseOptionalExpression();
     consume(TokenType::RightParen);
-    auto body = parseStatement();
-    forLoop->body = std::make_shared<AstBlock>();
-    forLoop->body->items.push_back(variable);
-    forLoop->body->items.push_back(body);
+    forLoop->body = parseStatement();
+    if (forLoop->body->getType() == AstNodeType::AstBlock)
+        std::dynamic_pointer_cast<AstBlock>(forLoop->body)->name = "for loop declaration";
+
+
+    forLoop->initializationContext = std::make_shared<AstBlock>();
+    forLoop->initializationContext->items.push_back(forLoop->initialization);
+    forLoop->initializationContext->items.push_back(std::make_shared<AstExpressionStatement>(forLoop->condition));
+    forLoop->initializationContext->items.push_back(std::make_shared<AstExpressionStatement>(forLoop->increment));
+    forLoop->initializationContext->items.push_back(forLoop->body);
     return forLoop;
 }
 std::shared_ptr<AstForLoopExpression> Parser::parseForLoopExpression() {
@@ -345,6 +351,9 @@ std::shared_ptr<AstForLoopExpression> Parser::parseForLoopExpression() {
     forLoop->increment = parseOptionalExpression();
     consume(TokenType::RightParen);
     forLoop->body = parseStatement();
+    if (forLoop->body->getType() == AstNodeType::AstBlock)
+        std::dynamic_pointer_cast<AstBlock>(forLoop->body)->name = "for loop expression";
+        
     return forLoop;
 }
 std::shared_ptr<AstWhileLoop> Parser::parseWhileLoop() {

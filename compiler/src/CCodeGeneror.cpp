@@ -114,7 +114,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
 void CCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     emitIndented("for (");
     blockNextIndentedEmit();
-    node->body->items.at(0)->accept(this);
+    node->initialization->accept(this);
     emit(" ");
     node->condition->accept(this);
     emit("; ");
@@ -123,7 +123,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
 
     emit("{\n");
     indent();
-    node->body->items.at(1)->accept(this);
+    node->body->accept(this);
     dedent();
     emit("\n");
     emitIndented("}");

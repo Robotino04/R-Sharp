@@ -274,7 +274,7 @@ int main(int argc, const char** argv) {
         }
         case OutputFormat::AArch64:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = "gcc " + temporaryFile + " -o " + outputFilename;
+            std::string command = "gcc -g " + temporaryFile + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -287,7 +287,7 @@ int main(int argc, const char** argv) {
         }
         case OutputFormat::NASM:{
             Print("--------------| Assembling using nasm |--------------");
-            std::string command = "nasm -f elf64 " + temporaryFile + " -o " + outputFilename + ".o";
+            std::string command = "nasm -g -f elf64 " + temporaryFile + " -o " + outputFilename + ".o";
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -298,7 +298,7 @@ int main(int argc, const char** argv) {
             }
 
             Print("--------------| Linking using gcc |--------------");
-            command = "gcc -no-pie " + outputFilename + ".o -o " + outputFilename;
+            command = "gcc -g -no-pie " + outputFilename + ".o -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
             if (success)

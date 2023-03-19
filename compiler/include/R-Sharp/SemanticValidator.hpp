@@ -3,6 +3,7 @@
 #include "R-Sharp/AstVisitor.hpp"
 
 #include <vector>
+#include <stack>
 
 class SemanticValidator : public AstVisitor{
     public:
@@ -42,7 +43,7 @@ class SemanticValidator : public AstVisitor{
         
         bool isVariableDeclared(std::string const& name) const;
         bool isVariableDefinable(AstVariableDeclaration const& testVar) const;
-        void addVariable(AstVariableDeclaration const& var);
+        void addVariable(std::shared_ptr<AstVariableDeclaration> var);
         std::shared_ptr<SemanticVariableData> getVariable(std::string const& name);
 
         bool isFunctionDeclared(AstFunctionDeclaration const& testFunc) const;
@@ -63,7 +64,7 @@ class SemanticValidator : public AstVisitor{
         std::vector<AstFunctionDeclaration> functions;
         bool collapseContexts = false;
 
-        int numLoops = 0;
+        std::stack<std::shared_ptr<SemanticLoopData>> loops;
 
         bool hasError = false;
 };

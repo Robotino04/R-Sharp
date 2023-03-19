@@ -106,77 +106,6 @@ void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std
 std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
     return prefix + "_" + std::to_string(labelCounter++);
 }
-
-NASMCodeGenerator::Variable NASMCodeGenerator::addVariable(std::shared_ptr<AstVariableDeclaration> node){
-    Variable var;
-    var.name = node->name;
-    var.type = node->semanticType;
-    
-    // if (node->type->getType() == AstNodeType::AstBuiltinType)
-    //     var.type = std::dynamic_pointer_cast<AstBuiltinType>(node->type)->name;
-    // else{
-    //     Error("Only builtin types are supported");
-    //     printErrorToken(node->token, R_SharpSource);
-    //     exit(1);
-    // }
-    if (!var.type){
-        Error("INTERNAL ERROR: AstVariableDeclaration has no semanticType");
-        printErrorToken(node->token, R_SharpSource);
-        exit(1);
-    }
-    if (var.type->type == RSharpType::I64){
-        var.size = 8;
-    }
-    else if (var.type->type == RSharpType::I32){
-        var.size = 4;
-    }
-    else{
-        Error("Unsupported type Nr.", static_cast<int>(var.type->type));
-        printErrorToken(node->token, R_SharpSource);
-        exit(1);
-    }
-
-    if (node->variable->isGlobal){
-        // test if the variable is already declared
-        if (std::find(globalScope.variables.begin(), globalScope.variables.end(), var) != globalScope.variables.end()){
-            auto match = std::find(globalScope.variables.begin(), globalScope.variables.end(), var);
-            if (match->initialized){
-                Error("Variable " + var.name + " is already defined");
-                printErrorToken(node->token, R_SharpSource);
-                exit(1);
-            }
-            else{
-                match->initialized = true;
-                return *match;
-            }
-        }
-
-        globalVariables.push_back(node->name);
-        var.accessStr = "[" + getUniqueLabel(node->name) + "]";
-        var.initialized = node->value != nullptr;
-        globalScope.variables.push_back(var);
-    }
-    else{
-        stackOffset += var.size;
-        var.accessStr = "[rbp - " + std::to_string(stackOffset) + "]";
-        getCurrentVariableScope().variables.push_back(var);
-    }
-    return var;
-}
-NASMCodeGenerator::Variable NASMCodeGenerator::getVariable(std::string const& name){
-    for (auto scope = getCurrentStackFrame().variableScopes.rbegin(); scope != getCurrentStackFrame().variableScopes.rend(); scope++){
-        for (auto const& var : scope->variables){
-            if (var.name == name) return var;
-        }
-    }
-    // if we didn't find it in the current scope, it must be global
-    for (auto const& var : globalScope.variables){
-        if (var.name == name) return var;
-    }
-
-    Fatal("Variable " + name + " not found");
-    return Variable();
-}
 void NASMCodeGenerator::pushStackFrame(){
     emitIndented("; Create stack frame\n");
 
@@ -193,28 +122,8 @@ void NASMCodeGenerator::pushStackFrame(){
     stackFrames.back().variableScopes.emplace_back();
     stackOffset = 0;
 }
-int NASMCodeGenerator::getCurrentScopeSize(){
-    return getScopeSize(getCurrentVariableScope());
-}
-int NASMCodeGenerator::getScopeSize(VariableScope const& scope){
-    int size = 0;
-    for (auto& var : scope.variables){
-        size += var.size;
-    }
-    return size;
-}
 
 void NASMCodeGenerator::popStackFrame(bool codeOnly){
-    if (!codeOnly){
-        while (getCurrentStackFrame().variableScopes.size()){
-            popVariableScope();
-        }
-    }
-    else{
-        for (auto varScope = stackFrames.back().variableScopes.rbegin(); varScope != stackFrames.back().variableScopes.rend(); varScope++){
-            popVariableScope(*varScope);
-        }
-    }
     emitIndented("; Destroy stack frame\n");
     
     // restore callee-saved registers
@@ -227,21 +136,14 @@ void NASMCodeGenerator::popStackFrame(bool codeOnly){
     if (!codeOnly)
         stackFrames.pop_back();
 }
-void NASMCodeGenerator::pushVariableScope(){
-    stackFrames.back().variableScopes.emplace_back();
-}
-void NASMCodeGenerator::popVariableScope(){
-    popVariableScope(getCurrentVariableScope());
-    stackOffset -= getCurrentScopeSize();
-    getCurrentStackFrame().variableScopes.pop_back();
-}
-void NASMCodeGenerator::popVariableScope(VariableScope const& scope){
-    emitIndented("add rsp, " + std::to_string(getScopeSize(scope)) + "\n");
+void NASMCodeGenerator::popVariableScope(std::shared_ptr<AstBlock> scope){
+    emitIndented("; Restore stack pointer to before this scope (" + scope->name + ")\n");
+    emitIndented("add rsp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
 }
 NASMCodeGenerator::StackFrame& NASMCodeGenerator::getCurrentStackFrame(){
     return stackFrames.back();
 }
-NASMCodeGenerator::VariableScope& NASMCodeGenerator::getCurrentVariableScope(){
+std::shared_ptr<AstBlock> NASMCodeGenerator::getCurrentVariableScope(){
     return stackFrames.back().variableScopes.back();
 }
 
@@ -258,6 +160,8 @@ std::string NASMCodeGenerator::sizeToNASMType(int size){
 
 // program
 void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
+    node->globalScope->accept(this);
+
     for (auto const& child : node->getChildren()){
         if (!child) continue;
         if (child->getType() == AstNodeType::AstFunctionDeclaration){
@@ -275,15 +179,22 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     for (auto const& func : externFunctions){
         emitIndented("extern " + func + "\n");
     }
+
+    // uninitialized global variables
+    for (auto var : node->uninitializedGlobalVariables){
+        emit(var->accessStr.substr(1, var->accessStr.size()-2) + ":\n", BinarySection::BSS);
+        emit("    resb" + std::to_string(var->sizeInBytes) + "\n", BinarySection::BSS);
+    }
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
+    node->parameterBlock->accept(this);
+
     int argumentNumber = 0;
-    for (auto const& child : node->parameters){
+    for (auto  child : node->parameters){
         child->accept(this);
-        Variable var = getVariable(child->name);
 
         emitIndented("; Load argument " + std::to_string(argumentNumber) + "\n");
-        emitIndented("mov " + sizeToNASMType(var.size) + " " + var.accessStr + ", ");
+        emitIndented("mov " + sizeToNASMType(child->variable->sizeInBytes) + " " + child->variable->accessStr + ", ");
 
         switch(argumentNumber){
             case 0: emit("rdi\n"); break;
@@ -300,7 +211,6 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 
 // definitions
 void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
-
     if (node->body){
         emitIndented("; Function " + node->name + "\n\n");
         emitIndented("global " + node->name + "\n");
@@ -311,6 +221,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
         node->parameters->accept(this);
         node->body->accept(this);
 
+        emitIndented("; fallback if the function has no return\n");
         popStackFrame();
         emitIndented("mov rax, 0\n");
         emitIndented("ret\n");
@@ -332,17 +243,42 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
     }
 }
 
-
 // statements
 void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
-    pushVariableScope();
+    emitIndented("; Block begin (" + node->name + ")\n");
+    indent();
+    int scopeSize = 0;
+    for (auto var : node->variables){
+
+        if (var->isGlobal){
+            var->accessStr = "[" + getUniqueLabel(var->name) +"]";
+        }
+        else{
+            stackOffset += var->sizeInBytes;
+            scopeSize += var->sizeInBytes;
+            var->accessStr = "[rbp - " + std::to_string(stackOffset) +"]";
+        }
+    }
+
     for (auto const& child : node->getChildren()){
         if (child) child->accept(this);
     }
-    popVariableScope();
+    // don't change stack pointer if it wasn't modified
+    if (scopeSize) stackOffset -= scopeSize;
+    if (!node->isMerged) popVariableScope(node);
+    dedent();
+    emitIndented("; Block end (" + node->name + ")\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstReturn> node){
     node->value->accept(this);
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope){
+        if (scope->expired()){
+            Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
+        }
+        else{
+            popVariableScope(scope->lock());
+        }
+    }
     popStackFrame(true);
     emitIndented("ret\n");
 }
@@ -369,26 +305,28 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
 
-    getCurrentStackFrame().loopInfo.push_back({increment_label, end_label});
+    node->loop->skipAccessString = increment_label;
+    node->loop->breakAccessString = end_label;
 
-    pushVariableScope();
-    getCurrentVariableScope().hasLoop = true;
-    
-    emitIndented("; For loop\n");
-    emitIndented("; Initialization\n");
-    node->body->items.at(0)->accept(this);
+    // manually generate the access string for the counter variable
+    stackOffset += node->initialization->variable->sizeInBytes;
+    node->initialization->variable->accessStr = "[rbp - " + std::to_string(stackOffset) +"]";
 
     emitIndented("; For loop\n");
+    emitIndented("; For loop initialization\n");
+    node->initialization->accept(this);
+
     emitIndented(start_label + ":\n");
     indent();
-    emitIndented("; Condition\n");
+    emitIndented("; For loop condition\n");
     node->condition->accept(this);
     emitIndented("cmp rax, 0\n");
     emitIndented("je " + end_label + "\n");
-    emitIndented("; Body\n");
-    node->body->items.at(1)->accept(this);
+
+    emitIndented("; For loop body\n");
+    node->body->accept(this);
     dedent();
-    emitIndented("; Increment\n");
+    emitIndented("; For loop increment\n");
     emitIndented(increment_label + ":\n");
     indent();
     node->increment->accept(this);
@@ -396,18 +334,18 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     dedent();
     emitIndented(end_label + ":\n");
 
-    getCurrentVariableScope().hasLoop = false;
-    popVariableScope();
-
-    getCurrentStackFrame().loopInfo.pop_back();
+    // TODO: make use of popVariableScope
+    // manually restore the stack pointer
+    emitIndented("add rsp, " + std::to_string(node->initialization->variable->sizeInBytes) + "\n");
+    emitIndented("; For loop end\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
 
-    getCurrentStackFrame().loopInfo.push_back({increment_label, end_label});
-    getCurrentVariableScope().hasLoop = true;
+    node->loop->skipAccessString = increment_label;
+    node->loop->breakAccessString = end_label;
 
     emitIndented("; For loop\n");
     emitIndented("; Initialization\n");
@@ -430,16 +368,13 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     emitIndented("jmp " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
-
-    getCurrentVariableScope().hasLoop = false;
-    getCurrentStackFrame().loopInfo.pop_back();
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
-    getCurrentStackFrame().loopInfo.push_back({start_label, end_label});
-    getCurrentVariableScope().hasLoop = true;
+    node->loop->skipAccessString = start_label;
+    node->loop->breakAccessString = end_label;
 
     emitIndented("; While loop\n");
     emitIndented(start_label + ":\n");
@@ -452,16 +387,13 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     emitIndented("jmp " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
-
-    getCurrentVariableScope().hasLoop = false;
-    getCurrentStackFrame().loopInfo.pop_back();
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     std::string start_label = getUniqueLabel("start");
     std::string end_label = getUniqueLabel("end");
 
-    getCurrentStackFrame().loopInfo.push_back({start_label, end_label});
-    getCurrentVariableScope().hasLoop = true;
+    node->loop->skipAccessString = start_label;
+    node->loop->breakAccessString = end_label;
 
     emitIndented("; Do loop\n");
     emitIndented(start_label + ":\n");
@@ -474,42 +406,32 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     dedent();
     emitIndented(end_label + ":\n");
 
-    getCurrentVariableScope().hasLoop = false;
-    getCurrentStackFrame().loopInfo.pop_back();
-
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstBreak> node){
-    if (getCurrentStackFrame().loopInfo.empty()){
-        Error("NASM Generator: Break statement outside of loop!");
-    }
-
-    for (auto varScope = getCurrentStackFrame().variableScopes.rbegin(); varScope != getCurrentStackFrame().variableScopes.rend(); ++varScope){
-        if (varScope->hasLoop){
-            break;
+    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
+        if (varScope->expired()){
+            Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
         else{
-            popVariableScope(*varScope);
+            popVariableScope(varScope->lock());
         }
     }
 
     emitIndented("; Break\n");
-    emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().breakLabel + "\n");
+    emitIndented("jmp " + node->loop->breakAccessString + "\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
-    if (getCurrentStackFrame().loopInfo.empty()){
-        Error("NASM Generator: Skip statement outside of loop!");
-    }
-    for (auto varScope = getCurrentStackFrame().variableScopes.rbegin(); varScope != getCurrentStackFrame().variableScopes.rend(); ++varScope){
-        if (varScope->hasLoop){
-            break;
+    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
+        if (varScope->expired()){
+            Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
         else{
-            popVariableScope(*varScope);
+            popVariableScope(varScope->lock());
         }
     }
 
     emitIndented("; Skip\n");
-    emitIndented("jmp " + getCurrentStackFrame().loopInfo.back().skipLabel + "\n");
+    emitIndented("jmp " + node->loop->skipAccessString + "\n");
 }
 
 
@@ -658,13 +580,11 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstInteger> node){
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     emitIndented("; Variable Access(" + node->name + ")\n");
-    Variable var = getVariable(node->name);
-    emitIndented("mov " + sizeToNASMType(var.size) + " rax, " + var.accessStr + "\n");
+    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " rax, " + node->variable->accessStr + "\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
-    Variable var = getVariable(node->name);
     node->value->accept(this);
-    emitIndented("mov " + sizeToNASMType(var.size) + " " + var.accessStr + ", rax\n");
+    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " " + node->variable->accessStr + ", rax\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     std::string true_clause = getUniqueLabel("true_expression");
@@ -747,7 +667,6 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
 
 // declarations
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
-    Variable var = addVariable(node);
     if (node->variable->isGlobal){
         if (!node->value){
             return;
@@ -760,14 +679,15 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         auto intNode = std::dynamic_pointer_cast<AstInteger>(node->value);
         emit("    ; Global Variable (" + node->name + ")\n", BinarySection::Data);
         // remove the brackets from the name
-        std::string label = var.accessStr.substr(1, var.accessStr.size()-2);
+        std::string label = node->variable->accessStr.substr(1, node->variable->accessStr.size()-2);
+
         emit("    global " + label + "\n", BinarySection::Data);
-        emit(label + ":\n", BinarySection::Data);
-        switch(var.size){
-            case 1: emit("    db " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 2: emit("    dw " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 4: emit("    dd " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 8: emit("    dq " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+        emit("    " + label + ": ", BinarySection::Data);
+        switch(node->variable->sizeInBytes){
+            case 1: emit("db " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 2: emit("dw " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 4: emit("dd " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+            case 8: emit("dq " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
             default:
                 Error("NASM Generator: Global variable size not supported!");
                 printErrorToken(node->token, R_SharpSource);
@@ -779,10 +699,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         emitIndented("; Variable (" + node->name + ")\n");
         if (node->value){
             node->value->accept(this);
-            emitIndented("push " + sizeToNASMType(var.size) + " rax\n");
+            emitIndented("push " + sizeToNASMType(node->variable->sizeInBytes) + " rax\n");
         }
         else{
-            emitIndented("push " + sizeToNASMType(var.size) + " 0\n");
+            emitIndented("push " + sizeToNASMType(node->variable->sizeInBytes) + " 0\n");
         }
     }
 }

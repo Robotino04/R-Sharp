@@ -42,6 +42,7 @@ enum class AstNodeType {
 };
 
 struct SemanticVariableData;
+struct SemanticLoopData;
 
 // forward declarations for all the AST nodes
 struct AstProgram;

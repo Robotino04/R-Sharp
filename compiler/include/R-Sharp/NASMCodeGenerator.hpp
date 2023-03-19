@@ -64,18 +64,12 @@ class NASMCodeGenerator : public AstVisitor {
         std::string getUniqueLabel(std::string const& prefix);
         int labelCounter = 0;
 
-        Variable addVariable(std::shared_ptr<AstVariableDeclaration> node);
-        Variable getVariable(std::string const& name);
         void pushStackFrame();
         void popStackFrame(bool codeOnly = false);
-        void pushVariableScope();
-        void popVariableScope();
-        void popVariableScope(VariableScope const& scope);
+        void popVariableScope(std::shared_ptr<AstBlock> scope);
 
         StackFrame& getCurrentStackFrame();
-        VariableScope& getCurrentVariableScope();
-        int getCurrentScopeSize();
-        int getScopeSize(VariableScope const& scope);
+        std::shared_ptr<AstBlock> getCurrentVariableScope();
 
     
     public:
@@ -99,7 +93,7 @@ class NASMCodeGenerator : public AstVisitor {
             std::string breakLabel;
         };
         struct StackFrame {
-            std::vector<VariableScope> variableScopes;
+            std::vector<std::shared_ptr<AstBlock>> variableScopes;
             std::vector<LoopInfo> loopInfo;
         };
 

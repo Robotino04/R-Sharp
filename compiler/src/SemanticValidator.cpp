@@ -11,10 +11,10 @@ SemanticValidator::SemanticValidator(std::shared_ptr<AstNode> root, std::string 
 }
 
 void SemanticValidator::validate(){
-    variableContexts.clear();
-    functions.clear();
+    variableContexts = {};
+    functions = {};
     collapseContexts = false;
-    numLoops = 0;
+    loops = {};
 
     root->accept(this);
 }
@@ -23,8 +23,17 @@ bool SemanticValidator::hasErrors(){
 }
 
 void SemanticValidator::pushContext(std::shared_ptr<AstBlock> block){
-    if (!collapseContexts) variableContexts.push_back(block);
-    collapseContexts = false;
+    if (collapseContexts && !variableContexts.empty()){
+        variableContexts.back()->isMerged = true;
+
+        block->variables.insert(block->variables.begin(), variableContexts.back()->variables.begin(), variableContexts.back()->variables.end());
+        block->sizeOfLocalVariables += variableContexts.back()->sizeOfLocalVariables;
+        variableContexts.back() = block;
+        collapseContexts = false;
+    }
+    else{
+        variableContexts.push_back(block);
+    }
 }
 void SemanticValidator::popContext(){
     if (variableContexts.empty()){
@@ -45,7 +54,6 @@ bool SemanticValidator::isVariableDeclared(std::string const& name) const{
     return false;
 }
 bool SemanticValidator::isVariableDefinable(AstVariableDeclaration const& testVar) const{
-    // :
     auto it = std::find_if(variableContexts.back()->variables.begin(), variableContexts.back()->variables.end(), [&](auto other){
         return other->name == testVar.name;
     });
@@ -61,26 +69,32 @@ bool SemanticValidator::isVariableDefinable(AstVariableDeclaration const& testVa
         }
     }
 }
-void SemanticValidator::addVariable(AstVariableDeclaration const& var){
-    // :
+void SemanticValidator::addVariable(std::shared_ptr<AstVariableDeclaration> var){
     auto it = std::find_if(variableContexts.back()->variables.begin(), variableContexts.back()->variables.end(), [&](auto other){
-        return other->name == var.name;
+        return other->name == var->name;
     });
     if (it == variableContexts.back()->variables.end()){
-        auto varPtr = std::make_shared<SemanticVariableData>();
-        varPtr->isDefined = (bool)var.value;
-        varPtr->name = var.name;
-        varPtr->type = var.semanticType->type;
-        varPtr->isGlobal = var.variable->isGlobal;
-        variableContexts.back()->variables.push_back(varPtr);
+        var->variable->isDefined = (bool)var->value;
+        var->variable->name = var->name;
+        var->variable->type = var->semanticType->type;
+
+        switch(var->variable->type){
+            case RSharpType::I32: var->variable->sizeInBytes = 4; break;
+            case RSharpType::I64: var->variable->sizeInBytes = 8; break;
+
+            default:
+                Error("INTERNAL ERROR: type nr. " + std::to_string(static_cast<int>(var->variable->type)) + " isn't implemented.");
+        }
+        variableContexts.back()->variables.push_back(var->variable);
+        variableContexts.back()->sizeOfLocalVariables += var->variable->sizeInBytes;
     }
-    else if (var.value){
-        (*it)->isDefined = (bool)var.value;
+    else if (var->value){
+        (*it)->isDefined = true;
+        var->variable = *it;
     }
 }
 std::shared_ptr<SemanticVariableData> SemanticValidator::getVariable(std::string const& name){
     for (auto it = variableContexts.rbegin(); it != variableContexts.rend(); it++){
-    // :
         auto it2 = std::find_if((*it)->variables.begin(), (*it)->variables.end(), [&](auto other){
             return other->name == name;
         });
@@ -127,6 +141,7 @@ void SemanticValidator::addFunction(AstFunctionDeclaration const& func){
     else if (func.body){
         it->body = func.body;
     }
+    if (func.body) func.body->name = func.name;
 }
 AstFunctionDeclaration* SemanticValidator::getFunction(AstFunctionDeclaration const& func){
     auto it = std::find(functions.begin(), functions.end(), func);
@@ -166,11 +181,19 @@ void SemanticValidator::requireType(std::shared_ptr<AstNode> node){
 }
 
 void SemanticValidator::visit(std::shared_ptr<AstProgram> node){
-    auto globalScope = std::make_shared<AstBlock>();
-    pushContext(globalScope);
+    node->globalScope = std::make_shared<AstBlock>();
+    node->globalScope->name = "Global Scope";
+    // it isn't actually merged, but just marked so to avoid assembly outside of a function
+    node->globalScope->isMerged = true;
+    pushContext(node->globalScope);
     // visit children
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     popContext();
+
+    for (auto var : node->globalScope->variables){
+        if (!var->isDefined)
+            node->uninitializedGlobalVariables.push_back(var);
+    }
 }
 
 void SemanticValidator::visit(std::shared_ptr<AstBlock> node){
@@ -181,45 +204,69 @@ void SemanticValidator::visit(std::shared_ptr<AstBlock> node){
 void SemanticValidator::visit(std::shared_ptr<AstReturn> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     node->semanticType = node->value->semanticType;
+    // don't copy the global scope
+    node->containedScopes.insert(node->containedScopes.begin(), std::next(variableContexts.begin()), variableContexts.end());
 }
 void SemanticValidator::visit(std::shared_ptr<AstExpressionStatement> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     node->semanticType = node->expression->semanticType;
 }
+
 void SemanticValidator::visit(std::shared_ptr<AstForLoopDeclaration> node){
-    pushContext(node->body);
-    numLoops++;
-    AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    numLoops--;
-    popContext();
+    loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    node->initializationContext->name = "for loop counter";
+    variableContexts.back()->hasLoopCurrently = true;
+    node->initializationContext->accept(this);
+    variableContexts.back()->hasLoopCurrently = false;
+    loops.pop();
 }
 void SemanticValidator::visit(std::shared_ptr<AstForLoopExpression> node){
-    numLoops++;
+    loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    variableContexts.back()->hasLoopCurrently = true;
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    numLoops--;
+    variableContexts.back()->hasLoopCurrently = false;
+    loops.pop();
 }
 void SemanticValidator::visit(std::shared_ptr<AstWhileLoop> node){
-    numLoops++;
+    loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    variableContexts.back()->hasLoopCurrently = true;
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    numLoops--;
+    variableContexts.back()->hasLoopCurrently = false;
+    loops.pop();
 }
 void SemanticValidator::visit(std::shared_ptr<AstDoWhileLoop> node){
-    numLoops++;
+    loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    variableContexts.back()->hasLoopCurrently = true;
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    numLoops--;
+    variableContexts.back()->hasLoopCurrently = false;
+    loops.pop();
 }
 void SemanticValidator::visit(std::shared_ptr<AstBreak> node){
-    if (numLoops == 0){
+    auto it = std::find_if(variableContexts.rbegin(), variableContexts.rend(), [&](auto varContext){
+        return varContext->hasLoopCurrently;
+    });
+    if (loops.empty() || it == variableContexts.rend()){
         hasError = true;
-        Error("Break statement outside loop");
+        Error("Break statement outside of loop");
         printErrorToken(node->token, source);
+    }
+    else{
+        node->loop = loops.top();
+        node->containedScopes = {std::next(it.base(), 1), variableContexts.end()};
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstSkip> node){
-    if (numLoops == 0){
+    auto it = std::find_if(variableContexts.rbegin(), variableContexts.rend(), [&](auto varContext){
+        return varContext->hasLoopCurrently;
+    });
+    if (loops.empty() || it == variableContexts.rend()){
         hasError = true;
-        Error("Skip statement outside loop");
+        Error("Skip statement outside of loop");
         printErrorToken(node->token, source);
+    }
+    else{
+        node->loop = loops.top();
+        node->containedScopes = {std::next(it.base(), 1), variableContexts.end()};
     }
 }
 
@@ -304,7 +351,7 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
         Error("Error: variable \"", node->name, "\" is defined multiple times");
         printErrorToken(node->token, source);
     }else{
-        addVariable(*node);
+        addVariable(node);
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstConditionalExpression> node){
@@ -329,6 +376,8 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
 
     if (isFunctionDeclared(testFunc)){
         node->semanticType = getFunction(testFunc)->semanticType;
+
+        AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     }
     else{
         hasError = true;
@@ -366,14 +415,14 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionDeclaration> node){
     
     // push the function context to include parameters
     if (node->body){
-        auto parameterBlock = std::make_shared<AstBlock>();
-        parameterBlock->items.insert(parameterBlock->items.begin(), node->parameters->parameters.begin(), node->parameters->parameters.begin());
-        
-        pushContext(parameterBlock);
+        node->parameters->parameterBlock = std::make_shared<AstBlock>();
+        node->parameters->parameterBlock->name = "parameters " + node->name;
+        pushContext(node->parameters->parameterBlock);
         node->parameters->accept(this);
-        // force the function body to use the same context as the parameters
+
         forceContextCollapse();
         node->body->accept(this);
-        // since the context is collapsed, the function body has alredy popped the context
+
+        // the parameterContext will have been popped because it's collapsed
     }
 }
