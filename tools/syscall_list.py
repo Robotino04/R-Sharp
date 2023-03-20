@@ -15,11 +15,9 @@ pattern = """#pragma once
 enum class Syscall{{
 {}}};
 
-namespace std{{
-    inline std::string to_string(Syscall sc){{
-        switch(sc){{
+inline std::string syscallToString(Syscall sc){{
+    switch(sc){{
 {}            default: return "UNKNOWN";
-        }}
     }}
 }}
 """

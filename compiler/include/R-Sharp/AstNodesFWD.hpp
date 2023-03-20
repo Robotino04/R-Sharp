@@ -142,10 +142,3 @@ bool operator!=(AstParameterList const& a, AstParameterList const& b);
 
 AstUnaryType toUnaryOperator(TokenType type);
 AstBinaryType toBinaryOperator(TokenType type);
-
-// TODO: remove because undefined behaviour 
-namespace std{
-    std::string to_string(AstUnaryType type);
-    std::string to_string(AstBinaryType type);
-    std::string to_string(const AstType* type);
-}

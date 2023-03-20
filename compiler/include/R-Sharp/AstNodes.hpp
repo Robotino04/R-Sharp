@@ -323,7 +323,13 @@ struct AstUnary : public AstExpression, public std::enable_shared_from_this<AstU
     BASE(AstUnary)
     AstUnary(AstUnaryType op, std::shared_ptr<AstExpression> value): type(op), value(value){}
     std::string toString() const override{
-        return "AstUnary: " + std::to_string(type);
+        switch (type){
+            case AstUnaryType::BinaryNot: return "AstUnary: BinaryNot";
+            case AstUnaryType::LogicalNot: return "AstUnary: LogicalNot";
+            case AstUnaryType::Negate: return "AstUnary: Negate";
+
+            default: return "AstUnary: Unknown type";
+        }
     }
     GET_SINGLE_CHILDREN(value)
 
@@ -336,7 +342,25 @@ struct AstBinary : public AstExpression, public std::enable_shared_from_this<Ast
     AstBinary(std::shared_ptr<AstExpression> left, AstBinaryType type, std::shared_ptr<AstExpression> right)
         : left(left), type(type), right(right){}
     std::string toString() const override{
-        return "AstBinary: " + std::to_string(type);
+        switch (type){
+            #define CASE(NAME) case AstBinaryType::NAME: return "AstBinary: "#NAME
+            CASE(Add);
+            CASE(Subtract);
+            CASE(Multiply);
+            CASE(Divide);
+            CASE(Equal);
+            CASE(NotEqual);
+            CASE(GreaterThan);
+            CASE(GreaterThanOrEqual);
+            CASE(LessThan);
+            CASE(LessThanOrEqual);
+            CASE(LogicalOr);
+            CASE(LogicalAnd);
+            CASE(Modulo);
+
+            default: return "AstBinary: Unknown type";
+            #undef CASE
+        }
     }
 
     GET_SINGLE_CHILDREN(left, right)
@@ -386,6 +410,8 @@ struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem, pu
 };
 
 
+RSharpType stringToType(std::string const& str);
+std::string typeToString(RSharpType type);
 
 struct AstType : public AstNode, public std::enable_shared_from_this<AstType>{
     AstType(RSharpType type);
@@ -394,14 +420,13 @@ struct AstType : public AstNode, public std::enable_shared_from_this<AstType>{
 
     BASE(AstType);
     std::string toString() const override{
-        return "Semantic Type: " + std::to_string(this);
+        return "Semantic Type: " + typeToString(type);
     }
     
     RSharpType type = RSharpType::NONE;
 };
 
 
-RSharpType stringToType(std::string const& str);
 
 
 #undef BASE

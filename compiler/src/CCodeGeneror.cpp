@@ -203,7 +203,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstUnary> node){
             emit("~");
             break;
         default:
-            Fatal("Invalid unary operator ", std::to_string(node->type));
+            Fatal("Invalid unary operator Nr. ", static_cast<int>(node->type));
             break;
     }
     node->value->accept(this);
@@ -256,7 +256,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
 
         default:
-            Fatal("Invalid binary operator ", std::to_string(node->type));
+            Fatal("Invalid binary operator Nr. ", static_cast<int>(node->type));
             break;
     }
     node->right->accept(this);

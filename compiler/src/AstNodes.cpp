@@ -94,34 +94,3 @@ bool operator==(AstParameterList const& a, AstParameterList const& b){
 bool operator!=(AstParameterList const& a, AstParameterList const& b){
     return !(a==b);
 }
-
-namespace std{
-    std::string to_string(AstUnaryType type){
-        switch (type) {
-            case AstUnaryType::Negate: return "Negate";
-            case AstUnaryType::LogicalNot: return "LogicalNot";
-            case AstUnaryType::BinaryNot: return "BinaryNot";
-            default: return "Unknown";
-        }
-    }
-    std::string to_string(AstBinaryType type){
-        switch (type) {
-            case AstBinaryType::Add: return "Add";
-            case AstBinaryType::Subtract: return "Subtract";
-            case AstBinaryType::Multiply: return "Multiply";
-            case AstBinaryType::Divide: return "Divide";
-
-            case AstBinaryType::Equal: return "Equal";
-            case AstBinaryType::NotEqual: return "NotEqual";
-            case AstBinaryType::LessThan: return "LessThan";
-            case AstBinaryType::GreaterThan: return "GreaterThan";
-            case AstBinaryType::LessThanOrEqual: return "LessThanOrEqual";
-            case AstBinaryType::GreaterThanOrEqual: return "GreaterThanOrEqual";
-
-            case AstBinaryType::LogicalAnd: return "LogicalAnd";
-            case AstBinaryType::LogicalOr: return "LogicalOr";
-
-            default: return "Unknown";
-        }
-    }
-}

@@ -169,7 +169,7 @@ int main(int argc, const char** argv) {
         R_Sharp_Source = tokenizer.getSource();
 
         for (auto const& token : tokens){
-            Print(token);
+            Print(token.toString());
         }
 
         tokens = cleanTokens(tokens);

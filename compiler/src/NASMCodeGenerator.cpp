@@ -87,7 +87,7 @@ std::string NASMCodeGenerator::generate(){
 
 void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std::string const& arg2, std::string const& arg3, std::string const& arg4, std::string const& arg5, std::string const& arg6){
     // move the arguments to rdi, rsi, rdx, r10, r8, and r9 respectively
-    emitIndented("; Syscall " + std::to_string(callNr) + "(" + std::to_string(static_cast<int>(callNr)) + ")\n");
+    emitIndented("; Syscall " + syscallToString(callNr) + "(" + std::to_string(static_cast<int>(callNr)) + ")\n");
     if (arg1 != "") emitIndented("mov rdi, " + arg1 + "\n");
     if (arg2 != "") emitIndented("mov rsi, " + arg2 + "\n");
     if (arg3 != "") emitIndented("mov rdx, " + arg3 + "\n");
@@ -312,7 +312,6 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     dedent();
     emitIndented(end_label + ":\n");
 
-    // TODO: make use of popVariableScope
     // manually restore the stack pointer
     resetStackPointer(node->initializationContext);
     emitIndented("; For loop end\n");

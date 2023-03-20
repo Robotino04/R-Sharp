@@ -63,19 +63,19 @@ Token Parser::consume(){
 }
 Token Parser::Parser::consume(TokenType type){
     if (!match(type)){
-        parserError("Expected ", type, " but got ", getCurrentToken());
+        parserError("Expected ", tokenTypeToString(type), " but got ", getCurrentToken().toString());
     }
     return consume();
 }
 Token Parser::consume(TokenType type, std::string value){
     if (!match(type, value))
-        parserError("Expected ", Token(type, value), " but got ", getCurrentToken());
+        parserError("Expected ", Token(type, value).toString(), " but got ", getCurrentToken().toString());
     return consume();
 }
 Token Parser::consume(std::vector<TokenType> types){
     for (int i = 0; i < types.size(); i++) {
         if (!match(types[i])) {
-            parserError("Expected ", types[i], " but got ", getCurrentToken());
+            parserError("Expected ", tokenTypeToString(types[i]), " but got ", getCurrentToken().toString());
         }
         consume();
     }
@@ -89,10 +89,10 @@ Token Parser::consumeAnyOne(std::vector<TokenType> types){
     }
     std::string error = "Expected one of ";
     for (int i = 0; i < types.size(); i++) {
-        error += std::to_string(types[i]);
+        error += tokenTypeToString(types[i]);
         if (i != types.size()-1) error += ", ";
     }
-    parserError(error, " but got ", getCurrentToken());
+    parserError(error, " but got ", getCurrentToken().toString());
     return getCurrentToken();
 }
 
@@ -258,7 +258,7 @@ std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
         return decl;
     }
     else {
-        parserError("Expected typename but got ", getCurrentToken());
+        parserError("Expected typename but got ", getCurrentToken().toString());
         return nullptr;
     }
 }
@@ -488,7 +488,7 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
     else if (match(TokenType::ID))
         return parseVariableAccess();
     else{
-        parserError("Expected expression but got ", getCurrentToken());
+        parserError("Expected expression but got ", getCurrentToken().toString());
         return nullptr;
     }
 }
@@ -498,7 +498,7 @@ std::shared_ptr<AstInteger> Parser::parseNumber() {
     int64_t i64;
     iss >> number->value;
     if (iss.fail()) {
-        parserError("Expected number but got ", number->token);
+        parserError("Expected number but got ", number->token.toString());
     }
     number->semanticType = std::make_shared<AstType>(RSharpType::I64);
     return number;
@@ -552,12 +552,12 @@ std::shared_ptr<AstType> Parser::parseType() {
     if (match(TokenType::Typename)) {
         auto type = stringToType(consume(TokenType::Typename).value);
         if (type == RSharpType::NONE) {
-            parserError("Unknown type ", getCurrentToken());
+            parserError("Unknown type ", getCurrentToken().toString());
         }
         return std::make_shared<AstType>(type);
     }
     else {
-        parserError("Expected typename but got ", getCurrentToken());
+        parserError("Expected typename but got ", getCurrentToken().toString());
         return nullptr;
     }
 }

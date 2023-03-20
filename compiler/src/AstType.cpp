@@ -24,21 +24,13 @@ RSharpType stringToType(std::string const& str){
     }
     return RSharpType::NONE;
 }
+std::string typeToString(RSharpType type){
+    switch(type){
+        case RSharpType::I32: return "i32";
+        case RSharpType::I64: return "i64";
+        case RSharpType::ErrorType: return "error type";
+        case RSharpType::NONE: return "no type";
 
-namespace std{
-    string to_string(const AstType* type){
-        std::string result;
-        switch (type->type){
-            case RSharpType::I32: result += "i32"; break;
-            case RSharpType::I64: result += "i64"; break;
-            case RSharpType::NONE: result += "none"; break;
-
-            default:
-                Fatal("Unimplemented type Nr. ", static_cast<int>(type->type));
-                break;
-        }
-
-
-        return result;
+        default: return "undefined type";
     }
 }

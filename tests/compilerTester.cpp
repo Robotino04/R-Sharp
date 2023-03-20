@@ -3,7 +3,6 @@
 #include <fstream>
 #include <array>
 #include <memory>
-#include <functional>
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -161,10 +160,6 @@ bool validate(ExecutionResults real, ExecutionResults expected){
     return isValid;
 }
 
-constexpr int8_t getExitStatus(int status) {
-    return (int8_t)WEXITSTATUS(status);
-}
-
 struct CommandResult {
     int returnCode;
     std::string output;
@@ -177,27 +172,20 @@ void printBits(T const& value) {
     }
 }
 
-void linked_pclose(int& returnCode, FILE *__stream){
-    if (__stream) {
-        returnCode = getExitStatus(pclose(__stream));
-    }
-}
-
 CommandResult exec(std::string const& cmd) {
-    using namespace std::placeholders;
     std::array<char, 128> buffer;
     CommandResult result;
 
-    auto custom_pclose = std::bind(linked_pclose, std::ref(result.returnCode), _1);
+    auto const pcloseThatStoresTheResult = [&](FILE* f){
+        result.returnCode = (int8_t)WEXITSTATUS(pclose(f));
+    };
 
-    {
-        std::shared_ptr<FILE> pipe(popen((cmd + " 2>&1").c_str(), "r"), custom_pclose);
-        if (!pipe) {
-            throw std::runtime_error("popen() failed!");
-        }
-        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-            result.output += buffer.data();
-        }
+    std::unique_ptr<FILE, decltype(pcloseThatStoresTheResult)> pipe(popen((cmd + " 2>&1").c_str(), "r"), pcloseThatStoresTheResult);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result.output += buffer.data();
     }
     return result;
 }

@@ -80,16 +80,13 @@ struct Token{
         this->position = position;
     }
     Token(TokenType type, std::string value) : type(type), value(value){}
+
+    std::string toString() const;
+
     TokenType type;
     std::string value = "";
 
     TokenLocation position;
 };
 
-namespace std{
-    string to_string(Token const& token);
-    string to_string(TokenType const& type);
-
-    ostream& operator<<(ostream& os, Token const& token);
-    ostream& operator<<(ostream& os, TokenType const& type);
-}
+std::string tokenTypeToString(TokenType type);

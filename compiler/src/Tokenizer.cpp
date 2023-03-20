@@ -150,7 +150,7 @@ char Tokenizer::getChar(int offset) const{
         int line_ = line; \
         int column_ = column; \
         size_t pos_ = currentPosition; \
-        auto chars = consumeUntil(endChars); \
+        auto chars = consumeUntil(endChars) + endChars; \
         token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
     }
 #define SET_TOKEN(characters, type) \
