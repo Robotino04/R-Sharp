@@ -46,11 +46,11 @@ class SemanticValidator : public AstVisitor{
         void addVariable(std::shared_ptr<AstVariableDeclaration> var);
         std::shared_ptr<SemanticVariableData> getVariable(std::string const& name);
 
-        bool isFunctionDeclared(AstFunctionDeclaration const& testFunc) const;
-        bool isFunctionDeclarable(AstFunctionDeclaration const& testFunc) const;
-        bool isFunctionDefinable(AstFunctionDeclaration const& testFunc) const;
-        void addFunction(AstFunctionDeclaration const& func);
-        AstFunctionDeclaration* getFunction(AstFunctionDeclaration const& func);
+        bool isFunctionDeclared(std::string name) const;
+        bool isFunctionDeclarable(std::shared_ptr<AstFunctionDeclaration> testFunc) const;
+        bool isFunctionDefinable(std::shared_ptr<AstFunctionDeclaration> testFunc) const;
+        void addFunction(std::shared_ptr<AstFunctionDeclaration> func);
+        std::shared_ptr<SemanticFunctionData> getFunction(std::string name, std::shared_ptr<AstParameterList> params);
 
         void requireIdenticalTypes(std::shared_ptr<AstNode> a, std::shared_ptr<AstNode> b, std::string msg="operands don't match");
         void requireType(std::shared_ptr<AstNode> node);
@@ -61,10 +61,10 @@ class SemanticValidator : public AstVisitor{
         std::string source;
 
         std::vector<std::shared_ptr<AstBlock>> variableContexts;
-        std::vector<AstFunctionDeclaration> functions;
         bool collapseContexts = false;
 
         std::stack<std::shared_ptr<SemanticLoopData>> loops;
+        std::vector<std::shared_ptr<SemanticFunctionData>> functions;
 
         bool hasError = false;
 };

@@ -7,7 +7,7 @@
 
 class CCodeGenerator : public AstVisitor {
     public:
-        CCodeGenerator(std::shared_ptr<AstNode> root);
+        CCodeGenerator(std::shared_ptr<AstProgram> root);
 
         std::string generate();
 

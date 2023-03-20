@@ -2,7 +2,7 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Logging.hpp"
 
-CCodeGenerator::CCodeGenerator(std::shared_ptr<AstNode> root){
+CCodeGenerator::CCodeGenerator(std::shared_ptr<AstProgram> root){
     this->root = root;
 }
 std::string CCodeGenerator::generate() {

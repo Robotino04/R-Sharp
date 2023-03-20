@@ -45,7 +45,7 @@ public:
 
 protected:
     // this will keep the nodes alive
-    std::shared_ptr<AstNode> root;
+    std::shared_ptr<AstProgram> root;
 };
 
 #undef VISITOR_FN

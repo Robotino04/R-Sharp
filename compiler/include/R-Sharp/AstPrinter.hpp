@@ -5,7 +5,7 @@
 
 class AstPrinter: public AstVisitor{
     public:
-        AstPrinter(std::shared_ptr<AstNode> root){
+        AstPrinter(std::shared_ptr<AstProgram> root){
             this->root = root;
         }
         void print(){

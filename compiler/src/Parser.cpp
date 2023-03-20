@@ -151,14 +151,17 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         consume(TokenType::Colon);
         function->semanticType = parseType();
 
+
+        function->function = std::make_shared<SemanticFunctionData>();
+        function->function->name = function->name;
+        function->function->returnType = function->semanticType->type;
+        function->function->parameters = function->parameters;
+
         if (match(TokenType::Semicolon)){
             // it is a function declaration
             consume(TokenType::Semicolon);
-            auto decl = std::make_shared<AstFunctionDeclaration>(function->token);
-            decl->name = function->name;
-            decl->parameters = function->parameters;
-            decl->semanticType = function->semanticType;
-            return decl;
+            function->function->isDefined = false;
+            return function;
         }
         else{
             // a full function definition
@@ -169,6 +172,7 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
                 function->body = std::make_shared<AstBlock>();
                 function->body->items.push_back(body);
             }
+            function->function->isDefined = true;
             return function;
         }
     }

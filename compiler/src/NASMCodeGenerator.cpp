@@ -5,7 +5,7 @@
 
 #include <sstream>
 
-NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstNode> root, std::string R_SharpSource){
+NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
     this->root = root;
     this->R_SharpSource = R_SharpSource;
 }
@@ -55,21 +55,18 @@ std::string NASMCodeGenerator::generate(){
     source_data = "";
     source_bss = "";
     indentLevel = 0;
-    labelCounter = 0;
-    externFunctions = {};
-    globalVariables = {};
     root->accept(this);
 
     // collect the uninitialized global variables
-    for (auto& var : globalScope.variables){
-        if (!var.initialized){
-            emit(var.accessStr.substr(1, var.accessStr.size()-2) + ":\n", BinarySection::BSS);
-            switch(var.size){
+    for (auto var : root->globalScope->variables){
+        if (!var->isDefined){
+            emit(var->accessStr.substr(1, var->accessStr.size()-2) + ":\n", BinarySection::BSS);
+            switch(var->sizeInBytes){
                 case 1: emit("    resb 1\n", BinarySection::BSS); break;
                 case 2: emit("    resw 1\n", BinarySection::BSS); break;
                 case 4: emit("    resd 1\n", BinarySection::BSS); break;
                 case 8: emit("    resq 1\n", BinarySection::BSS); break;
-                default: Fatal("Unsupported variable size (" + std::to_string(var.size) + ")");
+                default: Fatal("Unsupported variable size (" + std::to_string(var->sizeInBytes) + "b)");
             }
         }
     }
@@ -104,9 +101,10 @@ void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std
 }
 
 std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
+    static uint64_t labelCounter = 0;
     return prefix + "_" + std::to_string(labelCounter++);
 }
-void NASMCodeGenerator::pushStackFrame(){
+void NASMCodeGenerator::generateFunctionProlouge(){
     emitIndented("; Create stack frame\n");
 
     // save callee-saved registers
@@ -118,12 +116,10 @@ void NASMCodeGenerator::pushStackFrame(){
     emitIndented("push r15\n");
     emitIndented("mov rbp, rsp\n");
 
-    stackFrames.emplace_back();
-    stackFrames.back().variableScopes.emplace_back();
     stackOffset = 0;
 }
 
-void NASMCodeGenerator::popStackFrame(bool codeOnly){
+void NASMCodeGenerator::generateFunctionEpilouge(){
     emitIndented("; Destroy stack frame\n");
     
     // restore callee-saved registers
@@ -133,18 +129,10 @@ void NASMCodeGenerator::popStackFrame(bool codeOnly){
     emitIndented("pop r12\n");
     emitIndented("pop rbp\n");
     emitIndented("pop rbx\n");
-    if (!codeOnly)
-        stackFrames.pop_back();
 }
-void NASMCodeGenerator::popVariableScope(std::shared_ptr<AstBlock> scope){
+void NASMCodeGenerator::resetStackPointer(std::shared_ptr<AstBlock> scope){
     emitIndented("; Restore stack pointer to before this scope (" + scope->name + ")\n");
     emitIndented("add rsp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
-}
-NASMCodeGenerator::StackFrame& NASMCodeGenerator::getCurrentStackFrame(){
-    return stackFrames.back();
-}
-std::shared_ptr<AstBlock> NASMCodeGenerator::getCurrentVariableScope(){
-    return stackFrames.back().variableScopes.back();
 }
 
 std::string NASMCodeGenerator::sizeToNASMType(int size){
@@ -176,8 +164,11 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     }
 
     // emit extern functions
-    for (auto const& func : externFunctions){
-        emitIndented("extern " + func + "\n");
+    for (auto func : node->items){
+        if (func->getType() == AstNodeType::AstFunctionDeclaration){
+            if (!std::dynamic_pointer_cast<AstFunctionDeclaration>(func)->function->isDefined)
+                emitIndented("extern " + std::dynamic_pointer_cast<AstFunctionDeclaration>(func)->function->accessString + "\n");
+        }
     }
 
     // uninitialized global variables
@@ -211,35 +202,22 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 
 // definitions
 void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
+    node->function->accessString = node->function->name;
     if (node->body){
         emitIndented("; Function " + node->name + "\n\n");
-        emitIndented("global " + node->name + "\n");
-        emitIndented(node->name + ":\n");
+        emitIndented("global " + node->function->accessString + "\n");
+        emitIndented(node->function->accessString + ":\n");
         indent();
-        pushStackFrame();
+        generateFunctionProlouge();
 
         node->parameters->accept(this);
         node->body->accept(this);
 
         emitIndented("; fallback if the function has no return\n");
-        popStackFrame();
+        generateFunctionEpilouge();
         emitIndented("mov rax, 0\n");
         emitIndented("ret\n");
         dedent();
-
-        // remove this function from externFunctions
-        for (auto it = externFunctions.begin(); it != externFunctions.end(); it++){
-            if (*it == node->name){
-                externFunctions.erase(it);
-                break;
-            }
-        }
-    }
-    else{
-        // add function to externFunctions if it is not already there
-        if (std::find(externFunctions.begin(), externFunctions.end(), node->name) == externFunctions.end()){
-            externFunctions.push_back(node->name);
-        }
     }
 }
 
@@ -265,7 +243,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     }
     // don't change stack pointer if it wasn't modified
     if (scopeSize) stackOffset -= scopeSize;
-    if (!node->isMerged) popVariableScope(node);
+    if (!node->isMerged) resetStackPointer(node);
     dedent();
     emitIndented("; Block end (" + node->name + ")\n");
 }
@@ -276,10 +254,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstReturn> node){
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
         else{
-            popVariableScope(scope->lock());
+            resetStackPointer(scope->lock());
         }
     }
-    popStackFrame(true);
+    generateFunctionEpilouge();
     emitIndented("ret\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
@@ -336,7 +314,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
 
     // TODO: make use of popVariableScope
     // manually restore the stack pointer
-    emitIndented("add rsp, " + std::to_string(node->initialization->variable->sizeInBytes) + "\n");
+    resetStackPointer(node->initializationContext);
     emitIndented("; For loop end\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
@@ -413,7 +391,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBreak> node){
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
         else{
-            popVariableScope(varScope->lock());
+            resetStackPointer(varScope->lock());
         }
     }
 
@@ -426,7 +404,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
         else{
-            popVariableScope(varScope->lock());
+            resetStackPointer(varScope->lock());
         }
     }
 
@@ -648,7 +626,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     }
 
     emitIndented("; Function Call (" + node->name + ")\n");
-    emitIndented("call " + node->name + "\n");
+    emitIndented("call " + node->function->accessString + "\n");
 
     emitIndented("; Restore after function call (" + node->name + ")\n");
     // restore registers

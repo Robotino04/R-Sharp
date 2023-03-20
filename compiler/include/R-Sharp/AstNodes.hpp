@@ -80,6 +80,14 @@ struct SemanticLoopData{
     std::string skipAccessString;
 };
 
+struct SemanticFunctionData{
+    std::string name;
+    std::string accessString;
+    bool isDefined = false;
+    std::shared_ptr<AstParameterList> parameters;
+    RSharpType returnType;
+};
+
 // The actual AST nodes
 // ----------------------------------| Program |---------------------------------- //
 struct AstProgram : public virtual AstNode, public std::enable_shared_from_this<AstProgram> {
@@ -137,6 +145,8 @@ struct AstFunctionDeclaration : public AstProgramItem, public std::enable_shared
 
     SINGLE_CHILD(AstBlock, body)
     SINGLE_CHILD(AstParameterList, parameters)
+
+    std::shared_ptr<SemanticFunctionData> function;
 };
 
 
@@ -359,6 +369,8 @@ struct AstFunctionCall : public AstExpression, public std::enable_shared_from_th
     GET_MULTI_CHILD(arguments)
 
     MULTI_CHILD(AstExpression, arguments)
+
+    std::shared_ptr<SemanticFunctionData> function;
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
@@ -384,10 +396,7 @@ struct AstType : public AstNode, public std::enable_shared_from_this<AstType>{
     std::string toString() const override{
         return "Semantic Type: " + std::to_string(this);
     }
-
-    GET_SINGLE_CHILDREN(subtype)
-    SINGLE_CHILD(AstType, subtype)
-
+    
     RSharpType type = RSharpType::NONE;
 };
 

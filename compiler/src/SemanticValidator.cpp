@@ -106,13 +106,15 @@ std::shared_ptr<SemanticVariableData> SemanticValidator::getVariable(std::string
 }
 
 
-bool SemanticValidator::isFunctionDeclared(AstFunctionDeclaration const& testFunc) const{
-    return std::find(functions.begin(), functions.end(), testFunc) != functions.end();
+bool SemanticValidator::isFunctionDeclared(std::string name) const{
+    return std::find_if(functions.begin(), functions.end(), [&](auto other){
+        return other->name == name;
+    }) != functions.end();
 }
-bool SemanticValidator::isFunctionDeclarable(AstFunctionDeclaration const& testFunc) const{
-    for (auto const& func : functions){
-        if (func.name == testFunc.name){
-            if (testFunc.parameters->parameters.size() == func.parameters->parameters.size()){
+bool SemanticValidator::isFunctionDeclarable(std::shared_ptr<AstFunctionDeclaration> testFunc) const{
+    for (auto func : functions){
+        if (func->name == testFunc->name){
+            if (testFunc->parameters->parameters.size() == func->parameters->parameters.size()){
                 return true;
             }
             else{
@@ -122,34 +124,38 @@ bool SemanticValidator::isFunctionDeclarable(AstFunctionDeclaration const& testF
     }
     return true;
 }
-bool SemanticValidator::isFunctionDefinable(AstFunctionDeclaration const& testFunc) const{
-    bool isDeclarable = isFunctionDeclarable(testFunc);
-    if (isFunctionDeclared(testFunc)){
-        auto it = std::find(functions.begin(), functions.end(), testFunc);
-        if (it->body){
-            return false;
-        }
-    }
-    return isDeclarable;
+bool SemanticValidator::isFunctionDefinable(std::shared_ptr<AstFunctionDeclaration> testFunc) const{
+    auto it = std::find_if(functions.begin(), functions.end(), [&](auto other){
+        return other->name == testFunc->name;
+    });
+    if (it == functions.end())
+        return true;
+    if ((*it)->isDefined)
+        return false;
+    
+    return isFunctionDeclarable(testFunc);
 }
-void SemanticValidator::addFunction(AstFunctionDeclaration const& func){
-    auto it = std::find(functions.begin(), functions.end(), func);
-
+void SemanticValidator::addFunction(std::shared_ptr<AstFunctionDeclaration> func){
+    auto it = std::find_if(functions.begin(), functions.end(), [&](auto other){
+        return other->name == func->name;
+    });
     if (it == functions.end()){
-        functions.push_back(func);
+        functions.push_back(func->function);
     }
-    else if (func.body){
-        it->body = func.body;
+    else {
+        func->function = *it;
+        func->function->isDefined = (bool)func->body;
     }
-    if (func.body) func.body->name = func.name;
 }
-AstFunctionDeclaration* SemanticValidator::getFunction(AstFunctionDeclaration const& func){
-    auto it = std::find(functions.begin(), functions.end(), func);
+std::shared_ptr<SemanticFunctionData> SemanticValidator::getFunction(std::string name, std::shared_ptr<AstParameterList> params){
+    auto it = std::find_if(functions.begin(), functions.end(), [&](auto other){
+        return other->name == name && *other->parameters == *params;
+    });
     if (it == functions.end()){
         return nullptr;
     }
     else{
-        return &(*it);
+        return *it;
     }
 }
 
@@ -333,9 +339,7 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
         requireIdenticalTypes(node, node->value, "value assigned to variable of different semantical type");
     }
     if (node->variable->isGlobal){
-        AstFunctionDeclaration testFunc;
-        testFunc.name = node->name;
-        if (isFunctionDeclared(testFunc)){
+        if (isFunctionDeclared(node->name)){
             hasError = true;
             Error("Error: global variable \"", node->name, "\" is already declared as a function");
             printErrorToken(node->token, source);
@@ -366,16 +370,16 @@ void SemanticValidator::visit(std::shared_ptr<AstConditionalExpression> node){
     node->semanticType = node->trueExpression->semanticType;
 }
 void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
-    AstFunctionDeclaration testFunc;
-    testFunc.name = node->name;
-    testFunc.parameters = std::make_shared<AstParameterList>();
+    auto parameters = std::make_shared<AstParameterList>();
     for (auto arg : node->arguments){
-        testFunc.parameters->parameters.push_back(std::make_shared<AstVariableDeclaration>());
-        testFunc.parameters->parameters.back()->semanticType = arg->semanticType;
+        parameters->parameters.push_back(std::make_shared<AstVariableDeclaration>());
+        parameters->parameters.back()->semanticType = arg->semanticType;
     }
 
-    if (isFunctionDeclared(testFunc)){
-        node->semanticType = getFunction(testFunc)->semanticType;
+    node->function = getFunction(node->name, parameters);
+    if (node->function){
+        node->semanticType = std::make_shared<AstType>();
+        node->semanticType->type = node->function->returnType;
 
         AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     }
@@ -393,18 +397,18 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionDeclaration> node){
     }
 
     if (node->body){
-        if (isFunctionDefinable(*node)){
-            addFunction(*node);
+        if (isFunctionDefinable(node)){
+            addFunction(node);
         }
         else{
             hasError = true;
-            Error("Error: function \"", node->name, "\" is already defined");
+            Error("Error: function \"", node->name, "\" is already defined (possibly with different parameters)");
             printErrorToken(node->token, source);
         }
     }
     else{
-        if (isFunctionDeclarable(*node)){
-            addFunction(*node);
+        if (isFunctionDeclarable(node)){
+            addFunction(node);
         }
         else{
             hasError = true;

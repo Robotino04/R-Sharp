@@ -14,7 +14,7 @@ class AArch64CodeGenerator : public AstVisitor {
         struct Variable;
         struct LoopInfo;
         struct VariableScope;
-        AArch64CodeGenerator(std::shared_ptr<AstNode> root, std::string R_SharpSource);
+        AArch64CodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource);
 
         std::string generate();
 

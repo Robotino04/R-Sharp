@@ -5,7 +5,7 @@
 
 #include <sstream>
 
-AArch64CodeGenerator::AArch64CodeGenerator(std::shared_ptr<AstNode> root, std::string R_SharpSource){
+AArch64CodeGenerator::AArch64CodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
     this->root = root;
     this->R_SharpSource = R_SharpSource;
 }

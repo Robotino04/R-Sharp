@@ -6,20 +6,10 @@ AstType::AstType(RSharpType type){
 }
 AstType::AstType(RSharpType type, std::shared_ptr<AstType> subtype){
     this->type = type;
-    this->subtype = subtype;
 }
 
 bool operator==(AstType const& a, AstType const& b){
-    if(a.type != b.type){
-        return false;
-    }
-    if (a.subtype && b.subtype && *a.subtype != *b.subtype){
-        return false;
-    }
-    if (a.subtype || b.subtype){
-        return false;
-    }
-    return true;
+    return a.type == b.type;
 }
 bool operator!=(AstType const& a, AstType const& b){
     return !(a == b);
