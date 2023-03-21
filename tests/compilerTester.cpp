@@ -44,14 +44,14 @@ ExecutionResults parseExpectations(std::string filename){
     while (std::getline(input, line)) {
         lineNumber++;
         if (line.find("*/") != std::string::npos) {
-            std::cout << "No further validation required" << std::endl;
+            std::cout << "No further validation required\n";
             break;
         }
         if (line.find("/*") != std::string::npos) continue;
 
 
         if (line.find(":") == std::string::npos) {
-            std::cout << "Error: no validation present on line " << lineNumber << std::endl;
+            std::cout << "Error: no validation present on line " << lineNumber << "\n";
         }
 
 
@@ -83,7 +83,7 @@ ExecutionResults parseExpectations(std::string filename){
                         expectedResult.output += '\\';
                     }
                     else {
-                        std::cout << "Error: unknown escape sequence \\" << output[i] << " on line " << lineNumber << std::endl;
+                        std::cout << "Error: unknown escape sequence \\" << output[i] << " on line " << lineNumber << "\n";
                     }
                 }
                 else if (output[i] == '"') {
@@ -92,7 +92,7 @@ ExecutionResults parseExpectations(std::string filename){
                 else if (output[i] == '*') {
                     i++;
                     if (output[i] == '/') {
-                        std::cout << "Error: unterminated string on line " << lineNumber << std::endl;
+                        std::cout << "Error: unterminated string on line " << lineNumber << "\n";
                     exit(1);
                     }
                     else {
@@ -152,10 +152,10 @@ bool validate(ExecutionResults real, ExecutionResults expected){
 
 
     if (isValid) {
-        std::cout << "\nPASSED\n" << std::endl;
+        std::cout << "\nPASSED\n\n";
     }
     else{
-        std::cout << "\nFAILED\n" << std::endl;
+        std::cout << "\nFAILED\n\n";
     }
     return isValid;
 }
@@ -192,14 +192,23 @@ CommandResult exec(std::string const& cmd) {
 
 int main(int argc, char** argv) {
     if (argc < 5) {
-        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language>" << std::endl;
+        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language> [proxy] [gcc compiler]\n";
+        std::cout << "proxy is something like qemu\n";
         return 1;
     }
 
-    std::string compilerPath = argv[1];
-    std::string inputFile = argv[2];
-    std::string outputDir = argv[3];
-    std::string outputLanguage = argv[4];
+    int i=0;
+
+    std::string compilerPath = argv[++i];
+    std::string inputFile = argv[++i];
+    std::string outputDir = argv[++i];
+    std::string outputLanguage = argv[++i];
+    std::string proxy = "";
+    std::string gccCompiler = "gcc";
+    if (i+1 < argc) proxy = argv[++i];
+    if (i+1 < argc) gccCompiler = argv[++i];
+    std::cout << "proxy: " << proxy << "\n";
+    std::cout << "gccCompiler: " << gccCompiler << "\n";
 
     
     ExecutionResults expectedResults = parseExpectations(inputFile);
@@ -211,17 +220,24 @@ int main(int argc, char** argv) {
     // the output language is needed to allow for parrallel testing over multiple languages
     std::string outputFile = outputDir + "/" + filename + "_" + outputLanguage;
 
-    std::string command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage;
+    std::string command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage + " --compiler " + gccCompiler;
 
     ExecutionResults realResults;
 
-    std::cout << "Compiling: " << command << std::endl;
+    std::cout << "Compiling: " << command << "\n";
     auto compilerResult = exec(command);
 
     realResults.compilationReturnValue = compilerResult.returnCode;
 
     if (realResults.compilationReturnValue == static_cast<int>(ReturnValue::NormalExit)){
-        auto programResult = exec(outputFile);
+        std::string executionCommand;
+        if (proxy.size())
+            executionCommand = proxy + " " + outputFile;
+        else
+            executionCommand = outputFile;
+        std::cout << "Runnning: " << executionCommand << "\n";
+        auto programResult = exec(executionCommand);
+
 
         realResults.returnValue = programResult.returnCode;
         realResults.output = programResult.output;
@@ -232,13 +248,13 @@ int main(int argc, char** argv) {
     }
     else {
         if (expectedResults.skipped) {
-            std::cout << "Program skipped" << std::endl;
+            std::cout << "Program skipped\n";
             return 0;
         }
         
         if (realResults.compilationReturnValue != static_cast<int>(ReturnValue::NormalExit)) {
-            std::cout << "Compiling Failed: \n" << std::endl;
-            std::cout << compilerResult.output << std::endl;
+            std::cout << "Compiling Failed: \n\n";
+            std::cout << compilerResult.output << "\n";
         }
     }
     return 1;

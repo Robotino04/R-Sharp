@@ -32,6 +32,7 @@ R"(Options:
   -h, --help                Print this help message
   -o, --output <file>       Output file
   -f, --format <format>     Output format (c, nasm)
+  --compiler <path>         Use this compiler. Default: "gcc"
 
 Return values:
   0     Everything OK
@@ -102,6 +103,7 @@ int main(int argc, const char** argv) {
     std::string inputFilename;
     std::string outputFilename = "a.out";
     OutputFormat outputFormat = OutputFormat::C;
+    std::string compiler = "gcc";
 
     if (argc < 2) {
         printHelp(argv[0]);
@@ -142,6 +144,14 @@ int main(int argc, const char** argv) {
                 i++;
             } else {
                 Error("Missing output format");
+                return static_cast<int>(ReturnValue::UnknownError);
+            }
+        }
+        else if (arg == "--compiler"){
+            if (i+1 < argc) {
+                compiler = argv[++i];
+            } else {
+                Error("Missing compiler path");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
@@ -261,7 +271,7 @@ int main(int argc, const char** argv) {
     switch(outputFormat) {
         case OutputFormat::C:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = "gcc " + temporaryFile + " -o " + outputFilename;
+            std::string command = compiler + " " + temporaryFile + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -274,7 +284,7 @@ int main(int argc, const char** argv) {
         }
         case OutputFormat::AArch64:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = "gcc -g " + temporaryFile + " -o " + outputFilename;
+            std::string command = compiler + " -g " + temporaryFile + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -298,7 +308,7 @@ int main(int argc, const char** argv) {
             }
 
             Print("--------------| Linking using gcc |--------------");
-            command = "gcc -g -no-pie " + outputFilename + ".o -o " + outputFilename;
+            command = compiler + " -g -no-pie " + outputFilename + ".o -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
             if (success)
