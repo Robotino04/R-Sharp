@@ -216,7 +216,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     for (auto var : node->variables){
 
         if (var->isGlobal){
-            var->accessStr = "[" + getUniqueLabel(var->name) +"]";
+            var->accessStr = "[." + getUniqueLabel(var->name) +"]";
         }
         else{
             stackOffset += var->sizeInBytes;
@@ -249,8 +249,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstReturn> node){
     emitIndented("ret\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
-    std::string else_label = getUniqueLabel("else");
-    std::string end_label = getUniqueLabel("end");
+    std::string else_label = "." + getUniqueLabel("else");
+    std::string end_label = "." + getUniqueLabel("end");
 
     node->condition->accept(this);
     emitIndented("; If statement\n");
@@ -267,9 +267,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     emitIndented(end_label + ":\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
-    std::string increment_label = getUniqueLabel("increment");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
+    std::string increment_label = "." + getUniqueLabel("increment");
 
     node->loop->skipAccessString = increment_label;
     node->loop->breakAccessString = end_label;
@@ -305,9 +305,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     emitIndented("; For loop end\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
-    std::string increment_label = getUniqueLabel("increment");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
+    std::string increment_label = "." + getUniqueLabel("increment");
 
     node->loop->skipAccessString = increment_label;
     node->loop->breakAccessString = end_label;
@@ -338,8 +338,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     emitIndented("; For loop end\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
 
     node->loop->skipAccessString = start_label;
     node->loop->breakAccessString = end_label;
@@ -357,8 +357,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     emitIndented(end_label + ":\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
 
     node->loop->skipAccessString = start_label;
     node->loop->breakAccessString = end_label;
@@ -499,8 +499,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
 
         case AstBinaryType::LogicalAnd:{
             emitIndented("; Logical And\n");
-            std::string clause2 = getUniqueLabel("second_expression");
-            std::string end = getUniqueLabel("end");
+            std::string clause2 = "." + getUniqueLabel("second_expression");
+            std::string end = "." + getUniqueLabel("end");
             emitIndented("cmp rax, 0\n");
             emitIndented("jne " + clause2 + "\n");
             emitIndented("jmp " + end + "\n");
@@ -518,8 +518,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
 
         case AstBinaryType::LogicalOr:{
             emitIndented("; Logical Or\n");
-            std::string clause2 = getUniqueLabel("second_expression");
-            std::string end = getUniqueLabel("end");
+            std::string clause2 = "." + getUniqueLabel("second_expression");
+            std::string end = "." + getUniqueLabel("end");
             emitIndented("cmp rax, 0\n");
             emitIndented("je " + clause2 + "\n");
             emitIndented("mov rax, 1\n");
@@ -555,9 +555,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " " + node->variable->accessStr + ", rax\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
-    std::string true_clause = getUniqueLabel("true_expression");
-    std::string false_clause = getUniqueLabel("false_expression");
-    std::string end = getUniqueLabel("end");
+    std::string true_clause = "." + getUniqueLabel("true_expression");
+    std::string false_clause = "." + getUniqueLabel("false_expression");
+    std::string end = "." + getUniqueLabel("end");
     node->condition->accept(this);
     emitIndented("; Conditional Expression\n");
     emitIndented("cmp rax, 0\n");

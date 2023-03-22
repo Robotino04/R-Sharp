@@ -153,11 +153,13 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 
 // definitions
 void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
-
+    if (node->function->accessString.empty()){
+        node->function->accessString = node->name;
+    }
     if (node->body){
         emitIndented("// Function " + node->name + "\n\n");
-        emitIndented(".global " + node->name + "\n");
-        emitIndented(node->name + ":\n");
+        emitIndented(".global " + node->function->accessString + "\n");
+        emitIndented(node->function->accessString + ":\n");
         indent();
         generateFunctionProlouge();
 
@@ -214,8 +216,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstReturn> node){
     emitIndented("ret\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
-    std::string else_label = getUniqueLabel("else");
-    std::string end_label = getUniqueLabel("end");
+    std::string else_label = "." + getUniqueLabel("else");
+    std::string end_label = "." + getUniqueLabel("end");
 
     node->condition->accept(this);
     emitIndented("// If statement\n");
@@ -231,8 +233,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     emitIndented(end_label + ":\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
 
     node->loop->skipAccessString = increment_label;
@@ -269,9 +271,9 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     emitIndented("// For loop end\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
-    std::string increment_label = getUniqueLabel("increment");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
+    std::string increment_label = "." + getUniqueLabel("increment");
 
     node->loop->skipAccessString = increment_label;
     node->loop->breakAccessString = end_label;
@@ -301,8 +303,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     emitIndented("// For loop end\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
 
     node->loop->skipAccessString = start_label;
     node->loop->breakAccessString = end_label;
@@ -319,8 +321,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     emitIndented(end_label + ":\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
-    std::string start_label = getUniqueLabel("start");
-    std::string end_label = getUniqueLabel("end");
+    std::string start_label = "." + getUniqueLabel("start");
+    std::string end_label = "." + getUniqueLabel("end");
 
     node->loop->skipAccessString = start_label;
     node->loop->breakAccessString = end_label;
@@ -451,7 +453,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
 
         case AstBinaryType::LogicalAnd:{
             emitIndented("// Logical And\n");
-            std::string end = getUniqueLabel("end");
+            std::string end = "." + getUniqueLabel("end");
             emitIndented("cbz x0, " + end + "\n");
 
             // evaluate right side
@@ -464,8 +466,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
 
         case AstBinaryType::LogicalOr:{
             emitIndented("// Logical Or\n");
-            std::string clause2 = getUniqueLabel("second_expression");
-            std::string end = getUniqueLabel("end");
+            std::string clause2 = "." + getUniqueLabel("second_expression");
+            std::string end = "." + getUniqueLabel("end");
             emitIndented("cbz x0, " + clause2 + "\n");
             emitIndented("mov x0, 1\n");
             emitIndented("b " + end + "\n");
@@ -510,9 +512,9 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     }
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
-    std::string true_clause = getUniqueLabel("true_expression");
-    std::string false_clause = getUniqueLabel("false_expression");
-    std::string end = getUniqueLabel("end");
+    std::string true_clause = "." + getUniqueLabel("true_expression");
+    std::string false_clause = "." + getUniqueLabel("false_expression");
+    std::string end = "." + getUniqueLabel("end");
     node->condition->accept(this);
     emitIndented("// Conditional Expression\n");
     emitIndented("cbz x0, " + false_clause + "\n");
@@ -559,7 +561,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     emitIndented("stp x29, x30, [sp, -16]!\n");
     emitIndented("mov x29, sp\n");
     emitIndented("// Function Call (" + node->name + ")\n");
-    emitIndented("bl " + node->name + "\n");
+    emitIndented("bl " + node->function->accessString + "\n");
 
     emitIndented("// Restore after function call (" + node->name + ")\n");
     emitIndented("ldp x29, x30, [sp], 16\n");
