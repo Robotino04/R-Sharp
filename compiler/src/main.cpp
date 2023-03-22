@@ -39,7 +39,8 @@ Return values:
   1     Something unknown went wrong
   2     There were syntax errors
   3     There were semantic errors
-  4     There were assembling errors\n)";
+  4     There were assembling errors
+)";
 }
 
 std::stringstream& indent(std::stringstream& ss, int indentLevel) {

@@ -421,6 +421,7 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionDeclaration> node){
     if (node->body){
         node->parameters->parameterBlock = std::make_shared<AstBlock>();
         node->parameters->parameterBlock->name = "parameters " + node->name;
+        node->body->name = node->name;
         pushContext(node->parameters->parameterBlock);
         node->parameters->accept(this);
 

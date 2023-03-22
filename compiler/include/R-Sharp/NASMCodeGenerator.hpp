@@ -42,8 +42,6 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstEmptyExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
 
-        // void visit(std::shared_ptr<AstBuiltinType> node) override;
-
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
 
     private:
