@@ -111,6 +111,7 @@ class Parser{
 
 
         std::shared_ptr<AstType> parseType();
+        std::shared_ptr<AstTags> parseTags();
 
         // helpers
         std::shared_ptr<AstStatement> parseForLoop();

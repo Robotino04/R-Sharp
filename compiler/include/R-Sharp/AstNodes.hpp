@@ -139,10 +139,11 @@ struct AstFunctionDefinition : public AstProgramItem, public std::enable_shared_
     BASE(AstFunctionDefinition)
     TO_STRING_NAME(AstFunctionDefinition)
 
-    GET_SINGLE_CHILDREN(parameters, body)
+    GET_SINGLE_CHILDREN(parameters, body, tags)
 
     SINGLE_CHILD(AstBlock, body)
     SINGLE_CHILD(AstParameterList, parameters)
+    SINGLE_CHILD(AstTags, tags)
 
     std::shared_ptr<SemanticFunctionData> function;
 };
@@ -423,6 +424,22 @@ struct AstType : public AstNode, public std::enable_shared_from_this<AstType>{
     
     RSharpType type = RSharpType::NONE;
 };
+
+struct AstTags : public AstNode, public std::enable_shared_from_this<AstTags>{
+    BASE(AstTags);
+
+    std::string toString() const override{
+        // TODO: implement printing the tags
+        return "Tags: ";
+    }
+    
+    enum class Value{
+        Extern,
+    };
+
+    std::vector<Value> tags;
+};
+
 
 
 

@@ -117,7 +117,6 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstProgram> node){
         }
     }
 
-    // emitIndented(".extern " + std::dynamic_pointer_cast<AstFunctionDefinition>(func)->function->accessString + "\n");
 
     // uninitialized global variables
     for (auto var : root->uninitializedGlobalVariables){
@@ -147,20 +146,25 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 
 // definitions
 void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
-    emitIndented("// Function " + node->name + "\n\n");
-    emitIndented(".global " + node->function->name + "\n");
-    emitIndented(node->function->name + ":\n");
-    indent();
-    generateFunctionProlouge();
+    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
+        emitIndented("// Function " + node->name + "\n\n");
+        emitIndented(".global " + node->function->name + "\n");
+        emitIndented(node->function->name + ":\n");
+        indent();
+        generateFunctionProlouge();
 
-    node->parameters->accept(this);
-    node->body->accept(this);
+        node->parameters->accept(this);
+        node->body->accept(this);
 
-    emitIndented("// fallback if the function has no return\n");
-    generateFunctionEpilouge();
-    emitIndented("mov x0, 0\n");
-    emitIndented("ret\n");
-    dedent();
+        emitIndented("// fallback if the function has no return\n");
+        generateFunctionEpilouge();
+        emitIndented("mov x0, 0\n");
+        emitIndented("ret\n");
+        dedent();
+    }
+    else{
+        emitIndented(".extern " + node->function->name + "\n");
+    }
 }
 
 

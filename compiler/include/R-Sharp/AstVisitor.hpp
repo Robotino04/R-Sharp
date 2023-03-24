@@ -42,6 +42,7 @@ public:
     
     VISITOR_FN(AstVariableDeclaration);
     VISITOR_FN(AstType);
+    VISITOR_FN(AstTags);
 
 protected:
     // this will keep the nodes alive

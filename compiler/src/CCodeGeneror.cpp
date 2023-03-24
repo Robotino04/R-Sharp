@@ -71,18 +71,24 @@ void CCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 void CCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
     current_source = &source_declarations;
 
-
+    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) != node->tags->tags.end()){
+        emit("extern ");
+    }
     node->semanticType->accept(this);
     emit(" " + node->name);
     node->parameters->accept(this);
     emit(";\n");
 
-    current_source = &source_definitions;
-    node->semanticType->accept(this);
-    emit(" " + node->name);
-    node->parameters->accept(this);
 
-    node->body->accept(this);
+
+    current_source = &source_definitions;
+    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
+        node->semanticType->accept(this);
+        emit(" " + node->name);
+        node->parameters->accept(this);
+
+        node->body->accept(this);
+    }
 }
 
 // Statements

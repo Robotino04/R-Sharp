@@ -39,6 +39,7 @@ VISITOR_FN(AstFunctionCall)
 
 VISITOR_FN(AstVariableDeclaration)
 VISITOR_FN(AstType)
+VISITOR_FN(AstTags)
 
 
 #undef VISITOR_FN

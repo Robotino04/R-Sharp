@@ -379,12 +379,13 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionDefinition> node){
     // push the function context to include parameters
     node->parameters->parameterBlock = std::make_shared<AstBlock>();
     node->parameters->parameterBlock->name = "parameters " + node->name;
-    node->body->name = node->name;
     pushContext(node->parameters->parameterBlock);
     node->parameters->accept(this);
 
-    forceContextCollapse();
-    node->body->accept(this);
-
-    // the parameterContext will have been popped because it's collapsed
+    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
+        node->body->name = node->name;
+        forceContextCollapse();
+        node->body->accept(this);
+        // the parameterContext will have been popped because it's collapsed
+    }
 }

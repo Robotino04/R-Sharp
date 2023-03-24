@@ -38,7 +38,8 @@ enum class AstNodeType {
     AstFunctionCall,
 
     AstVariableDeclaration,
-    AstType
+    AstType,
+    AstTags,
 };
 
 struct SemanticVariableData;
@@ -82,6 +83,7 @@ struct AstFunctionCall;
 struct AstVariableDeclaration;
 struct AstParameterList;
 struct AstType;
+struct AstTags;
 
 struct AstNode{
     virtual ~AstNode() = default;

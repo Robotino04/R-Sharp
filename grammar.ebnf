@@ -1,7 +1,6 @@
 program = {functionDefinition | };
 
-functionDefinition = identifier, "(", [parameterList], ")", ":", type, statement;
- = statement;
+functionDefinition = tags, identifier, "(", [parameterList], ")", ":", type, statement;
 
 return = 'return', expression, ";";
 
@@ -26,6 +25,9 @@ statement = return
           | if;
 
 functionCall = identifier, "(", [expression, {",", expression}], ")";
+
+possible_tag_values = "extern";
+tags = [ "[", possible_tag_values, {",", possible_tag_values}, "]", ];
 
 if = 'if', "(", expression, ")", statement, {elif}, [else];
 elif = 'elif', "(", expression, ")", statement;

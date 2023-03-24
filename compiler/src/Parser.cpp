@@ -145,7 +145,9 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         }
         catch(ParsingError const& e){}
 
-        auto function = std::make_shared<AstFunctionDefinition>(consume(TokenType::ID));
+        auto function = std::make_shared<AstFunctionDefinition>();
+        function->tags = parseTags();
+        function->token = consume(TokenType::ID);
         function->name = function->token.value;
 
         function->parameters = parseParameterList();
@@ -158,16 +160,20 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         function->function->returnType = function->semanticType->type;
         function->function->parameters = function->parameters;
 
-        
-        auto body = parseStatement();
-        if (body->getType() == AstNodeType::AstExpressionStatement && std::dynamic_pointer_cast<AstExpressionStatement>(body)->expression->getType() == AstNodeType::AstEmptyExpression){
-            parserError("Function cannot only contain an empty expression. Use {} instead.");
+        if(std::find(function->tags->tags.begin(), function->tags->tags.end(), AstTags::Value::Extern) == function->tags->tags.end()){
+            auto body = parseStatement();
+            if (body->getType() == AstNodeType::AstExpressionStatement && std::dynamic_pointer_cast<AstExpressionStatement>(body)->expression->getType() == AstNodeType::AstEmptyExpression){
+                parserError("Function cannot only contain an empty expression. Use {} instead.");
+            }
+            if (body->getType() == AstNodeType::AstBlock)
+                function->body = std::dynamic_pointer_cast<AstBlock>(body);
+            else{
+                function->body = std::make_shared<AstBlock>();
+                function->body->items.push_back(body);
+            }
         }
-        if (body->getType() == AstNodeType::AstBlock)
-            function->body = std::dynamic_pointer_cast<AstBlock>(body);
         else{
-            function->body = std::make_shared<AstBlock>();
-            function->body->items.push_back(body);
+            consume(TokenType::Semicolon);
         }
         return function;
     }
@@ -555,6 +561,25 @@ std::shared_ptr<AstType> Parser::parseType() {
         parserError("Expected typename but got ", getCurrentToken().toString());
         return nullptr;
     }
+}
+
+std::shared_ptr<AstTags> Parser::parseTags() {
+    auto tags = std::make_shared<AstTags>();
+    if(match(TokenType::LeftBracket)){
+        consume(TokenType::LeftBracket);
+        do{
+            auto identifier = consume(TokenType::Identifier);
+            if (identifier.value == "extern"){
+                tags->tags.push_back(AstTags::Value::Extern);
+            }
+            else{
+                parserError("Expected tag identifier but got \"", identifier.value, "\"");
+            }
+        } while(match(TokenType::Comma) && (consume(TokenType::Comma), true));
+        consume(TokenType::RightBracket);
+    }
+    
+    return tags;
 }
 std::shared_ptr<AstParameterList> Parser::parseParameterList() {
     std::shared_ptr<AstParameterList> parameterList = std::make_shared<AstParameterList>();
