@@ -9,5 +9,3 @@ foo(a: i64): i64 {
 main(): i32 {
     return foo(4);
 }
-
-foo(a: i64): i64;

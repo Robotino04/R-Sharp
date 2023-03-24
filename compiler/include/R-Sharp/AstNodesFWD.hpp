@@ -12,7 +12,7 @@ enum class AstNodeType {
     AstProgram,
     AstParameterList,
 
-    AstFunctionDeclaration,
+    AstFunctionDefinition,
 
     AstErrorStatement,
     AstErrorProgramItem,
@@ -57,7 +57,7 @@ struct AstDeclaration;
 struct AstBlockItem;
 struct AstProgramItem;
 
-struct AstFunctionDeclaration;
+struct AstFunctionDefinition;
 
 struct AstBlock;
 struct AstReturn;
@@ -135,7 +135,7 @@ bool operator==(AstType const& a, AstType const& b);
 bool operator!=(AstType const& a, AstType const& b);
 bool operator==(AstVariableDeclaration const& a, AstVariableDeclaration const& b);
 bool operator!=(AstVariableDeclaration const& a, AstVariableDeclaration const& b);
-bool operator==(AstFunctionDeclaration const& a, AstFunctionDeclaration const& b);
+bool operator==(AstFunctionDefinition const& a, AstFunctionDefinition const& b);
 bool operator==(AstParameterList const& a, AstParameterList const& b);
 bool operator!=(AstParameterList const& a, AstParameterList const& b);
 

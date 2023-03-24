@@ -66,7 +66,7 @@ bool operator!=(AstVariableDeclaration const& a, AstVariableDeclaration const& b
     return !(a==b);
 }
 
-bool operator==(AstFunctionDeclaration const& a, AstFunctionDeclaration const& b){
+bool operator==(AstFunctionDefinition const& a, AstFunctionDefinition const& b){
     if (a.name != b.name){
         return false;
     }

@@ -17,7 +17,7 @@ public:
     VISITOR_FN(AstErrorStatement);
     VISITOR_FN(AstErrorProgramItem);
 
-    VISITOR_FN(AstFunctionDeclaration);
+    VISITOR_FN(AstFunctionDefinition);
     VISITOR_FN(AstParameterList);
 
     VISITOR_FN(AstBlock);

@@ -6,10 +6,12 @@ CCodeGenerator::CCodeGenerator(std::shared_ptr<AstProgram> root){
     this->root = root;
 }
 std::string CCodeGenerator::generate() {
-    source = "";
+    source_declarations = "";
+    source_definitions = "";
+    current_source = &source_definitions;
     indentLevel = 0;
     root->accept(this);
-    return source;
+    return *current_source;
 }
 
 void CCodeGenerator::indent(){
@@ -23,7 +25,7 @@ void CCodeGenerator::dedent(){
     indentLevel--;
 }
 void CCodeGenerator::emit(std::string const& str){
-    source += str;
+    *current_source += str;
 }
 void CCodeGenerator::emitIndented(std::string const& str){
     if (indentedEmitBlocked){
@@ -31,23 +33,26 @@ void CCodeGenerator::emitIndented(std::string const& str){
     }
     else{
         for (int i=0;i<indentLevel;i++){
-            source += "    ";
+            *current_source += "    ";
         }
     }
 
-    source += str;
+    *current_source += str;
 }
 void CCodeGenerator::blockNextIndentedEmit(){
     indentedEmitBlocked = true;
 }
 
 void CCodeGenerator::visit(std::shared_ptr<AstProgram> node){
-    // stdint.h provides the int64_t type
-    emit("#include <stdint.h>\n\n");
     for (auto& function : node->items) {
         function->accept(this);
         emit("\n");
     }
+    *current_source =   "#include <stdint.h>\n\n"
+                        "// ----------Declarations----------\n"
+                        + source_declarations + "\n"
+                        "// -----------Definitions-----------\n"
+                        + source_definitions;
 }
 void CCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
     emit("(");
@@ -63,18 +68,21 @@ void CCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 }
 
 // program items
-void CCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
+void CCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
+    current_source = &source_declarations;
+
+
+    node->semanticType->accept(this);
+    emit(" " + node->name);
+    node->parameters->accept(this);
+    emit(";\n");
+
+    current_source = &source_definitions;
     node->semanticType->accept(this);
     emit(" " + node->name);
     node->parameters->accept(this);
 
-    if (node->body){
-        node->body->accept(this);
-    }
-    else{
-        emit(";\n");
-    }
-
+    node->body->accept(this);
 }
 
 // Statements

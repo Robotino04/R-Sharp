@@ -138,7 +138,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
 
     for (auto const& child : node->getChildren()){
         if (!child) continue;
-        if (child->getType() == AstNodeType::AstFunctionDeclaration){
+        if (child->getType() == AstNodeType::AstFunctionDefinition){
             child->accept(this);
         }
         else if (child->getType() == AstNodeType::AstVariableDeclaration){
@@ -149,13 +149,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
         }
     }
 
-    // emit extern functions
-    for (auto func : node->items){
-        if (func->getType() == AstNodeType::AstFunctionDeclaration){
-            if (!std::dynamic_pointer_cast<AstFunctionDeclaration>(func)->function->isDefined)
-                emitIndented("extern " + std::dynamic_pointer_cast<AstFunctionDeclaration>(func)->function->accessString + "\n");
-        }
-    }
+    // emitIndented("extern " + std::dynamic_pointer_cast<AstFunctionDefinition>(func)->function->accessString + "\n");
 
     // uninitialized global variables
     for (auto var : node->uninitializedGlobalVariables){
@@ -188,24 +182,21 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 }
 
 // definitions
-void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDeclaration> node){
-    node->function->accessString = node->function->name;
-    if (node->body){
-        emitIndented("; Function " + node->name + "\n\n");
-        emitIndented("global " + node->function->accessString + "\n");
-        emitIndented(node->function->accessString + ":\n");
-        indent();
-        generateFunctionProlouge();
+void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
+    emitIndented("; Function " + node->name + "\n\n");
+    emitIndented("global " + node->function->name + "\n");
+    emitIndented(node->function->name + ":\n");
+    indent();
+    generateFunctionProlouge();
 
-        node->parameters->accept(this);
-        node->body->accept(this);
+    node->parameters->accept(this);
+    node->body->accept(this);
 
-        emitIndented("; fallback if the function has no return\n");
-        generateFunctionEpilouge();
-        emitIndented("mov rax, 0\n");
-        emitIndented("ret\n");
-        dedent();
-    }
+    emitIndented("; fallback if the function has no return\n");
+    generateFunctionEpilouge();
+    emitIndented("mov rax, 0\n");
+    emitIndented("ret\n");
+    dedent();
 }
 
 // statements
@@ -616,7 +607,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     }
 
     emitIndented("; Function Call (" + node->name + ")\n");
-    emitIndented("call " + node->function->accessString + "\n");
+    emitIndented("call " + node->function->name + "\n");
 
     emitIndented("; Restore after function call (" + node->name + ")\n");
     // restore registers

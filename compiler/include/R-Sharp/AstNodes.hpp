@@ -82,8 +82,6 @@ struct SemanticLoopData{
 
 struct SemanticFunctionData{
     std::string name;
-    std::string accessString;
-    bool isDefined = false;
     std::shared_ptr<AstParameterList> parameters;
     RSharpType returnType;
 };
@@ -137,9 +135,9 @@ struct AstProgramItem : public virtual AstNode{
 
 // ----------------------------------| Program Items |---------------------------------- //
 
-struct AstFunctionDeclaration : public AstProgramItem, public std::enable_shared_from_this<AstFunctionDeclaration> {
-    BASE(AstFunctionDeclaration)
-    TO_STRING_NAME(AstFunctionDeclaration)
+struct AstFunctionDefinition : public AstProgramItem, public std::enable_shared_from_this<AstFunctionDefinition> {
+    BASE(AstFunctionDefinition)
+    TO_STRING_NAME(AstFunctionDefinition)
 
     GET_SINGLE_CHILDREN(parameters, body)
 

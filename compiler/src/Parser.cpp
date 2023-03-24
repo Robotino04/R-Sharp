@@ -133,6 +133,7 @@ std::shared_ptr<AstProgram> Parser::parseProgram() {
 // program items
 std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
     try{
+        TokenRestorer _(*this);
         try{
             TokenRestorer _(*this);
             auto var = parseVariableDeclaration();
@@ -144,7 +145,7 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         }
         catch(ParsingError const& e){}
 
-        auto function = std::make_shared<AstFunctionDeclaration>(consume(TokenType::ID));
+        auto function = std::make_shared<AstFunctionDefinition>(consume(TokenType::ID));
         function->name = function->token.value;
 
         function->parameters = parseParameterList();
@@ -157,24 +158,18 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         function->function->returnType = function->semanticType->type;
         function->function->parameters = function->parameters;
 
-        if (match(TokenType::Semicolon)){
-            // it is a function declaration
-            consume(TokenType::Semicolon);
-            function->function->isDefined = false;
-            return function;
+        
+        auto body = parseStatement();
+        if (body->getType() == AstNodeType::AstExpressionStatement && std::dynamic_pointer_cast<AstExpressionStatement>(body)->expression->getType() == AstNodeType::AstEmptyExpression){
+            parserError("Function cannot only contain an empty expression. Use {} instead.");
         }
+        if (body->getType() == AstNodeType::AstBlock)
+            function->body = std::dynamic_pointer_cast<AstBlock>(body);
         else{
-            // a full function definition
-            auto body = parseStatement();
-            if (body->getType() == AstNodeType::AstBlock)
-                function->body = std::dynamic_pointer_cast<AstBlock>(body);
-            else{
-                function->body = std::make_shared<AstBlock>();
-                function->body->items.push_back(body);
-            }
-            function->function->isDefined = true;
-            return function;
+            function->body = std::make_shared<AstBlock>();
+            function->body->items.push_back(body);
         }
+        return function;
     }
     catch(ParsingError const& e){
         hasError = true;

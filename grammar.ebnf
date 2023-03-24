@@ -1,13 +1,12 @@
-program = {function | functionDeclaration};
+program = {functionDefinition | };
 
-function = identifier, "(", [parameterList], ")", ":", type, statement;
-functionDeclaration = identifier, "(", [parameterList], ")", ":", type, ";";
-blockItem = declaration | statement;
+functionDefinition = identifier, "(", [parameterList], ")", ":", type, statement;
+ = statement;
 
 return = 'return', expression, ";";
 
 for = 'for', "(", optionalExpression, ";", optionalExpression, ";", optionalExpression, ")", statement
-    | 'for', "(", declaration, ";", optionalExpression, ";", optionalExpression, ")", statement;
+    | 'for', "(", variableDeclaration, ";", optionalExpression, ";", optionalExpression, ")", statement;
 do = 'do', statement, 'while', "(", expression, ")", ";";
 while = 'while', "(", expression, ")", statement;
 break = 'break', ";";
@@ -16,9 +15,9 @@ skip = 'skip', ";";
 optionalExpression = [expression];
 
 statement = return
-          | declaration
+          | variableDeclaration
           | (optionalExpression, ";")
-          | ("{", {blockItem}, "}")
+          | ("{", {statement}, "}")
           | for
           | do
           | while
@@ -43,12 +42,11 @@ additiveExp = term, {("+" | "-"), term};
 term = factor, {("*" | "/" | "%"), factor};
 factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | identifier | functionCall;
 
-type = 'i64' | 'i32' | 'char';
+type = 'i64' | 'i32';
 
-parameterList = identifier ":" type {"," variable};
+parameterList = identifier, ":", type {",", identifier, ":", type };
 
-declaration = identifier ":" type ["=" expression] ";";
-assignment = identifier "=" expression;
+variableDeclaration = identifier, ":", type, ["=", expression] ";";
+assignment = identifier, "=", expression;
 
-identifier = "_" | letter, {letter | digit};
-letter = "";
+identifier = ("_" | letter), {"_" | letter | digit};

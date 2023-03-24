@@ -13,7 +13,7 @@ class SemanticValidator : public AstVisitor{
 
         void visit(std::shared_ptr<AstProgram> node) override;
 
-        void visit(std::shared_ptr<AstFunctionDeclaration> node) override;
+        void visit(std::shared_ptr<AstFunctionDefinition> node) override;
 
         void visit(std::shared_ptr<AstBlock> node);
         void visit(std::shared_ptr<AstReturn> node) override;
@@ -46,10 +46,7 @@ class SemanticValidator : public AstVisitor{
         void addVariable(std::shared_ptr<AstVariableDeclaration> var);
         std::shared_ptr<SemanticVariableData> getVariable(std::string const& name);
 
-        bool isFunctionDeclared(std::string name) const;
-        bool isFunctionDeclarable(std::shared_ptr<AstFunctionDeclaration> testFunc) const;
-        bool isFunctionDefinable(std::shared_ptr<AstFunctionDeclaration> testFunc) const;
-        void addFunction(std::shared_ptr<AstFunctionDeclaration> func);
+        bool isFunctionDefined(std::string name) const;
         std::shared_ptr<SemanticFunctionData> getFunction(std::string name, std::shared_ptr<AstParameterList> params);
 
         void requireIdenticalTypes(std::shared_ptr<AstNode> a, std::shared_ptr<AstNode> b, std::string msg="operands don't match");
