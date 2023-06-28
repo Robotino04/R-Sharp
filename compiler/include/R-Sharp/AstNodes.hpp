@@ -145,7 +145,7 @@ struct AstFunctionDefinition : public AstProgramItem, public std::enable_shared_
     SINGLE_CHILD(AstParameterList, parameters)
     SINGLE_CHILD(AstTags, tags)
 
-    std::shared_ptr<SemanticFunctionData> function;
+    std::shared_ptr<SemanticFunctionData> functionData;
 };
 
 
@@ -186,6 +186,7 @@ struct AstReturn : public AstStatement, public std::enable_shared_from_this<AstR
     SINGLE_CHILD(AstExpression, value)
 
     std::vector<std::weak_ptr<AstBlock>> containedScopes;
+    std::weak_ptr<AstFunctionDefinition> containedFunction;
 };
 
 struct AstExpressionStatement : public AstStatement, public std::enable_shared_from_this<AstExpressionStatement> {

@@ -16,7 +16,13 @@ bool operator!=(AstType const& a, AstType const& b){
 }
 
 RSharpType stringToType(std::string const& str){
-    if(str == "i32"){
+    if(str == "i8"){
+        return RSharpType::I8;
+    }
+    else if(str == "i16"){
+        return RSharpType::I16;
+    }
+    else if(str == "i32"){
         return RSharpType::I32;
     }
     else if(str == "i64"){
@@ -26,6 +32,8 @@ RSharpType stringToType(std::string const& str){
 }
 std::string typeToString(RSharpType type){
     switch(type){
+        case RSharpType::I8:  return "i8";
+        case RSharpType::I16: return "i16";
         case RSharpType::I32: return "i32";
         case RSharpType::I64: return "i64";
         case RSharpType::ErrorType: return "error type";

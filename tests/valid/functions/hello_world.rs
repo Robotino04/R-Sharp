@@ -2,7 +2,7 @@
 output: "Hello, World!\n"
 */
 
-[extern] putchar(c: i64): i64;
+[extern] putchar(c: i32): i32;
 
 main(): i32 {
     putchar(72);

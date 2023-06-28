@@ -1,4 +1,4 @@
-program = {functionDefinition | };
+program = {functionDefinition};
 
 functionDefinition = tags, identifier, "(", [parameterList], ")", ":", type, statement;
 
@@ -44,7 +44,7 @@ additiveExp = term, {("+" | "-"), term};
 term = factor, {("*" | "/" | "%"), factor};
 factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | identifier | functionCall;
 
-type = 'i64' | 'i32';
+type = "i8" | "i16" | "i32" | "i64";
 
 parameterList = identifier, ":", type {",", identifier, ":", type };
 

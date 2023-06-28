@@ -148,8 +148,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
     if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
         emitIndented("// Function " + node->name + "\n\n");
-        emitIndented(".global " + node->function->name + "\n");
-        emitIndented(node->function->name + ":\n");
+        emitIndented(".global " + node->functionData->name + "\n");
+        emitIndented(node->functionData->name + ":\n");
         indent();
         generateFunctionProlouge();
 
@@ -163,7 +163,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         dedent();
     }
     else{
-        emitIndented(".extern " + node->function->name + "\n");
+        emitIndented(".extern " + node->functionData->name + "\n");
     }
 }
 
@@ -483,7 +483,23 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emitIndented("// Integer " + std::to_string(node->value) + "\n");
-    emitIndented("mov x0, " + std::to_string(node->value) + "\n");
+    if (node->value == 0){
+        emitIndented("mov x0, xzr\n");
+        return;
+    }
+    // needs up to 4 instructions
+    // movz MOVes and Zeros the rest
+    // movk MOVes and Keeps the rest
+
+    uint64_t valueCopy = static_cast<uint64_t>(node->value);
+    for (int shiftAmount = 0; valueCopy && shiftAmount < 64; shiftAmount += 16){
+        if (shiftAmount == 0){
+            emitIndented("movz x0, " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + "\n");
+        }
+        else{
+            emitIndented("movk x0, " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + ", lsl " + std::to_string(shiftAmount) + "\n");
+        }
+    }
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     emitIndented("// Variable Access(" + node->name + ")\n");

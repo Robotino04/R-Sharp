@@ -115,14 +115,16 @@ void CCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
 void CCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     emitIndented("if (");
     node->condition->accept(this);
-    emit(") ");
+    emit(") {");
     blockNextIndentedEmit();
     node->trueStatement->accept(this);
+    emitIndented("}");
     if (node->falseStatement){
         emit("\n");
-        emitIndented("else ");
+        emitIndented("else {");
         blockNextIndentedEmit();
         node->falseStatement->accept(this);
+        emitIndented("}");
     }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
@@ -315,6 +317,8 @@ void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
 }
 void CCodeGenerator::visit(std::shared_ptr<AstType> node){
     switch (node->type){
+        case RSharpType::I8: emit("int8_t"); break;
+        case RSharpType::I16: emit("int16_t"); break;
         case RSharpType::I32: emit("int32_t"); break;
         case RSharpType::I64: emit("int64_t"); break;
 

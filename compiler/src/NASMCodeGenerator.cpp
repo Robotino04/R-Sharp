@@ -4,6 +4,8 @@
 #include "R-Sharp/Utils.hpp"
 
 #include <sstream>
+#include <map>
+#include <tuple>
 
 NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
     this->root = root;
@@ -132,6 +134,17 @@ std::string NASMCodeGenerator::sizeToNASMType(int size){
     }
 }
 
+std::string NASMCodeGenerator::getRegisterWithSize(std::string reg, int size){
+    const std::map<std::pair<std::string, int>, std::string> map = {
+        {{"rax", 1}, "al"},
+        {{"rax", 2}, "ax"},
+        {{"rax", 4}, "eax"},
+        {{"rax", 8}, "rax"},
+    };
+
+    return map.at({reg, size});
+}
+
 // program
 void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     node->globalScope->accept(this);
@@ -152,7 +165,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     // uninitialized global variables
     for (auto var : node->uninitializedGlobalVariables){
         emit(var->accessStr.substr(1, var->accessStr.size()-2) + ":\n", BinarySection::BSS);
-        emit("    resb" + std::to_string(var->sizeInBytes) + "\n", BinarySection::BSS);
+        emit("    resb " + std::to_string(var->sizeInBytes) + "\n", BinarySection::BSS);
     }
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
@@ -183,8 +196,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
 void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
     if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
         emitIndented("; Function " + node->name + "\n\n");
-        emitIndented("global " + node->function->name + "\n");
-        emitIndented(node->function->name + ":\n");
+        emitIndented("global " + node->functionData->name + "\n");
+        emitIndented(node->functionData->name + ":\n");
         indent();
         generateFunctionProlouge();
 
@@ -198,7 +211,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         dedent();
     }
     else{
-        emitIndented("extern " + node->function->name + "\n");
+        emitIndented("extern " + node->functionData->name + "\n");
     }
 }
 
@@ -661,7 +674,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         emitIndented("; Variable (" + node->name + ")\n");
         if (node->value){
             node->value->accept(this);
-            emitIndented("push " + sizeToNASMType(node->variable->sizeInBytes) + " rax\n");
+            emitIndented("sub rsp, " + std::to_string(node->variable->sizeInBytes) + "\n");
+            emitIndented("mov " + node->variable->accessStr + ", " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
         }
         else{
             emitIndented("push " + sizeToNASMType(node->variable->sizeInBytes) + " 0\n");

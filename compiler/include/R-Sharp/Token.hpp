@@ -9,7 +9,7 @@ enum class TokenType{
     Comment,                    // "//" | "/*" ... "*/"
     ID,                         // [a-zA-Z_][a-zA-Z0-9_]*
     Number,                     // [0-9]+
-    Typename,                   // "i32" | "i64"
+    Typename,                   // "i8" | "i16" | "i32" | "i64"
 
     Semicolon,                  // ";"
     Colon,                      // ":"

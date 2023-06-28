@@ -155,10 +155,10 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         function->semanticType = parseType();
 
 
-        function->function = std::make_shared<SemanticFunctionData>();
-        function->function->name = function->name;
-        function->function->returnType = function->semanticType->type;
-        function->function->parameters = function->parameters;
+        function->functionData = std::make_shared<SemanticFunctionData>();
+        function->functionData->name = function->name;
+        function->functionData->returnType = function->semanticType->type;
+        function->functionData->parameters = function->parameters;
 
         if(std::find(function->tags->tags.begin(), function->tags->tags.end(), AstTags::Value::Extern) == function->tags->tags.end()){
             auto body = parseStatement();
@@ -495,11 +495,11 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
 }
 std::shared_ptr<AstInteger> Parser::parseNumber() {
     std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>(consume(TokenType::Number));
-    std::istringstream iss(number->token.value);
-    int64_t i64;
-    iss >> number->value;
-    if (iss.fail()) {
-        parserError("Expected number but got ", number->token.toString());
+    try{
+        number->value = std::stoull(number->token.value);
+    }
+    catch(std::out_of_range){
+        parserError("Number doesn't fit into 64 bits: ", number->token.value);
     }
     number->semanticType = std::make_shared<AstType>(RSharpType::I64);
     return number;

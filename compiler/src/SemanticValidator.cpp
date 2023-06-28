@@ -79,11 +79,15 @@ void SemanticValidator::addVariable(std::shared_ptr<AstVariableDeclaration> var)
         var->variable->type = var->semanticType->type;
 
         switch(var->variable->type){
+            case RSharpType::I8:  var->variable->sizeInBytes = 1; break;
+            case RSharpType::I16: var->variable->sizeInBytes = 2; break;
             case RSharpType::I32: var->variable->sizeInBytes = 4; break;
             case RSharpType::I64: var->variable->sizeInBytes = 8; break;
 
             default:
-                Error("INTERNAL ERROR: type nr. " + std::to_string(static_cast<int>(var->variable->type)) + " isn't implemented.");
+                hasError = true;
+                Error("INTERNAL ERROR: type nr. " + std::to_string(static_cast<int>(var->variable->type)) + " (" + typeToString(var->variable->type) + ") isn't implemented.");
+                break;
         }
         variableContexts.back()->variables.push_back(var->variable);
         variableContexts.back()->sizeOfLocalVariables += var->variable->sizeInBytes;
@@ -114,7 +118,22 @@ bool SemanticValidator::isFunctionDefined(std::string name) const{
 }
 std::shared_ptr<SemanticFunctionData> SemanticValidator::getFunction(std::string name, std::shared_ptr<AstParameterList> params){
     auto it = std::find_if(functions.begin(), functions.end(), [&](auto other){
-        return other->name == name && *other->parameters == *params;
+        if (other->name != name)
+            return false;
+        if (*other->parameters == *params)
+            return true;
+        
+        // allow function if the parameters can be casted
+        if (other->parameters->parameters.size() != params->parameters.size()){
+            return false;
+        }
+
+        for (int i=0; i<other->parameters->parameters.size(); i++){
+            if (!areEquivalentTypes(other->parameters->parameters.at(i), params->parameters.at(i))){
+                return false;
+            }
+        }
+        return true;
     });
     if (it == functions.end()){
         return nullptr;
@@ -124,22 +143,32 @@ std::shared_ptr<SemanticFunctionData> SemanticValidator::getFunction(std::string
     }
 }
 
-void SemanticValidator::requireIdenticalTypes(std::shared_ptr<AstNode> a, std::shared_ptr<AstNode> b, std::string msg){
-    requireType(a);
-    requireType(b); 
-    if (*a->semanticType == RSharpType::ErrorType || *b->semanticType == RSharpType::ErrorType) return;
-    if (*a->semanticType != *b->semanticType){
-        if ((a->semanticType->type == RSharpType::I32 && a->semanticType->type == RSharpType::I64)
-         || (b->semanticType->type == RSharpType::I32 && b->semanticType->type == RSharpType::I64)
-        ){
-            Warning("using conversion between i32 and i64");
-            return;
-        }
+bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found){
+    static const std::vector<RSharpType> integerTypes = {RSharpType::I8, RSharpType::I16, RSharpType::I32, RSharpType::I64};
+    requireType(expected);
+    requireType(found);
 
+
+    if (*expected->semanticType == *found->semanticType) return true;
+
+    if (*expected->semanticType == RSharpType::ErrorType || *found->semanticType == RSharpType::ErrorType) return true;
+
+    if (std::find(integerTypes.begin(), integerTypes.end(), expected->semanticType->type) != integerTypes.end()
+     && std::find(integerTypes.begin(), integerTypes.end(), found->semanticType->type) != integerTypes.end()){
+        Warning("Converting between integer types. (", typeToString(found->semanticType->type), " --> ", typeToString(expected->semanticType->type), ")");
+        return true;
+    }
+
+
+    return false;
+}
+
+void SemanticValidator::requireIdenticalTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg){
+    if (!areEquivalentTypes(expected, found)){
         hasError = true;
-        Error("Error: ", msg);
-        printErrorToken(a->token, source);
-        printErrorToken(b->token, source);
+        Error(msg, " (expected: ", typeToString(expected->semanticType->type), "   found: ", typeToString(found->semanticType->type), ")");
+        printErrorToken(expected->token, source);
+        printErrorToken(found->token, source);
     }
 }
 void SemanticValidator::requireType(std::shared_ptr<AstNode> node){
@@ -159,15 +188,15 @@ void SemanticValidator::visit(std::shared_ptr<AstProgram> node){
 
         if (isVariableDeclared(function->name)){
             hasError = true;
-            Error("Error: function \"", function->name, "\" is already declared as a variable");
+            Error("function \"", function->name, "\" is already declared as a variable");
             printErrorToken(node->token, source);
         }
         if (!isFunctionDefined(function->name)){
-            functions.push_back(function->function);
+            functions.push_back(function->functionData);
         }
         else{
             hasError = true;
-            Error("Error: function \"", function->name, "\" is already defined");
+            Error("function \"", function->name, "\" is already defined");
             printErrorToken(node->token, source);
         }
         
@@ -196,6 +225,9 @@ void SemanticValidator::visit(std::shared_ptr<AstBlock> node){
 void SemanticValidator::visit(std::shared_ptr<AstReturn> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     node->semanticType = node->value->semanticType;
+    
+    requireIdenticalTypes(currentFunction, node, "return type and returned type don't match");
+        
     // don't copy the global scope
     node->containedScopes.insert(node->containedScopes.begin(), std::next(variableContexts.begin()), variableContexts.end());
 }
@@ -294,7 +326,7 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAccess> node){
     }
     else{
         hasError = true;
-        Error("Error: variable \"", node->name, "\" is not declared");
+        Error("variable \"", node->name, "\" is not declared");
         printErrorToken(node->token, source);
 
         node->semanticType = std::make_shared<AstType>();
@@ -311,7 +343,7 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
     }
     else{
         hasError = true;
-        Error("Error: variable \"", node->name, "\" is not declared");
+        Error("variable \"", node->name, "\" is not declared");
         printErrorToken(node->token, source);
         node->semanticType = std::make_shared<AstType>();
         node->semanticType->type = RSharpType::ErrorType;
@@ -322,23 +354,23 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     
     if (node->value){
-        requireIdenticalTypes(node, node->value, "value assigned to variable of different semantical type");
+            requireIdenticalTypes(node, node->value, "value assigned to variable of different semantical type");
     }
     if (node->variable->isGlobal){
         if (isFunctionDefined(node->name)){
             hasError = true;
-            Error("Error: global variable \"", node->name, "\" is already declared as a function");
+            Error("global variable \"", node->name, "\" is already declared as a function");
             printErrorToken(node->token, source);
         }
         if (node->value && node->value->getType() != AstNodeType::AstInteger){
             hasError = true;
-            Error("Error: global variable \"", node->name, "\" must be initialized to a constant value (no expression)");
+            Error("global variable \"", node->name, "\" must be initialized to a constant value (no expression)");
             printErrorToken(node->token, source);
         }
     }
     if (!isVariableDefinable(*node)){
         hasError = true;
-        Error("Error: variable \"", node->name, "\" is defined multiple times");
+        Error("variable \"", node->name, "\" is defined multiple times");
         printErrorToken(node->token, source);
     }else{
         addVariable(node);
@@ -371,14 +403,17 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
     }
     else{
         hasError = true;
-        Error("Error: function \"", node->name, "\" is not declared (wrong number of arguments?)");
+        Error("function \"", node->name, "\" is not declared (wrong number of arguments?)");
         printErrorToken(node->token, source);
+        node->semanticType = std::make_shared<AstType>();
+        node->semanticType->type = RSharpType::ErrorType;
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstFunctionDefinition> node){
     // push the function context to include parameters
     node->parameters->parameterBlock = std::make_shared<AstBlock>();
     node->parameters->parameterBlock->name = "parameters " + node->name;
+    currentFunction = node;
     pushContext(node->parameters->parameterBlock);
     node->parameters->accept(this);
 

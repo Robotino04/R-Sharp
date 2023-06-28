@@ -69,6 +69,7 @@ class NASMCodeGenerator : public AstVisitor {
         int stackOffset = 0;
 
         std::string sizeToNASMType(int size);
+        std::string getRegisterWithSize(std::string reg, int size);
 
         std::string source_text;
         std::string source_data;

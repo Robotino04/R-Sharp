@@ -101,6 +101,8 @@ struct AstNode{
 
 enum class RSharpType{
     NONE,
+    I8,
+    I16,
     I32,
     I64,
     ErrorType,

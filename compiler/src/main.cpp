@@ -269,10 +269,14 @@ int main(int argc, const char** argv) {
         return static_cast<int>(ReturnValue::UnknownError);
     }
 
+    static const std::string gccArgumentsCompile = "-g -Werror -Wall -Wno-unused-variable -Wno-unused-value";
+    static const std::string gccArgumentsLink = "-g -Werror -Wall -no-pie";
+    static const std::string nasmArgumentsCompile = "-g -w+error -w+all";
+
     switch(outputFormat) {
         case OutputFormat::C:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = compiler + " " + temporaryFile + " -o " + outputFilename;
+            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -285,7 +289,7 @@ int main(int argc, const char** argv) {
         }
         case OutputFormat::AArch64:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = compiler + " -g " + temporaryFile + " -o " + outputFilename;
+            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -298,7 +302,7 @@ int main(int argc, const char** argv) {
         }
         case OutputFormat::NASM:{
             Print("--------------| Assembling using nasm |--------------");
-            std::string command = "nasm -g -f elf64 " + temporaryFile + " -o " + outputFilename + ".o";
+            std::string command = "nasm " + nasmArgumentsCompile + " -f elf64 " + temporaryFile + " -o " + outputFilename + ".o";
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -309,7 +313,7 @@ int main(int argc, const char** argv) {
             }
 
             Print("--------------| Linking using gcc |--------------");
-            command = compiler + " -g -no-pie " + outputFilename + ".o -o " + outputFilename;
+            command = compiler + " " + gccArgumentsLink + " " + outputFilename + ".o -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
             if (success)

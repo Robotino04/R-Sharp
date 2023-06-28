@@ -49,8 +49,9 @@ class SemanticValidator : public AstVisitor{
         bool isFunctionDefined(std::string name) const;
         std::shared_ptr<SemanticFunctionData> getFunction(std::string name, std::shared_ptr<AstParameterList> params);
 
-        void requireIdenticalTypes(std::shared_ptr<AstNode> a, std::shared_ptr<AstNode> b, std::string msg="operands don't match");
+        void requireIdenticalTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg="operands don't match");
         void requireType(std::shared_ptr<AstNode> node);
+        bool areEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found);
 
     private:
         std::shared_ptr<AstNode> root;
@@ -62,6 +63,8 @@ class SemanticValidator : public AstVisitor{
 
         std::stack<std::shared_ptr<SemanticLoopData>> loops;
         std::vector<std::shared_ptr<SemanticFunctionData>> functions;
+
+        std::shared_ptr<AstFunctionDefinition> currentFunction;
 
         bool hasError = false;
 };
