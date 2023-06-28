@@ -157,7 +157,7 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
 
         function->functionData = std::make_shared<SemanticFunctionData>();
         function->functionData->name = function->name;
-        function->functionData->returnType = function->semanticType->type;
+        function->functionData->returnType = function->semanticType;
         function->functionData->parameters = function->parameters;
 
         if(std::find(function->tags->tags.begin(), function->tags->tags.end(), AstTags::Value::Extern) == function->tags->tags.end()){
@@ -254,7 +254,7 @@ std::shared_ptr<AstDeclaration> Parser::parseDeclaration() {
         auto decl = parseVariableDeclaration();
         decl->variable = std::make_shared<SemanticVariableData>();
         decl->variable->name = decl->name;
-        decl->variable->type = decl->semanticType->type;
+        decl->variable->type = decl->semanticType;
         consume(TokenType::Semicolon);
         return decl;
     }
@@ -501,7 +501,7 @@ std::shared_ptr<AstInteger> Parser::parseNumber() {
     catch(std::out_of_range){
         parserError("Number doesn't fit into 64 bits: ", number->token.value);
     }
-    number->semanticType = std::make_shared<AstType>(RSharpType::I64);
+    number->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64);
     return number;
 }
 std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
@@ -544,7 +544,7 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
     }
     variable->variable = std::make_shared<SemanticVariableData>();
     variable->variable->name = variable->name;
-    variable->variable->type = variable->semanticType->type;
+    variable->variable->type = variable->semanticType;
     return variable;
 }
 
@@ -552,13 +552,17 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
 std::shared_ptr<AstType> Parser::parseType() {
     if (match(TokenType::Typename)) {
         auto type = stringToType(consume(TokenType::Typename).value);
-        if (type == RSharpType::NONE) {
+        if (type == RSharpPrimitiveType::NONE) {
             parserError("Unknown type ", getCurrentToken().toString());
         }
-        return std::make_shared<AstType>(type);
+        return std::make_shared<AstPrimitiveType>(type);
+    }
+    else if (match(TokenType::Star)){
+        consume(TokenType::Star);
+        return std::make_shared<AstPointerType>(parseType());
     }
     else {
-        parserError("Expected typename but got ", getCurrentToken().toString());
+        parserError("Expected typename or '*' (pointer) but got ", getCurrentToken().toString());
         return nullptr;
     }
 }

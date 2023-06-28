@@ -76,18 +76,25 @@ void SemanticValidator::addVariable(std::shared_ptr<AstVariableDeclaration> var)
     if (it == variableContexts.back()->variables.end()){
         var->variable->isDefined = (bool)var->value;
         var->variable->name = var->name;
-        var->variable->type = var->semanticType->type;
+        var->variable->type = var->semanticType;
 
-        switch(var->variable->type){
-            case RSharpType::I8:  var->variable->sizeInBytes = 1; break;
-            case RSharpType::I16: var->variable->sizeInBytes = 2; break;
-            case RSharpType::I32: var->variable->sizeInBytes = 4; break;
-            case RSharpType::I64: var->variable->sizeInBytes = 8; break;
+        switch(var->variable->type.lock()->getType()){
+            case AstNodeType::AstPrimitiveType:{
+                auto primitive_type = std::static_pointer_cast<AstPrimitiveType>(var->variable->type.lock())->type;
+                switch(primitive_type){
+                    case RSharpPrimitiveType::I8:  var->variable->sizeInBytes = 1; break;
+                    case RSharpPrimitiveType::I16: var->variable->sizeInBytes = 2; break;
+                    case RSharpPrimitiveType::I32: var->variable->sizeInBytes = 4; break;
+                    case RSharpPrimitiveType::I64: var->variable->sizeInBytes = 8; break;
 
-            default:
-                hasError = true;
-                Error("INTERNAL ERROR: type nr. " + std::to_string(static_cast<int>(var->variable->type)) + " (" + typeToString(var->variable->type) + ") isn't implemented.");
+                    default:
+                        hasError = true;
+                        Error("INTERNAL ERROR: type nr. " + std::to_string(static_cast<int>(primitive_type)) + " (" + typeToString(primitive_type) + ") isn't implemented.");
+                        break;
+                }
                 break;
+            }
+            default: throw std::runtime_error("Unimplemented type used");
         }
         variableContexts.back()->variables.push_back(var->variable);
         variableContexts.back()->sizeOfLocalVariables += var->variable->sizeInBytes;
@@ -143,22 +150,48 @@ std::shared_ptr<SemanticFunctionData> SemanticValidator::getFunction(std::string
     }
 }
 
+bool isEqualTypeInSharedPointer (std::shared_ptr<AstType> a, std::shared_ptr<AstType> b){
+    if (!a.get() || !b.get()) return false;
+    if (a->getType() != b->getType()) return false;
+    switch(a->getType()){
+        case AstNodeType::AstPrimitiveType: return std::static_pointer_cast<AstPrimitiveType>(a)->type == std::static_pointer_cast<AstPrimitiveType>(b)->type;
+        case AstNodeType::AstPointerType: return isEqualTypeInSharedPointer(std::static_pointer_cast<AstPointerType>(a)->subtype, std::static_pointer_cast<AstPointerType>(b));
+        default: throw std::runtime_error("Unknown type to test equality");
+    }
+}
+
 bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found){
-    static const std::vector<RSharpType> integerTypes = {RSharpType::I8, RSharpType::I16, RSharpType::I32, RSharpType::I64};
+    static const std::vector<RSharpPrimitiveType> integerTypes = {RSharpPrimitiveType::I8, RSharpPrimitiveType::I16, RSharpPrimitiveType::I32, RSharpPrimitiveType::I64};
     requireType(expected);
     requireType(found);
 
+    // don't issue further errors if the type is unknown already
+    if (expected->semanticType->isErrorType() || found->semanticType->isErrorType()) return true;
 
-    if (*expected->semanticType == *found->semanticType) return true;
+    switch(expected->semanticType->getType()){
+        default: throw std::runtime_error("Unimplemented type used"); break;
+        case AstNodeType::AstPrimitiveType:{
+            auto expected_type = std::static_pointer_cast<AstPrimitiveType>(expected->semanticType)->type;
+            auto found_type = std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type;
 
-    if (*expected->semanticType == RSharpType::ErrorType || *found->semanticType == RSharpType::ErrorType) return true;
+            if (expected_type == found_type) return true;
 
-    if (std::find(integerTypes.begin(), integerTypes.end(), expected->semanticType->type) != integerTypes.end()
-     && std::find(integerTypes.begin(), integerTypes.end(), found->semanticType->type) != integerTypes.end()){
-        Warning("Converting between integer types. (", typeToString(found->semanticType->type), " --> ", typeToString(expected->semanticType->type), ")");
-        return true;
+            if (std::find(integerTypes.begin(), integerTypes.end(), expected_type) != integerTypes.end()
+             && std::find(integerTypes.begin(), integerTypes.end(), found_type) != integerTypes.end()){
+                Warning("Converting between integer types. (", typeToString(found_type), " --> ", typeToString(expected_type), ")");
+                return true;
+            }
+
+            break;
+        }
+
+        case AstNodeType::AstPointerType:{
+            auto expected_type = std::static_pointer_cast<AstPointerType>(expected->semanticType);
+            auto found_type = std::static_pointer_cast<AstPointerType>(found->semanticType);
+
+            return isEqualTypeInSharedPointer(expected_type->subtype, found_type->subtype);
+        }
     }
-
 
     return false;
 }
@@ -166,7 +199,7 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
 void SemanticValidator::requireIdenticalTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg){
     if (!areEquivalentTypes(expected, found)){
         hasError = true;
-        Error(msg, " (expected: ", typeToString(expected->semanticType->type), "   found: ", typeToString(found->semanticType->type), ")");
+        Error(msg, " (expected: ", expected->semanticType->toString(), "   found: ", found->semanticType->toString(), ")");
         printErrorToken(expected->token, source);
         printErrorToken(found->token, source);
     }
@@ -303,12 +336,10 @@ void SemanticValidator::visit(std::shared_ptr<AstBinary> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     requireIdenticalTypes(node->left, node->right, "Binary operands don't match in semantical type");
     
-    if (node->left->semanticType->type == RSharpType::ErrorType || node->right->semanticType->type == RSharpType::ErrorType){
-        node->semanticType = std::make_shared<AstType>();
-        node->semanticType->type = RSharpType::ErrorType;
+    if (node->left->semanticType->isErrorType() || node->right->semanticType->isErrorType()){
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
     else{
-        node->semanticType = std::make_shared<AstType>();
         node->semanticType = node->left->semanticType;
     }
 }
@@ -317,8 +348,7 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAccess> node){
         auto var = getVariable(node->name);
         if (var){
             node->variable = var;
-            node->semanticType = std::make_shared<AstType>();
-            node->semanticType->type = var->type;
+            node->semanticType = var->type.lock();
         }
         else{
             Fatal("INTERNAL ERROR: variable declared but not found in variable stack");
@@ -329,8 +359,7 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAccess> node){
         Error("variable \"", node->name, "\" is not declared");
         printErrorToken(node->token, source);
 
-        node->semanticType = std::make_shared<AstType>();
-        node->semanticType->type = RSharpType::ErrorType;
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
@@ -338,15 +367,13 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
     if (isVariableDeclared(node->name)){
         requireType(node->value);
         node->variable = getVariable(node->name);
-        node->semanticType = std::make_shared<AstType>();
-        node->semanticType->type = node->variable->type;
+        node->semanticType = node->variable->type.lock();
     }
     else{
         hasError = true;
         Error("variable \"", node->name, "\" is not declared");
         printErrorToken(node->token, source);
-        node->semanticType = std::make_shared<AstType>();
-        node->semanticType->type = RSharpType::ErrorType;
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
@@ -390,14 +417,14 @@ void SemanticValidator::visit(std::shared_ptr<AstConditionalExpression> node){
 void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
     auto parameters = std::make_shared<AstParameterList>();
     for (auto arg : node->arguments){
+        arg->accept(this);
         parameters->parameters.push_back(std::make_shared<AstVariableDeclaration>());
         parameters->parameters.back()->semanticType = arg->semanticType;
     }
 
     node->function = getFunction(node->name, parameters);
     if (node->function){
-        node->semanticType = std::make_shared<AstType>();
-        node->semanticType->type = node->function->returnType;
+        node->semanticType = node->function->returnType;
 
         AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     }
@@ -405,8 +432,7 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
         hasError = true;
         Error("function \"", node->name, "\" is not declared (wrong number of arguments?)");
         printErrorToken(node->token, source);
-        node->semanticType = std::make_shared<AstType>();
-        node->semanticType->type = RSharpType::ErrorType;
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstFunctionDefinition> node){

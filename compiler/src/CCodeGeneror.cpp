@@ -315,15 +315,19 @@ void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     }
     emit(";");
 }
-void CCodeGenerator::visit(std::shared_ptr<AstType> node){
+void CCodeGenerator::visit(std::shared_ptr<AstPrimitiveType> node){
     switch (node->type){
-        case RSharpType::I8: emit("int8_t"); break;
-        case RSharpType::I16: emit("int16_t"); break;
-        case RSharpType::I32: emit("int32_t"); break;
-        case RSharpType::I64: emit("int64_t"); break;
+        case RSharpPrimitiveType::I8: emit("int8_t"); break;
+        case RSharpPrimitiveType::I16: emit("int16_t"); break;
+        case RSharpPrimitiveType::I32: emit("int32_t"); break;
+        case RSharpPrimitiveType::I64: emit("int64_t"); break;
 
         default:
             Fatal("Unimplemented type Nr.", static_cast<int>(node->type));
             break;
     }
+}
+void CCodeGenerator::visit(std::shared_ptr<AstPointerType> node){
+    node->subtype->accept(this);
+    emit("*");
 }

@@ -38,7 +38,8 @@ enum class AstNodeType {
     AstFunctionCall,
 
     AstVariableDeclaration,
-    AstType,
+    AstPrimitiveType,
+    AstPointerType,
     AstTags,
 };
 
@@ -83,6 +84,8 @@ struct AstFunctionCall;
 struct AstVariableDeclaration;
 struct AstParameterList;
 struct AstType;
+struct AstPointerType;
+struct AstPrimitiveType;
 struct AstTags;
 
 struct AstNode{
@@ -99,7 +102,7 @@ struct AstNode{
 };
 
 
-enum class RSharpType{
+enum class RSharpPrimitiveType{
     NONE,
     I8,
     I16,

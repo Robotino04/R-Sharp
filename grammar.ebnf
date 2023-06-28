@@ -42,9 +42,12 @@ equalityExp = relationalExp, {("==" | "!="), relationalExp};
 relationalExp = additiveExp, {("<" | ">" | "<=" | ">="), additiveExp};
 additiveExp = term, {("+" | "-"), term};
 term = factor, {("*" | "/" | "%"), factor};
-factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | identifier | functionCall;
+factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | identifier | functionCall | dereference;
 
-type = "i8" | "i16" | "i32" | "i64";
+dereference = '*', identifier;
+
+type = "i8" | "i16" | "i32" | "i64" | pointer;
+pointer = '*', type;
 
 parameterList = identifier, ":", type {",", identifier, ":", type };
 

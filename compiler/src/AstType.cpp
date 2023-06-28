@@ -1,43 +1,29 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Logging.hpp"
 
-AstType::AstType(RSharpType type){
-    this->type = type;
-}
-AstType::AstType(RSharpType type, std::shared_ptr<AstType> subtype){
-    this->type = type;
-}
-
-bool operator==(AstType const& a, AstType const& b){
-    return a.type == b.type;
-}
-bool operator!=(AstType const& a, AstType const& b){
-    return !(a == b);
-}
-
-RSharpType stringToType(std::string const& str){
+RSharpPrimitiveType stringToType(std::string const& str){
     if(str == "i8"){
-        return RSharpType::I8;
+        return RSharpPrimitiveType::I8;
     }
     else if(str == "i16"){
-        return RSharpType::I16;
+        return RSharpPrimitiveType::I16;
     }
     else if(str == "i32"){
-        return RSharpType::I32;
+        return RSharpPrimitiveType::I32;
     }
     else if(str == "i64"){
-        return RSharpType::I64;
+        return RSharpPrimitiveType::I64;
     }
-    return RSharpType::NONE;
+    return RSharpPrimitiveType::NONE;
 }
-std::string typeToString(RSharpType type){
+std::string typeToString(RSharpPrimitiveType type){
     switch(type){
-        case RSharpType::I8:  return "i8";
-        case RSharpType::I16: return "i16";
-        case RSharpType::I32: return "i32";
-        case RSharpType::I64: return "i64";
-        case RSharpType::ErrorType: return "error type";
-        case RSharpType::NONE: return "no type";
+        case RSharpPrimitiveType::I8:  return "i8";
+        case RSharpPrimitiveType::I16: return "i16";
+        case RSharpPrimitiveType::I32: return "i32";
+        case RSharpPrimitiveType::I64: return "i64";
+        case RSharpPrimitiveType::ErrorType: return "error type";
+        case RSharpPrimitiveType::NONE: return "no type";
 
         default: return "undefined type";
     }

@@ -38,7 +38,8 @@ VISITOR_FN(AstEmptyExpression)
 VISITOR_FN(AstFunctionCall)
 
 VISITOR_FN(AstVariableDeclaration)
-VISITOR_FN(AstType)
+VISITOR_FN(AstPointerType)
+VISITOR_FN(AstPrimitiveType)
 VISITOR_FN(AstTags)
 
 

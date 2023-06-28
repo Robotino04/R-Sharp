@@ -56,7 +56,7 @@ bool operator==(AstVariableDeclaration const& a, AstVariableDeclaration const& b
     if (a.name.size() && b.name.size() && a.name != b.name){
         return false;
     }
-    if (a.semanticType && b.semanticType && *a.semanticType != *b.semanticType)
+    if (a.semanticType != b.semanticType)
         return false;
     
 
@@ -70,10 +70,10 @@ bool operator==(AstFunctionDefinition const& a, AstFunctionDefinition const& b){
     if (a.name != b.name){
         return false;
     }
-    if (a.semanticType && b.semanticType && *a.semanticType != *b.semanticType){
+    if (a.semanticType != b.semanticType){
         return false;
     }
-    if (a.parameters && b.parameters && *a.parameters != *b.parameters){
+    if (a.parameters != b.parameters){
         return false;
     }
     return true;

@@ -65,13 +65,13 @@ std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
 struct SemanticVariableData{
     bool isGlobal = false;
     bool isDefined = false;
-    RSharpType type;
+    std::weak_ptr<AstType> type;
     std::string name;
     int sizeInBytes = 0;
     std::string accessStr;
 
     bool operator ==(SemanticVariableData other) const{
-        return isGlobal == other.isGlobal && type == type;
+        return isGlobal == other.isGlobal && type.lock() == other.type.lock();
     }
 };
 
@@ -83,7 +83,7 @@ struct SemanticLoopData{
 struct SemanticFunctionData{
     std::string name;
     std::shared_ptr<AstParameterList> parameters;
-    RSharpType returnType;
+    std::shared_ptr<AstType> returnType;
 };
 
 // The actual AST nodes
@@ -131,6 +131,11 @@ struct AstErrorNode : public virtual AstNode{
 };
 struct AstProgramItem : public virtual AstNode{
     DESTRUCTOR(AstProgramItem)
+};
+struct AstType : public virtual AstNode{
+    DESTRUCTOR(AstType)
+
+    virtual bool isErrorType() = 0;
 };
 
 // ----------------------------------| Program Items |---------------------------------- //
@@ -410,28 +415,57 @@ struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem, pu
 };
 
 
-RSharpType stringToType(std::string const& str);
-std::string typeToString(RSharpType type);
+RSharpPrimitiveType stringToType(std::string const& str);
+std::string typeToString(RSharpPrimitiveType type);
 
-struct AstType : public AstNode, public std::enable_shared_from_this<AstType>{
-    AstType(RSharpType type);
-    AstType(RSharpType type, std::shared_ptr<AstType> subtype);
+struct AstPrimitiveType : public AstType, public std::enable_shared_from_this<AstPrimitiveType>{
+    AstPrimitiveType(RSharpPrimitiveType type): type(type) {};
 
 
-    BASE(AstType);
+    BASE(AstPrimitiveType);
     std::string toString() const override{
-        return "Semantic Type: " + typeToString(type);
+        return "Primitive Type: " + typeToString(type);
     }
     
-    RSharpType type = RSharpType::NONE;
+    bool isErrorType() override{
+        return type == RSharpPrimitiveType::ErrorType;
+    }
+
+    RSharpPrimitiveType type = RSharpPrimitiveType::NONE;
 };
+
+
+struct AstPointerType : public AstType, public std::enable_shared_from_this<AstPointerType>{
+    AstPointerType(std::shared_ptr<AstType> subtype): subtype(subtype) {};
+
+
+    BASE(AstPointerType);
+    std::string toString() const override{
+        return "Pointer to: " + subtype->toString();
+    }
+
+    
+    bool isErrorType() override{
+        return subtype->isErrorType();
+    }
+    
+    GET_SINGLE_CHILDREN(subtype)
+    std::shared_ptr<AstType> subtype;
+};
+
 
 struct AstTags : public AstNode, public std::enable_shared_from_this<AstTags>{
     BASE(AstTags);
 
     std::string toString() const override{
-        // TODO: implement printing the tags
-        return "Tags: ";
+        std::string str = "Tags: ";
+        for (auto tag : tags){
+            switch(tag){
+                case Value::Extern: str += "extern, "; break;
+                default: str += "[unknown tag]"; break;
+            }
+        }
+        return str.substr(0, str.length()-3);
     }
     
     enum class Value{

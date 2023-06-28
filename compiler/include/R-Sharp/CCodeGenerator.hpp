@@ -37,7 +37,8 @@ class CCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstFunctionCall> node) override;
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
-        void visit(std::shared_ptr<AstType> node) override;
+        void visit(std::shared_ptr<AstPrimitiveType> node) override;
+        void visit(std::shared_ptr<AstPointerType> node) override;
 
     private:
         void indent();
