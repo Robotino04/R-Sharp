@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 
 add_executable(compilerTester "compilerTester.cpp")
+set(RSHARP_TEST_LIB_SRC "rsharp_test_lib.cpp")
+get_filename_component(RSHARP_TEST_LIB_SRC "${RSHARP_TEST_LIB_SRC}" REALPATH)
+
 
 function(add_compilation_test test_name test_file, out_dir out_lang)
     set (extra_args ${ARGN})
@@ -17,7 +20,7 @@ function(add_compilation_test test_name test_file, out_dir out_lang)
         endif()
     endif()
 
-    add_test(NAME "${test_name}_${out_lang}" COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir} ${out_lang} ${proxy} ${compiler})
+    add_test(NAME "${test_name}_${out_lang}" COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir} ${out_lang} ${RSHARP_TEST_LIB_SRC} ${proxy} ${compiler})
 endfunction()
 
 

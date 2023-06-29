@@ -565,7 +565,7 @@ std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
 
 std::shared_ptr<AstDereference> Parser::parseDereference(){
     auto tok = consume(TokenType::Star);
-    auto lvalue = std::make_shared<AstDereference>(parseExpression());
+    auto lvalue = std::make_shared<AstDereference>(parseFactor());
     lvalue->token = tok;
     return lvalue;
 }

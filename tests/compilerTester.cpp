@@ -196,9 +196,9 @@ CommandResult exec(std::string const& cmd) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 5) {
-        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language> [proxy] [gcc compiler]\n";
-        std::cout << "proxy is something like qemu\n";
+    if (argc < 6) {
+        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language> <test library source> [proxy] [gcc compiler]\n";
+        std::cout << "  proxy is something like qemu\n";
         return 1;
     }
 
@@ -208,6 +208,7 @@ int main(int argc, char** argv) {
     std::string inputFile = argv[++i];
     std::string outputDir = argv[++i];
     std::string outputLanguage = argv[++i];
+    std::string testLibrarySource = argv[++i];
     std::string proxy = "";
     std::string gccCompiler = "gcc";
     if (i+1 < argc) proxy = argv[++i];
@@ -224,13 +225,23 @@ int main(int argc, char** argv) {
 
     // the output language is needed to allow for parrallel testing over multiple languages
     std::string outputFile = outputDir + "/" + filename + "_" + outputLanguage;
+    std::string test_lib_outfile = outputFile + "_tlib.o";
 
-    std::string command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage + " --compiler " + gccCompiler;
+    std::string test_lib_command = gccCompiler + " -c -g " + testLibrarySource + " -o " + test_lib_outfile;
+
+    std::string rsharp_command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage + " --compiler " + gccCompiler + " --link " + test_lib_outfile;
 
     ExecutionResults realResults;
 
-    std::cout << "Compiling: " << command << "\n";
-    auto compilerResult = exec(command);
+    std::cout << "Compiling Test Library: " << test_lib_command << "\n";
+    auto test_lib_result = exec(test_lib_command);
+    if (test_lib_result.returnCode){
+        std::cout << test_lib_result.output << "\n";
+        return 1;
+    }
+
+    std::cout << "Compiling: " << rsharp_command << "\n";
+    auto compilerResult = exec(rsharp_command);
 
     realResults.compilationReturnValue = compilerResult.returnCode;
 

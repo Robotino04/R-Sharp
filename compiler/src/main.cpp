@@ -33,6 +33,7 @@ R"(Options:
   -o, --output <file>       Output file
   -f, --format <format>     Output format (c, nasm)
   --compiler <path>         Use this compiler. Default: "gcc"
+  --link <file>             Additionally link <file> into the output. Can be repeated.
 
 Return values:
   0     Everything OK
@@ -105,6 +106,7 @@ int main(int argc, const char** argv) {
     std::string outputFilename = "a.out";
     OutputFormat outputFormat = OutputFormat::C;
     std::string compiler = "gcc";
+    std::vector<std::string> additionalyLinkedFiles;
 
     if (argc < 2) {
         printHelp(argv[0]);
@@ -123,6 +125,15 @@ int main(int argc, const char** argv) {
                 i++;
             } else {
                 Error("Missing output file");
+                return static_cast<int>(ReturnValue::UnknownError);
+            }
+        }
+        else if (arg == "--link") {
+            if (i+1 < argc) {
+                additionalyLinkedFiles.push_back(argv[i+1]);
+                i++;
+            } else {
+                Error("Missing file to link");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
@@ -269,14 +280,19 @@ int main(int argc, const char** argv) {
         return static_cast<int>(ReturnValue::UnknownError);
     }
 
-    static const std::string gccArgumentsCompile = "-g -Werror -Wall -Wno-unused-variable -Wno-unused-value";
-    static const std::string gccArgumentsLink = "-g -Werror -Wall -no-pie";
-    static const std::string nasmArgumentsCompile = "-g -w+error -w+all";
+    std::string additionalyLinkedFiles_str;
+    for (auto file : additionalyLinkedFiles){
+        additionalyLinkedFiles_str += file + " ";
+    }
+
+    const std::string gccArgumentsCompile = "-g -Werror -Wall -Wno-unused-variable -Wno-unused-value";
+    const std::string gccArgumentsLink = "-g -Werror -Wall -no-pie ";
+    const std::string nasmArgumentsCompile = "-g -w+error -w+all";
 
     switch(outputFormat) {
         case OutputFormat::C:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " -o " + outputFilename;
+            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " " + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -289,7 +305,7 @@ int main(int argc, const char** argv) {
         }
         case OutputFormat::AArch64:{
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " -o " + outputFilename;
+            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " " + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
             if (success)
@@ -313,7 +329,7 @@ int main(int argc, const char** argv) {
             }
 
             Print("--------------| Linking using gcc |--------------");
-            command = compiler + " " + gccArgumentsLink + " " + outputFilename + ".o -o " + outputFilename;
+            command = compiler + " " + gccArgumentsLink + " " + outputFilename + ".o " + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
             if (success)
