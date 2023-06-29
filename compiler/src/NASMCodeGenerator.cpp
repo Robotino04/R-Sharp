@@ -2,6 +2,7 @@
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Utils.hpp"
+#include "R-Sharp/VariableSizeInserter.hpp"
 
 #include <sstream>
 #include <map>
@@ -52,11 +53,34 @@ void NASMCodeGenerator::emitIndented(std::string const& str, NASMCodeGenerator::
     }
 }
 
+int NASMCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
+    static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
+        {RSharpPrimitiveType::I8, 1},
+        {RSharpPrimitiveType::I16, 2},
+        {RSharpPrimitiveType::I32, 4},
+        {RSharpPrimitiveType::I64, 8},
+    };
+
+    switch(type->getType()){
+        case AstNodeType::AstPrimitiveType:{
+            return primitive_sizes.at(std::static_pointer_cast<AstPrimitiveType>(type)->type);
+        }
+        case AstNodeType::AstPointerType:{
+            return 8;
+        }
+        default: throw std::runtime_error("Unimplemented type used");
+    }
+}
+
 std::string NASMCodeGenerator::generate(){
     source_text = "";
     source_data = "";
     source_bss = "";
     indentLevel = 0;
+    
+    VariableSizeInserter sizeInserter(root);
+    sizeInserter.insert(NASMCodeGenerator::sizeFromSemanticalType);
+
     root->accept(this);
 
     std::string output = "";
@@ -68,6 +92,7 @@ std::string NASMCodeGenerator::generate(){
     output += source_data;
     output += "\nsection .bss\n";
     output += source_bss;
+
 
 
     return output;
@@ -553,10 +578,6 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emitIndented("; Integer " + std::to_string(node->value) + "\n");
     emitIndented("mov rax, " + std::to_string(node->value) + "\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
-    emitIndented("; Variable Access(" + node->name + ")\n");
-    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " rax, " + node->variable->accessStr + "\n");
-}
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     node->value->accept(this);
     emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " " + node->variable->accessStr + ", rax\n");
@@ -637,6 +658,16 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
             case 5: emitIndented("pop r9\n"); break;
         }
     }
+}
+
+void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
+    emitIndented("; Variable Access(" + node->name + ")\n");
+    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " rax, " + node->variable->accessStr + "\n");
+}
+void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node){
+    node->operand->accept(this);
+    emitIndented("; Dereference\n");
+    emitIndented("mov " + sizeToNASMType(NASMCodeGenerator::sizeFromSemanticalType(node->semanticType)) + " rax, [rax]\n");
 }
 
 

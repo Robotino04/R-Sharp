@@ -2,8 +2,10 @@
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Utils.hpp"
+#include "R-Sharp/VariableSizeInserter.hpp"
 
 #include <sstream>
+#include <map>
 
 AArch64CodeGenerator::AArch64CodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
     this->root = root;
@@ -50,11 +52,35 @@ void AArch64CodeGenerator::emitIndented(std::string const& str, AArch64CodeGener
     }
 }
 
+
+int AArch64CodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
+    static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
+        {RSharpPrimitiveType::I8, 1},
+        {RSharpPrimitiveType::I16, 2},
+        {RSharpPrimitiveType::I32, 4},
+        {RSharpPrimitiveType::I64, 8},
+    };
+
+    switch(type->getType()){
+        case AstNodeType::AstPrimitiveType:{
+            return primitive_sizes.at(std::static_pointer_cast<AstPrimitiveType>(type)->type);
+        }
+        case AstNodeType::AstPointerType:{
+            return 8;
+        }
+        default: throw std::runtime_error("Unimplemented type used");
+    }
+}
+
 std::string AArch64CodeGenerator::generate(){
     source_text = "";
     source_data = "";
     source_bss = "";
     indentLevel = 0;
+
+    VariableSizeInserter sizeInserter(root);
+    sizeInserter.insert(AArch64CodeGenerator::sizeFromSemanticalType);
+
     root->accept(this);
 
     std::string output = "";

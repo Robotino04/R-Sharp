@@ -36,11 +36,13 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstUnary> node) override;
         void visit(std::shared_ptr<AstBinary> node) override;
         void visit(std::shared_ptr<AstInteger> node) override;
-        void visit(std::shared_ptr<AstVariableAccess> node) override;
         void visit(std::shared_ptr<AstVariableAssignment> node) override;
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstEmptyExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
+
+        void visit(std::shared_ptr<AstVariableAccess> node) override;
+        void visit(std::shared_ptr<AstDereference> node) override;
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
 
@@ -64,6 +66,8 @@ class NASMCodeGenerator : public AstVisitor {
         void generateFunctionProlouge();
         void generateFunctionEpilouge();
         void resetStackPointer(std::shared_ptr<AstBlock> scope);
+
+        static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
 
     private:
         int stackOffset = 0;

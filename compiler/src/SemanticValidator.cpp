@@ -27,7 +27,6 @@ void SemanticValidator::pushContext(std::shared_ptr<AstBlock> block){
         variableContexts.back()->isMerged = true;
 
         block->variables.insert(block->variables.begin(), variableContexts.back()->variables.begin(), variableContexts.back()->variables.end());
-        block->sizeOfLocalVariables += variableContexts.back()->sizeOfLocalVariables;
         variableContexts.back() = block;
         collapseContexts = false;
     }
@@ -78,31 +77,7 @@ void SemanticValidator::addVariable(std::shared_ptr<AstVariableDeclaration> var)
         var->variable->name = var->name;
         var->variable->type = var->semanticType;
 
-        switch(var->variable->type.lock()->getType()){
-            case AstNodeType::AstPrimitiveType:{
-                auto primitive_type = std::static_pointer_cast<AstPrimitiveType>(var->variable->type.lock())->type;
-                switch(primitive_type){
-                    case RSharpPrimitiveType::I8:  var->variable->sizeInBytes = 1; break;
-                    case RSharpPrimitiveType::I16: var->variable->sizeInBytes = 2; break;
-                    case RSharpPrimitiveType::I32: var->variable->sizeInBytes = 4; break;
-                    case RSharpPrimitiveType::I64: var->variable->sizeInBytes = 8; break;
-
-                    default:
-                        hasError = true;
-                        Error("INTERNAL ERROR: type nr. " + std::to_string(static_cast<int>(primitive_type)) + " (" + typeToString(primitive_type) + ") isn't implemented.");
-                        break;
-                }
-                break;
-            }
-            case AstNodeType::AstPointerType:{
-                // TODO: make this work on non 64-bit platforms
-                var->variable->sizeInBytes = 8;
-                break;
-            }
-            default: throw std::runtime_error("Unimplemented type used");
-        }
         variableContexts.back()->variables.push_back(var->variable);
-        variableContexts.back()->sizeOfLocalVariables += var->variable->sizeInBytes;
     }
     else if (var->value){
         (*it)->isDefined = true;

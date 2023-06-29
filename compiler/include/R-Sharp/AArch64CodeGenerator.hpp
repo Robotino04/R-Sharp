@@ -40,6 +40,9 @@ class AArch64CodeGenerator : public AstVisitor {
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
 
+        static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
+
+
     private:
         enum class BinarySection{
             Text,
