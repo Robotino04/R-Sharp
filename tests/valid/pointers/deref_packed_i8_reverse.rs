@@ -3,7 +3,7 @@ executionExitCode: -4
 */
 
 [extern] malloc(size: i64): *c_void;
-[extern] memset(pointer: *c_void, value: i64, size: i64): c_void;
+[extern] memset(pointer: *c_void, value: i32, size: i64): *c_void;
 [extern] free(pointer: *c_void): c_void;
 
 // test library
@@ -14,7 +14,7 @@ executionExitCode: -4
 
 main(): i32 {
     base: *c_void = malloc(8);
-    memset(base, 0, 8);
+    memset(base, 255, 8);
     a: *i8 = base;
     b: *i8 = base - -1;
     c: *i8 = base - -2;
