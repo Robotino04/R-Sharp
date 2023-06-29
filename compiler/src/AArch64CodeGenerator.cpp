@@ -644,3 +644,10 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         }
     }
 }
+
+void AArch64CodeGenerator::visit(std::shared_ptr<AstDereference> node){
+    node->operand->accept(this);
+    auto size = AArch64CodeGenerator::sizeFromSemanticalType(node->semanticType);
+    emitIndented("// Dereference\n");
+    emitIndented("ldr x0, [x0]\n");
+}
