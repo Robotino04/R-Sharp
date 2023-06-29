@@ -21,7 +21,7 @@ jobs:
       - name: Update APT
         run: sudo apt-get update
       - name: Install NASM and aarch64 gcc 
-        run: sudo apt-get install -y nasm gcc-aarch64-linux-gnu
+        run: sudo apt-get install -y nasm gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
       - name: Install QEMU
         run: sudo apt-get install -y qemu-user
 
