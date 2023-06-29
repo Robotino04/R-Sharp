@@ -42,6 +42,8 @@ VISITOR_FN(AstDereference)
 VISITOR_FN(AstVariableDeclaration)
 VISITOR_FN(AstPointerType)
 VISITOR_FN(AstPrimitiveType)
+VISITOR_FN(AstTypeConversion)
+
 VISITOR_FN(AstTags)
 
 

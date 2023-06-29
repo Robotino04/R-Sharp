@@ -14,6 +14,9 @@ RSharpPrimitiveType stringToType(std::string const& str){
     else if(str == "i64"){
         return RSharpPrimitiveType::I64;
     }
+    else if (str == "c_void"){
+        return RSharpPrimitiveType::C_void;
+    }
     return RSharpPrimitiveType::NONE;
 }
 std::string typeToString(RSharpPrimitiveType type){
@@ -22,6 +25,7 @@ std::string typeToString(RSharpPrimitiveType type){
         case RSharpPrimitiveType::I16: return "i16";
         case RSharpPrimitiveType::I32: return "i32";
         case RSharpPrimitiveType::I64: return "i64";
+        case RSharpPrimitiveType::C_void: return "c_void";
         case RSharpPrimitiveType::ErrorType: return "error type";
         case RSharpPrimitiveType::NONE: return "no type";
 

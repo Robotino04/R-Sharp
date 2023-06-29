@@ -194,6 +194,7 @@ Token Tokenizer::nextToken(){
         else KEYWORD_TOKEN("i16", TokenType::Typename)
         else KEYWORD_TOKEN("i32", TokenType::Typename)
         else KEYWORD_TOKEN("i64", TokenType::Typename)
+        else KEYWORD_TOKEN("c_void", TokenType::Typename)
 
         else SIMPLE_TOKEN(';', TokenType::Semicolon)
         else SIMPLE_TOKEN(',', TokenType::Comma)

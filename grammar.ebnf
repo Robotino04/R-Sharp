@@ -2,7 +2,7 @@ program = {functionDefinition};
 
 functionDefinition = tags, identifier, "(", [parameterList], ")", ":", type, statement;
 
-return = 'return', expression, ";";
+return = 'return', optionalExpression, ";";
 
 for = 'for', "(", optionalExpression, ";", optionalExpression, ";", optionalExpression, ")", statement
     | 'for', "(", variableDeclaration, ";", optionalExpression, ";", optionalExpression, ")", statement;
@@ -47,7 +47,7 @@ factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | lvalue 
 lvalue = identifier | dereference;
 dereference = '*', lvalue;
 
-type = "i8" | "i16" | "i32" | "i64" | pointer;
+type = "i8" | "i16" | "i32" | "i64" | "c_void" | pointer;
 pointer = '*', type;
 
 parameterList = identifier, ":", type {",", identifier, ":", type };

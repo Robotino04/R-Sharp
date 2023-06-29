@@ -31,10 +31,13 @@ class CCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstUnary> node) override;
         void visit(std::shared_ptr<AstBinary> node) override;
         void visit(std::shared_ptr<AstInteger> node) override;
-        void visit(std::shared_ptr<AstVariableAccess> node) override;
         void visit(std::shared_ptr<AstVariableAssignment> node) override;
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
+
+        void visit(std::shared_ptr<AstVariableAccess> node) override;
+        void visit(std::shared_ptr<AstDereference> node) override;
+        void visit(std::shared_ptr<AstTypeConversion> node) override;
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
         void visit(std::shared_ptr<AstPrimitiveType> node) override;

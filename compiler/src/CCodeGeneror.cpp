@@ -278,9 +278,6 @@ void CCodeGenerator::visit(std::shared_ptr<AstBinary> node){
     node->right->accept(this);
     emit(")");
 }
-void CCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
-    emit(node->name);
-}
 void CCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
     emit("(" + node->name + " = ");
     node->value->accept(this);
@@ -315,12 +312,30 @@ void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     }
     emit(";");
 }
+
+void CCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
+    emit(node->name);
+}
+void CCodeGenerator::visit(std::shared_ptr<AstDereference> node){
+    emit("*");
+    node->operand->accept(this);
+}
+void CCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
+    emit("((");
+    node->semanticType->accept(this);
+    emit(")(");
+    node->value->accept(this);
+    emit("))");
+}
+
+
 void CCodeGenerator::visit(std::shared_ptr<AstPrimitiveType> node){
     switch (node->type){
         case RSharpPrimitiveType::I8: emit("int8_t"); break;
         case RSharpPrimitiveType::I16: emit("int16_t"); break;
         case RSharpPrimitiveType::I32: emit("int32_t"); break;
         case RSharpPrimitiveType::I64: emit("int64_t"); break;
+        case RSharpPrimitiveType::C_void: emit("void"); break;
 
         default:
             Fatal("Unimplemented type Nr.", static_cast<int>(node->type));

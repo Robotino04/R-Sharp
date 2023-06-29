@@ -27,10 +27,13 @@ class SemanticValidator : public AstVisitor{
 
         void visit(std::shared_ptr<AstUnary> node) override;
         void visit(std::shared_ptr<AstBinary> node) override;
-        void visit(std::shared_ptr<AstVariableAccess> node) override;
         void visit(std::shared_ptr<AstVariableAssignment> node) override;
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
+
+        void visit(std::shared_ptr<AstVariableAccess> node) override;
+        void visit(std::shared_ptr<AstDereference> node) override;
+
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
 
@@ -49,7 +52,7 @@ class SemanticValidator : public AstVisitor{
         bool isFunctionDefined(std::string name) const;
         std::shared_ptr<SemanticFunctionData> getFunction(std::string name, std::shared_ptr<AstParameterList> params);
 
-        void requireIdenticalTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg="operands don't match");
+        bool requireEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg="operands don't match");
         void requireType(std::shared_ptr<AstNode> node);
         bool areEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found);
 

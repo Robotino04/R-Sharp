@@ -40,10 +40,12 @@ public:
     VISITOR_FN(AstEmptyExpression);
     VISITOR_FN(AstFunctionCall);
     VISITOR_FN(AstDereference);
+    VISITOR_FN(AstTypeConversion);
     
     VISITOR_FN(AstVariableDeclaration);
     VISITOR_FN(AstPointerType);
     VISITOR_FN(AstPrimitiveType);
+
     VISITOR_FN(AstTags);
 
 protected:

@@ -94,6 +94,11 @@ void SemanticValidator::addVariable(std::shared_ptr<AstVariableDeclaration> var)
                 }
                 break;
             }
+            case AstNodeType::AstPointerType:{
+                // TODO: make this work on non 64-bit platforms
+                var->variable->sizeInBytes = 8;
+                break;
+            }
             default: throw std::runtime_error("Unimplemented type used");
         }
         variableContexts.back()->variables.push_back(var->variable);
@@ -187,22 +192,44 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
 
         case AstNodeType::AstPointerType:{
             auto expected_type = std::static_pointer_cast<AstPointerType>(expected->semanticType);
-            auto found_type = std::static_pointer_cast<AstPointerType>(found->semanticType);
+            if (found->semanticType->getType() == AstNodeType::AstPrimitiveType){
+                // TODO: remove
+                // temporarily allow i64 to pointer conversions
+                return std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type == RSharpPrimitiveType::I64;
+            }
+            else if (found->semanticType->getType() == AstNodeType::AstPointerType){
+                auto found_type = std::static_pointer_cast<AstPointerType>(found->semanticType);
+                if (isEqualTypeInSharedPointer(expected_type->subtype, found_type->subtype)){
+                    return true;
+                }
+                else if (expected_type->subtype->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(expected_type->subtype)->type == RSharpPrimitiveType::C_void){
+                    // a *c_void is expected
+                    return true;
+                }
+                else if (found_type->subtype->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(found_type->subtype)->type == RSharpPrimitiveType::C_void){
+                    // a *c_void is found
+                    return true;
+                }
+            }
+            else {
+                return false;
+            }
 
-            return isEqualTypeInSharedPointer(expected_type->subtype, found_type->subtype);
         }
     }
 
     return false;
 }
 
-void SemanticValidator::requireIdenticalTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg){
+bool SemanticValidator::requireEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg){
     if (!areEquivalentTypes(expected, found)){
         hasError = true;
         Error(msg, " (expected: ", expected->semanticType->toString(), "   found: ", found->semanticType->toString(), ")");
         printErrorToken(expected->token, source);
         printErrorToken(found->token, source);
+        return true;
     }
+    return false;
 }
 void SemanticValidator::requireType(std::shared_ptr<AstNode> node){
     if (!node->semanticType){
@@ -259,7 +286,13 @@ void SemanticValidator::visit(std::shared_ptr<AstReturn> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     node->semanticType = node->value->semanticType;
     
-    requireIdenticalTypes(currentFunction, node, "return type and returned type don't match");
+    if (requireEquivalentTypes(currentFunction, node, "return type and returned type don't match")){
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+    }
+    if (!isEqualTypeInSharedPointer(currentFunction->semanticType, node->semanticType)){
+        // apply an automaic type conversion
+        node->value = std::make_shared<AstTypeConversion>(node->value, currentFunction->semanticType);
+    }
         
     // don't copy the global scope
     node->containedScopes.insert(node->containedScopes.begin(), std::next(variableContexts.begin()), variableContexts.end());
@@ -334,8 +367,54 @@ void SemanticValidator::visit(std::shared_ptr<AstUnary> node){
 }
 void SemanticValidator::visit(std::shared_ptr<AstBinary> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    requireIdenticalTypes(node->left, node->right, "Binary operands don't match in semantical type");
-    
+    if (node->left->semanticType->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(node->left->semanticType)->type == RSharpPrimitiveType::C_void){
+        hasError = true;
+        Error("expressions may not have type c_void");
+        printErrorToken(node->left->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+    if (node->right->semanticType->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(node->right->semanticType)->type == RSharpPrimitiveType::C_void){
+        hasError = true;
+        Error("expressions may not have type c_void");
+        printErrorToken(node->right->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+    if (requireEquivalentTypes(node->left, node->right, "Binary operands don't match in semantical type")){
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+    if (!isEqualTypeInSharedPointer(node->left->semanticType, node->right->semanticType)){
+        if (node->left->semanticType->getType() != AstNodeType::AstPointerType && node->right->semanticType->getType() != AstNodeType::AstPointerType){
+            // apply an automaic type conversion
+            node->right = std::make_shared<AstTypeConversion>(node->right, node->left->semanticType);
+        }
+        else{
+            // one of the types is a pointer
+            // we don't allow pointer arithmetic other than subtraction
+            // (so the c compiler is happy)
+            Warning("Pointer arithmetic is not currently implemented properly. Use with courage!");
+            if (node->type != AstBinaryType::Subtract){
+                hasError = true;
+                Error("Two pointers can only be subtracted. (For c reasons)");
+                printErrorToken(node->token, source);
+                node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+                return;
+            }
+            else{
+                if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+                    // apply an automaic type conversion
+                    node->right = std::make_shared<AstTypeConversion>(node->right, std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64));
+                }
+                if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+                    // apply an automaic type conversion
+                    node->left = std::make_shared<AstTypeConversion>(node->left, std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64));
+                }
+            }
+        }
+    }
+
     if (node->left->semanticType->isErrorType() || node->right->semanticType->isErrorType()){
         node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
@@ -362,6 +441,30 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAccess> node){
         node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
 }
+void SemanticValidator::visit(std::shared_ptr<AstDereference> node){
+    node->operand->accept(this);
+    if (node->operand->semanticType->isErrorType()){
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+    if (node->operand->semanticType->getType() != AstNodeType::AstPointerType){
+        hasError = true;
+        Error("Cannot dereference here! Not a pointer.");
+        printErrorToken(node->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+    if (std::static_pointer_cast<AstPointerType>(node->operand->semanticType)->subtype->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(std::static_pointer_cast<AstPointerType>(node->operand->semanticType)->subtype)->type == RSharpPrimitiveType::C_void){
+        hasError = true;
+        Error("Cannot dereference pointer of type *c_void");
+        printErrorToken(node->operand->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+    else{
+        node->semanticType = std::static_pointer_cast<AstPointerType>(node->operand->semanticType)->subtype;
+    }
+}
 void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     if (isVariableDeclared(node->name)){
@@ -379,9 +482,21 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
 void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
     // visit the children
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    
+    if (node->semanticType->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(node->semanticType)->type == RSharpPrimitiveType::C_void){
+        hasError = true;
+        Error("Variables cannot be of type c_void.");
+        printErrorToken(node->semanticType->token, source);
+        return;
+    }
+
     if (node->value){
-            requireIdenticalTypes(node, node->value, "value assigned to variable of different semantical type");
+        if (requireEquivalentTypes(node, node->value, "value assigned to variable of different semantical type")){
+            node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        }
+        if (!isEqualTypeInSharedPointer(node->semanticType, node->value->semanticType)){
+            // apply an automaic type conversion
+            node->value = std::make_shared<AstTypeConversion>(node->value, node->semanticType);
+        }
     }
     if (node->variable->isGlobal){
         if (isFunctionDefined(node->name)){
@@ -409,8 +524,13 @@ void SemanticValidator::visit(std::shared_ptr<AstConditionalExpression> node){
     requireType(node->trueExpression);
     requireType(node->falseExpression);
 
-    requireIdenticalTypes(node->falseExpression, node->trueExpression,
-        "true and false ternary expressions don't match in semantic type");
+    if (requireEquivalentTypes(node->falseExpression, node->trueExpression, "true and false ternary expressions don't match in semantic type")){
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+    }
+    if (!isEqualTypeInSharedPointer(node->falseExpression->semanticType, node->trueExpression->semanticType)){
+        // apply an automaic type conversion
+        node->falseExpression = std::make_shared<AstTypeConversion>(node->falseExpression, node->trueExpression->semanticType);
+    }
 
     node->semanticType = node->trueExpression->semanticType;
 }
@@ -425,6 +545,12 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
     node->function = getFunction(node->name, parameters);
     if (node->function){
         node->semanticType = node->function->returnType;
+        for (int i=0; i<node->function->parameters->parameters.size(); i++){
+            if (!isEqualTypeInSharedPointer(node->arguments.at(i)->semanticType, node->function->parameters->parameters.at(i)->semanticType)){
+                // apply an automaic type conversion
+                node->arguments.at(i) = std::make_shared<AstTypeConversion>(node->arguments.at(i), node->function->parameters->parameters.at(i)->semanticType);
+            }
+        }
 
         AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     }

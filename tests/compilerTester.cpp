@@ -52,6 +52,7 @@ ExecutionResults parseExpectations(std::string filename){
 
         if (line.find(":") == std::string::npos) {
             std::cout << "Error: no validation present on line " << lineNumber << "\n";
+            exit(1);
         }
 
 
@@ -103,6 +104,10 @@ ExecutionResults parseExpectations(std::string filename){
                     expectedResult.output += output[i];
                 }
             }
+        }
+        else{
+            std::cout << "Error: unknown test parameter on line " << lineNumber << "\n";
+            exit(1);
         }
     }
 

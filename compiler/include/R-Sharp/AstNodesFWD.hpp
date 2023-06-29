@@ -37,6 +37,7 @@ enum class AstNodeType {
     AstEmptyExpression,
     AstFunctionCall,
     AstDereference,
+    AstTypeConversion,
     
 
     AstVariableDeclaration,
@@ -85,6 +86,7 @@ struct AstFunctionCall;
 struct AstLValue;
 struct AstDereference;
 struct AstVariableAccess;
+struct AstTypeConversion;
 
 struct AstVariableDeclaration;
 struct AstParameterList;
@@ -97,7 +99,7 @@ struct AstNode{
     virtual ~AstNode() = default;
     AstNode() = default;
 
-    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {std::dynamic_pointer_cast<AstNode>(semanticType)};};
+    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {};};
     virtual AstNodeType getType() const = 0;
     virtual std::string toString() const = 0;
     virtual void accept(AstVisitor* visitor) = 0;
@@ -114,6 +116,7 @@ enum class RSharpPrimitiveType{
     I32,
     I64,
     ErrorType,
+    C_void,
 };
 
 enum class AstBinaryType{

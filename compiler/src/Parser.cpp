@@ -276,8 +276,16 @@ std::shared_ptr<AstBlockItem> Parser::parseBlockItem() {
 
 std::shared_ptr<AstReturn> Parser::parseReturn() {
     std::shared_ptr<AstReturn> returnStatement = std::make_shared<AstReturn>(consume(TokenType::Return));
-    returnStatement->value = parseExpression();
-    consume(TokenType::Semicolon);
+    try{
+        TokenRestorer _(*this);
+        returnStatement->value = parseOptionalExpression();
+        consume(TokenType::Semicolon);
+    }
+    catch(ParsingError){
+        // it is neither an expression nor a simple "return;". still try to parse an expression for a proper error
+        returnStatement->value = parseExpression();
+        consume(TokenType::Semicolon);
+    }
     return returnStatement;
 }
 std::shared_ptr<AstBlock> Parser::parseBlock() {
@@ -397,7 +405,7 @@ std::shared_ptr<AstExpression> Parser::parseConditionalExpression() {
     }
     std::shared_ptr<AstConditionalExpression> conditional = std::make_shared<AstConditionalExpression>();
     conditional->condition = condition;
-    consume(TokenType::QuestionMark);
+    conditional->token = consume(TokenType::QuestionMark);
     conditional->trueExpression = parseExpression();
     consume(TokenType::Colon);
     conditional->falseExpression = parseExpression();
@@ -412,6 +420,7 @@ std::shared_ptr<AstExpression> Parser::parseLogicalOrExp() {
         auto next_andExp = parseLogicalAndExp();
 
         andExp = std::make_shared<AstBinary>(andExp, toBinaryOperator(operatorToken.type), next_andExp);
+        andExp->token = operatorToken;
     }
     return andExp;
 }
@@ -423,6 +432,7 @@ std::shared_ptr<AstExpression> Parser::parseLogicalAndExp() {
         auto next_equalityExp = parseEqualityExp();
 
         equalityExp = std::make_shared<AstBinary>(equalityExp, toBinaryOperator(operatorToken.type), next_equalityExp);
+        equalityExp->token = operatorToken;
     }
     return equalityExp;
 }
@@ -434,6 +444,7 @@ std::shared_ptr<AstExpression> Parser::parseEqualityExp() {
         auto next_relationalExp = parseRelationalExp();
 
         relationalExp = std::make_shared<AstBinary>(relationalExp, toBinaryOperator(operatorToken.type), next_relationalExp);
+        relationalExp->token = operatorToken;
     }
     return relationalExp;
 }
@@ -445,6 +456,7 @@ std::shared_ptr<AstExpression> Parser::parseRelationalExp() {
         auto next_additiveExp = parseAdditiveExp();
 
         additiveExp = std::make_shared<AstBinary>(additiveExp, toBinaryOperator(operatorToken.type), next_additiveExp);
+        additiveExp->token = operatorToken;
     }
     return additiveExp;
 }
@@ -456,6 +468,7 @@ std::shared_ptr<AstExpression> Parser::parseAdditiveExp() {
         auto next_term = parseTerm();
 
         term = std::make_shared<AstBinary>(term, toBinaryOperator(operatorToken.type), next_term);
+        term->token = operatorToken;
     }
     return term;
 }
@@ -467,6 +480,7 @@ std::shared_ptr<AstExpression> Parser::parseTerm() {
         auto next_factor = parseFactor();
 
         factor = std::make_shared<AstBinary>(factor, toBinaryOperator(operatorToken.type), next_factor);
+        factor->token = operatorToken;
     }
     return factor;
 }
@@ -480,7 +494,9 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
     else if (matchAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde})) {
         Token operatorToken = consumeAnyOne({TokenType::Bang, TokenType::Minus, TokenType::Tilde});
         auto factor = parseFactor();
-        return std::make_shared<AstUnary>(toUnaryOperator(operatorToken.type), factor);
+        auto unary = std::make_shared<AstUnary>(toUnaryOperator(operatorToken.type), factor);
+        unary->token = operatorToken;
+        return unary;
     }
     else if (match(TokenType::Number))
         return parseNumber();
@@ -508,7 +524,7 @@ std::shared_ptr<AstLValue> Parser::parseLValue(){
     if (match(TokenType::Identifier)){
         return parseVariableAccess();
     }
-    else if (match(TokenType::Identifier)){
+    else if (match(TokenType::Star)){
         return parseDereference();
     }
     else{
@@ -548,8 +564,10 @@ std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
 }
 
 std::shared_ptr<AstDereference> Parser::parseDereference(){
-    consume(TokenType::Star);
-    return std::make_shared<AstDereference>(parseLValue());
+    auto tok = consume(TokenType::Star);
+    auto lvalue = std::make_shared<AstDereference>(parseExpression());
+    lvalue->token = tok;
+    return lvalue;
 }
 
 
@@ -572,15 +590,20 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
 
 std::shared_ptr<AstType> Parser::parseType() {
     if (match(TokenType::Typename)) {
-        auto type = stringToType(consume(TokenType::Typename).value);
+        auto typename_tok = consume(TokenType::Typename);
+        auto type = stringToType(typename_tok.value);
         if (type == RSharpPrimitiveType::NONE) {
             parserError("Unknown type ", getCurrentToken().toString());
         }
-        return std::make_shared<AstPrimitiveType>(type);
+        auto type_ast = std::make_shared<AstPrimitiveType>(type);
+        type_ast->token = typename_tok;
+        return type_ast;
     }
     else if (match(TokenType::Star)){
-        consume(TokenType::Star);
-        return std::make_shared<AstPointerType>(parseType());
+        auto star = consume(TokenType::Star);
+        auto pointer = std::make_shared<AstPointerType>(parseType());
+        pointer->token = star;
+        return pointer;
     }
     else {
         parserError("Expected typename or '*' (pointer) but got ", getCurrentToken().toString());
@@ -622,9 +645,12 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
 // helpers
 std::shared_ptr<AstExpression> Parser::parseOptionalExpression(){
     try{
+        TokenRestorer _(*this);
         return parseExpression();
     }
     catch(ParsingError& e){
-        return std::make_shared<AstEmptyExpression>();
+        auto exp = std::make_shared<AstEmptyExpression>();
+        exp->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::C_void);
+        return exp;
     }
 }

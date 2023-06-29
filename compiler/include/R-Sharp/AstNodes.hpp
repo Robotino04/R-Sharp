@@ -397,6 +397,20 @@ struct AstFunctionCall : public AstExpression, public std::enable_shared_from_th
     std::shared_ptr<SemanticFunctionData> function;
 };
 
+struct AstTypeConversion : public AstExpression, public std::enable_shared_from_this<AstTypeConversion>{
+    AstTypeConversion(std::shared_ptr<AstExpression> from, std::shared_ptr<AstType> to): value(from) {
+        semanticType = to;
+    };
+
+    BASE(AstTypeConversion);
+    std::string toString() const override{
+        return "(" + value->semanticType->toString() + " --> " + semanticType->toString() + ")";
+    }
+    
+    GET_SINGLE_CHILDREN(value)
+    std::shared_ptr<AstExpression> value;
+};
+
 struct AstLValue : public virtual AstExpression{
     DESTRUCTOR(AstLValue)
 };
@@ -410,13 +424,13 @@ struct AstVariableAccess : public AstLValue, public std::enable_shared_from_this
 
 struct AstDereference : public AstLValue, public std::enable_shared_from_this<AstDereference> {
     BASE(AstDereference)
-    AstDereference(std::shared_ptr<AstLValue> operand): operand(operand) {}
+    AstDereference(std::shared_ptr<AstExpression> operand): operand(operand) {}
 
     TO_STRING_NAME(AstDereference)
 
     GET_SINGLE_CHILDREN(operand)
 
-    SINGLE_CHILD(AstLValue, operand)
+    SINGLE_CHILD(AstExpression, operand)
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
