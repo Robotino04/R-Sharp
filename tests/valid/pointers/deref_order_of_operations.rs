@@ -2,7 +2,8 @@
 executionExitCode: 108
 */
 
-[extern] calloc(num_items: i64, size_of_item: i64): *c_void;
+[extern] malloc(size: i64): *c_void;
+[extern] memset(pointer: *c_void, value: i64, size: i64): c_void;
 [extern] free(pointer: *c_void): c_void;
 
 // test library
@@ -12,8 +13,8 @@ executionExitCode: 108
 [extern] set_i64_at_address(address: *i64, value: i64): c_void;
 
 main(): i32 {
-    a: *i32 = calloc(1, 4);
-    b: *i32 = calloc(1, 4);
+    a: *i32 = malloc(1, 4);
+    b: *i32 = malloc(1, 4);
     set_i32_at_address(a, -2);
     set_i32_at_address(b, -54);
     return *a**b;
