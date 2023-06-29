@@ -661,13 +661,15 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
 }
 
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
+    auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);
     emitIndented("; Variable Access(" + node->name + ")\n");
-    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " rax, " + node->variable->accessStr + "\n");
+    emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", " + node->variable->accessStr + "\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node){
     node->operand->accept(this);
+    auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);
     emitIndented("; Dereference\n");
-    emitIndented("mov " + sizeToNASMType(NASMCodeGenerator::sizeFromSemanticalType(node->semanticType)) + " rax, [rax]\n");
+    emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", [rax]\n");
 }
 
 
