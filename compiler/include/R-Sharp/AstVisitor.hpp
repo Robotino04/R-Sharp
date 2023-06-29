@@ -39,6 +39,7 @@ public:
     VISITOR_FN(AstConditionalExpression);
     VISITOR_FN(AstEmptyExpression);
     VISITOR_FN(AstFunctionCall);
+    VISITOR_FN(AstDereference);
     
     VISITOR_FN(AstVariableDeclaration);
     VISITOR_FN(AstPointerType);

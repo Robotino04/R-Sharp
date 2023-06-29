@@ -295,12 +295,7 @@ struct AstSkip : public AstStatement, public std::enable_shared_from_this<AstSki
 
 
 // ----------------------------------| Expressions |---------------------------------- //
-struct AstVariableAccess : public AstExpression, public std::enable_shared_from_this<AstVariableAccess> {
-    BASE(AstVariableAccess)
-    TO_STRING_NAME(AstVariableAccess)
 
-    std::shared_ptr<SemanticVariableData> variable;
-};
 
 struct AstInteger : public AstExpression, public std::enable_shared_from_this<AstInteger> {
     BASE(AstInteger)
@@ -400,6 +395,28 @@ struct AstFunctionCall : public AstExpression, public std::enable_shared_from_th
     MULTI_CHILD(AstExpression, arguments)
 
     std::shared_ptr<SemanticFunctionData> function;
+};
+
+struct AstLValue : public virtual AstExpression{
+    DESTRUCTOR(AstLValue)
+};
+
+struct AstVariableAccess : public AstLValue, public std::enable_shared_from_this<AstVariableAccess> {
+    BASE(AstVariableAccess)
+    TO_STRING_NAME(AstVariableAccess)
+
+    std::shared_ptr<SemanticVariableData> variable;
+};
+
+struct AstDereference : public AstLValue, public std::enable_shared_from_this<AstDereference> {
+    BASE(AstDereference)
+    AstDereference(std::shared_ptr<AstLValue> operand): operand(operand) {}
+
+    TO_STRING_NAME(AstDereference)
+
+    GET_SINGLE_CHILDREN(operand)
+
+    SINGLE_CHILD(AstLValue, operand)
 };
 
 // ----------------------------------| Declarations |---------------------------------- //

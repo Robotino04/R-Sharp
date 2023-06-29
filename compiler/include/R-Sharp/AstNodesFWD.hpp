@@ -36,6 +36,8 @@ enum class AstNodeType {
     AstConditionalExpression,
     AstEmptyExpression,
     AstFunctionCall,
+    AstDereference,
+    
 
     AstVariableDeclaration,
     AstPrimitiveType,
@@ -75,11 +77,14 @@ struct AstSkip;
 struct AstUnary;
 struct AstBinary;
 struct AstInteger;
-struct AstVariableAccess;
 struct AstVariableAssignment;
 struct AstConditionalExpression;
 struct AstEmptyExpression;
 struct AstFunctionCall;
+
+struct AstLValue;
+struct AstDereference;
+struct AstVariableAccess;
 
 struct AstVariableDeclaration;
 struct AstParameterList;

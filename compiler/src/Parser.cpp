@@ -486,8 +486,8 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
         return parseNumber();
     else if (match({TokenType::ID, TokenType::LeftParen}))
         return parseFunctionCall();
-    else if (match(TokenType::ID))
-        return parseVariableAccess();
+    else if (matchAny({TokenType::ID, TokenType::Star}))
+        return parseLValue();
     else{
         parserError("Expected expression but got ", getCurrentToken().toString());
         return nullptr;
@@ -504,11 +504,19 @@ std::shared_ptr<AstInteger> Parser::parseNumber() {
     number->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64);
     return number;
 }
-std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
-    std::shared_ptr<AstVariableAccess> variableAccess = std::make_shared<AstVariableAccess>(consume(TokenType::ID));
-    variableAccess->name = variableAccess->token.value;
-    return variableAccess;
+std::shared_ptr<AstLValue> Parser::parseLValue(){
+    if (match(TokenType::Identifier)){
+        return parseVariableAccess();
+    }
+    else if (match(TokenType::Identifier)){
+        return parseDereference();
+    }
+    else{
+        parserError("Expected lvalue but got ", getCurrentToken().toString());
+        return nullptr;
+    }
 }
+
 std::shared_ptr<AstVariableAssignment> Parser::parseVariableAssignment() {
     std::shared_ptr<AstVariableAssignment> variableAssignment = std::make_shared<AstVariableAssignment>(consume(TokenType::ID));
     variableAssignment->name = variableAssignment->token.value;
@@ -531,6 +539,19 @@ std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
     consume(TokenType::RightParen);
     return functionCall;
 }
+
+
+std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
+    std::shared_ptr<AstVariableAccess> variableAccess = std::make_shared<AstVariableAccess>(consume(TokenType::ID));
+    variableAccess->name = variableAccess->token.value;
+    return variableAccess;
+}
+
+std::shared_ptr<AstDereference> Parser::parseDereference(){
+    consume(TokenType::Star);
+    return std::make_shared<AstDereference>(parseLValue());
+}
+
 
 
 std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
