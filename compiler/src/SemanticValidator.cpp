@@ -440,18 +440,21 @@ void SemanticValidator::visit(std::shared_ptr<AstDereference> node){
         node->semanticType = std::static_pointer_cast<AstPointerType>(node->operand->semanticType)->subtype;
     }
 }
-void SemanticValidator::visit(std::shared_ptr<AstVariableAssignment> node){
+void SemanticValidator::visit(std::shared_ptr<AstAssignment> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    if (isVariableDeclared(node->name)){
-        requireType(node->value);
-        node->variable = getVariable(node->name);
-        node->semanticType = node->variable->type.lock();
-    }
-    else{
-        hasError = true;
-        Error("variable \"", node->name, "\" is not declared");
-        printErrorToken(node->token, source);
-        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+    if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
+        auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
+        if (isVariableDeclared(var->name)){
+            requireType(node->rvalue);
+            var->variable = getVariable(var->name);
+            node->semanticType = var->semanticType;
+        }
+        else{
+            hasError = true;
+            Error("variable \"", var->name, "\" is not declared");
+            printErrorToken(var->token, source);
+            node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        }
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){

@@ -29,7 +29,7 @@ enum class AstNodeType {
     AstSkip,
 
     AstVariableAccess,
-    AstVariableAssignment,
+    AstAssignment,
     AstUnary,
     AstBinary,
     AstInteger,
@@ -78,7 +78,7 @@ struct AstSkip;
 struct AstUnary;
 struct AstBinary;
 struct AstInteger;
-struct AstVariableAssignment;
+struct AstAssignment;
 struct AstConditionalExpression;
 struct AstEmptyExpression;
 struct AstFunctionCall;

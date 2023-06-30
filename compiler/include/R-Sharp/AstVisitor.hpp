@@ -35,7 +35,7 @@ public:
     VISITOR_FN(AstBinary);
     VISITOR_FN(AstInteger);
     VISITOR_FN(AstVariableAccess);
-    VISITOR_FN(AstVariableAssignment);
+    VISITOR_FN(AstAssignment);
     VISITOR_FN(AstConditionalExpression);
     VISITOR_FN(AstEmptyExpression);
     VISITOR_FN(AstFunctionCall);

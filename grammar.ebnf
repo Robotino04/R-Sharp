@@ -53,6 +53,6 @@ pointer = '*', type;
 parameterList = identifier, ":", type {",", identifier, ":", type };
 
 variableDeclaration = identifier, ":", type, ["=", expression] ";";
-assignment = identifier, "=", expression;
+assignment = lvalue, "=", expression;
 
 identifier = ("_" | letter), {"_" | letter | digit};

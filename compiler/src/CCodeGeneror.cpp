@@ -278,9 +278,11 @@ void CCodeGenerator::visit(std::shared_ptr<AstBinary> node){
     node->right->accept(this);
     emit(")");
 }
-void CCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
-    emit("(" + node->name + " = ");
-    node->value->accept(this);
+void CCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
+    emit("(");
+    node->lvalue->accept(this);
+    emit(" = ");
+    node->rvalue->accept(this);
     emit(")");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){

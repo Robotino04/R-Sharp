@@ -32,7 +32,7 @@ class AArch64CodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstUnary> node) override;
         void visit(std::shared_ptr<AstBinary> node) override;
         void visit(std::shared_ptr<AstInteger> node) override;
-        void visit(std::shared_ptr<AstVariableAssignment> node) override;
+        void visit(std::shared_ptr<AstAssignment> node) override;
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstEmptyExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;

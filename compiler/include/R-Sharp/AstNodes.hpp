@@ -307,16 +307,14 @@ struct AstInteger : public AstExpression, public std::enable_shared_from_this<As
     int64_t value;
 };
 
-struct AstVariableAssignment : AstExpression, public std::enable_shared_from_this<AstVariableAssignment>{
-    BASE(AstVariableAssignment)
-    TO_STRING_NAME(AstVariableAssignment)
+struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAssignment>{
+    BASE(AstAssignment)
 
-    CHILD_INIT(AstVariableAssignment, AstExpression, value)
-    GET_SINGLE_CHILDREN(value)
+    GET_SINGLE_CHILDREN(rvalue, lvalue)
+    TO_STRING(AstAssignment)
 
-    SINGLE_CHILD(AstExpression, value)
-
-    std::shared_ptr<SemanticVariableData> variable;
+    SINGLE_CHILD(AstLValue, lvalue)
+    SINGLE_CHILD(AstExpression, rvalue)
 };
 
 struct AstUnary : public AstExpression, public std::enable_shared_from_this<AstUnary> {

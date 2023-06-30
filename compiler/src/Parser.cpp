@@ -242,10 +242,11 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
     }
 }
 std::shared_ptr<AstExpression> Parser::parseExpression() {
-    if (match({TokenType::ID, TokenType::Assign})){
-        return parseVariableAssignment();
+    try{
+        TokenRestorer _(*this);
+        return parseAssignment();
     }
-    else{
+    catch(ParsingError){
         return parseConditionalExpression();
     }
 }
@@ -533,12 +534,12 @@ std::shared_ptr<AstLValue> Parser::parseLValue(){
     }
 }
 
-std::shared_ptr<AstVariableAssignment> Parser::parseVariableAssignment() {
-    std::shared_ptr<AstVariableAssignment> variableAssignment = std::make_shared<AstVariableAssignment>(consume(TokenType::ID));
-    variableAssignment->name = variableAssignment->token.value;
-    consume(TokenType::Assign);
-    variableAssignment->value = parseExpression();
-    return variableAssignment;
+std::shared_ptr<AstAssignment> Parser::parseAssignment() {
+    std::shared_ptr<AstAssignment> assignment = std::make_shared<AstAssignment>();
+    assignment->lvalue = parseLValue();
+    assignment->token = consume(TokenType::Assign);
+    assignment->rvalue = parseExpression();
+    return assignment;
 }
 std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
     std::shared_ptr<AstFunctionCall> functionCall = std::make_shared<AstFunctionCall>(consume(TokenType::ID));

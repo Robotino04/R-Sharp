@@ -536,15 +536,24 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     else
         emitIndented("ldr x0, " + node->variable->accessStr + "\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
-    node->value->accept(this);
-    if (node->variable->isGlobal){
-        emitIndented("ldr x9, =[" + node->variable->accessStr + "]\n");
-        emitIndented("str x0, [x9]\n");
+void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
+    node->rvalue->accept(this);
+    if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
+        auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
+        if (var->variable->isGlobal){
+            emitIndented("ldr x9, =[" + var->variable->accessStr + "]\n");
+            emitIndented("str x0, [x9]\n");
+        }
+        else{
+            emitIndented("str x0, " + var->variable->accessStr + "\n");
+        }
     }
     else{
-        emitIndented("str x0, " + node->variable->accessStr + "\n");
+        Error("Unimplemented type of lvalue.");
+        printErrorToken(node->lvalue->token, R_SharpSource);
+        exit(1);
     }
+    
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     std::string true_clause = "." + getUniqueLabel("true_expression");

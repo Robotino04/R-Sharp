@@ -578,9 +578,17 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emitIndented("; Integer " + std::to_string(node->value) + "\n");
     emitIndented("mov rax, " + std::to_string(node->value) + "\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAssignment> node){
-    node->value->accept(this);
-    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " " + node->variable->accessStr + ", rax\n");
+void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
+    node->rvalue->accept(this);
+    if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
+        auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
+        emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " " + var->variable->accessStr + ", rax\n");
+    }
+    else{
+        Error("Unimplemented type of lvalue.");
+        printErrorToken(node->lvalue->token, R_SharpSource);
+        exit(1);
+    }
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     std::string true_clause = "." + getUniqueLabel("true_expression");
