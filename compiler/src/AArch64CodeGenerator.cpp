@@ -548,6 +548,30 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
             emitIndented("str x0, " + var->variable->accessStr + "\n");
         }
     }
+    else if(node->lvalue->getType() == AstNodeType::AstDereference){
+        auto deref = std::static_pointer_cast<AstDereference>(node->lvalue);
+        auto size = sizeFromSemanticalType(deref->semanticType);
+        emitIndented("// Assignment\n");
+        emitIndented("push x0\n");
+
+        // put the address to store to into x0
+        deref->operand->accept(this);
+
+        emitIndented("mov x1, x0\n");
+        emitIndented("pop x0\n");
+
+        switch(size){
+            case 1: emitIndented("strb w0, [x1]\n"); break;
+            case 2: emitIndented("strh w0, [x1]\n"); break;
+            case 4: emitIndented("str w0, [x1]\n"); break;
+            case 8: emitIndented("str x0, [x1]\n"); break;
+            default:
+                Error("AArch64 Generator: Variable size ", size, " not supported!");
+                printErrorToken(deref->operand->token, R_SharpSource);
+                exit(1);
+                break;
+        }
+    }
     else{
         Error("Unimplemented type of lvalue.");
         printErrorToken(node->lvalue->token, R_SharpSource);

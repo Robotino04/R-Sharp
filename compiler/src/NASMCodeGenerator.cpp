@@ -584,6 +584,19 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
         auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
         emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " " + var->variable->accessStr + ", rax\n");
     }
+    else if(node->lvalue->getType() == AstNodeType::AstDereference){
+        auto deref = std::static_pointer_cast<AstDereference>(node->lvalue);
+        auto size = sizeFromSemanticalType(deref->semanticType);
+        emitIndented("; Assignment\n");
+        emitIndented("push rax\n");
+
+        // put the address to store to into rax
+        deref->operand->accept(this);
+
+        emitIndented("mov rbx, rax\n");
+        emitIndented("pop rax\n");
+        emitIndented("mov " + sizeToNASMType(size) + " [rbx], " + getRegisterWithSize("rax", size) + "\n");
+    }
     else{
         Error("Unimplemented type of lvalue.");
         printErrorToken(node->lvalue->token, R_SharpSource);
