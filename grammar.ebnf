@@ -1,6 +1,7 @@
-program = {functionDefinition};
+program = {functionDefinition | importStatement};
 
 functionDefinition = tags, identifier, "(", [parameterList], ")", ":", type, statement;
+importStatement = '*' | (identifier, {',', identifier}), '@', identifier, {"::", identifier}, ';';
 
 return = 'return', optionalExpression, ";";
 

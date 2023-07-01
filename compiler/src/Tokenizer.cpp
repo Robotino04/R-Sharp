@@ -28,6 +28,7 @@ Tokenizer::Tokenizer(std::string const& filename): currentPosition(0), line(1), 
     std::stringstream ss;
     ss << file.rdbuf();
     source = ss.str();
+    source_ptr = std::make_shared<std::string>(source);
 }
 
 bool Tokenizer::match(std::string str) const {
@@ -134,7 +135,7 @@ char Tokenizer::getChar(int offset) const{
         int column_ = column; \
         size_t pos_ = currentPosition; \
         auto chars = consume(characters); \
-        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
+        token = Token(type, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr); \
     }
 #define KEYWORD_TOKEN(characters, type) \
     if (match(characters) && !matchAny(std::string(characters).size(), validIdentifierChars)) { \
@@ -142,7 +143,7 @@ char Tokenizer::getChar(int offset) const{
         int column_ = column; \
         size_t pos_ = currentPosition; \
         auto chars = consume(characters); \
-        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
+        token = Token(type, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr); \
     }
 
 #define ENCLOSING_TOKEN(startChars, endChars, type) \
@@ -151,7 +152,7 @@ char Tokenizer::getChar(int offset) const{
         int column_ = column; \
         size_t pos_ = currentPosition; \
         auto chars = consumeUntil(endChars) + endChars; \
-        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
+        token = Token(type, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr); \
     }
 #define SET_TOKEN(characters, type) \
     if (matchAny(characters)) { \
@@ -159,7 +160,7 @@ char Tokenizer::getChar(int offset) const{
         int column_ = column; \
         size_t pos_ = currentPosition; \
         auto chars = consumeAny(characters); \
-        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
+        token = Token(type, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr); \
     }
 #define COMPLEX_SET_TOKEN(beginCharacters, characters, type) \
     if (matchAny(beginCharacters)) { \
@@ -167,7 +168,7 @@ char Tokenizer::getChar(int offset) const{
         int column_ = column; \
         size_t pos_ = currentPosition; \
         auto chars = consumeAny(characters); \
-        token = Token(type, chars, {pos_, currentPosition, line_, column_}); \
+        token = Token(type, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr); \
     }
 
 Token Tokenizer::nextToken(){
@@ -195,6 +196,9 @@ Token Tokenizer::nextToken(){
         else KEYWORD_TOKEN("i32", TokenType::Typename)
         else KEYWORD_TOKEN("i64", TokenType::Typename)
         else KEYWORD_TOKEN("c_void", TokenType::Typename)
+
+        else SIMPLE_TOKEN('@', TokenType::At)
+        else SIMPLE_TOKEN("::", TokenType::DoubleColon)
 
         else SIMPLE_TOKEN(';', TokenType::Semicolon)
         else SIMPLE_TOKEN(',', TokenType::Comma)
@@ -228,6 +232,7 @@ Token Tokenizer::nextToken(){
 
         else SIMPLE_TOKEN('=', TokenType::Assign)
         else SIMPLE_TOKEN('$', TokenType::DollarSign)
+        
 
         else COMPLEX_SET_TOKEN(validIdentifierBegin, validIdentifierChars, TokenType::Identifier)
         else SET_TOKEN(numbers, TokenType::Number)
@@ -241,7 +246,7 @@ Token Tokenizer::nextToken(){
         }
     }
 
-    return Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column});
+    return Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column}, source_ptr);
 }
 
 #undef SIMPLE_TOKEN
@@ -258,7 +263,7 @@ std::vector<Token> Tokenizer::tokenize(){
     while (!isAtEnd()) {
         tokens.push_back(nextToken());
     }
-    tokens.push_back(Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column}));
+    tokens.push_back(Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column}, source_ptr));
     if (getErrorCount()){
         Fatal("Encountered ", getErrorCount(), " error", getErrorCount() == 1 ? "" : "s");
         return {};

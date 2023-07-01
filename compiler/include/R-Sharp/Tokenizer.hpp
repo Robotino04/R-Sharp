@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 class Tokenizer{
     public:
@@ -47,4 +48,5 @@ class Tokenizer{
         int column = 1;
 
         const std::string filename;
+        std::shared_ptr<std::string> source_ptr;
 };

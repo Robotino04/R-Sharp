@@ -16,6 +16,10 @@ std::string tokenTypeToString(TokenType type){
         case TokenType::Number: return "Number";
         case TokenType::Typename: return "Typename";
 
+
+        case TokenType::At: return "At";
+        case TokenType::DoubleColon: return "DoubleColon";
+        
         case TokenType::Semicolon: return "Semicolon";
         case TokenType::Colon: return "Colon";
         case TokenType::Comma: return "Comma";
@@ -60,6 +64,7 @@ std::string tokenTypeToString(TokenType type){
 
         case TokenType::Assign: return "Assign";
         case TokenType::DollarSign: return "DollarSign";
+
         default:
             Fatal("Unknown token type: ", static_cast<int>(type));
             return "Unknown";

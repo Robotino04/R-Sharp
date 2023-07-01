@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
 
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/Tokenizer.hpp"
@@ -9,6 +10,7 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Parser.hpp"
 #include "R-Sharp/Utils.hpp"
+#include "R-Sharp/ParsingCache.hpp"
 
 #include "R-Sharp/AstPrinter.hpp"
 #include "R-Sharp/CCodeGenerator.hpp"
@@ -34,6 +36,7 @@ R"(Options:
   -f, --format <format>     Output format (c, nasm)
   --compiler <path>         Use this compiler. Default: "gcc"
   --link <file>             Additionally link <file> into the output. Can be repeated.
+  --stdlib <path>           Use the standard library at <path>.
 
 Return values:
   0     Everything OK
@@ -107,6 +110,8 @@ int main(int argc, const char** argv) {
     OutputFormat outputFormat = OutputFormat::C;
     std::string compiler = "gcc";
     std::vector<std::string> additionalyLinkedFiles;
+    std::string stdlibIncludePath = std::filesystem::path(argv[0]).replace_filename("stdlib/");
+
 
     if (argc < 2) {
         printHelp(argv[0]);
@@ -167,10 +172,17 @@ int main(int argc, const char** argv) {
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
+        else if (arg == "--stdlib"){
+            if (i+1 < argc) {
+                stdlibIncludePath = argv[++i];
+            } else {
+                Error("Missing standard library path");
+                return static_cast<int>(ReturnValue::UnknownError);
+            }
+        }
         else {
             // test if it is a filename
-            std::ifstream testFile(arg);
-            if (testFile.is_open()) {
+            if (std::filesystem::exists(arg)) {
                 inputFilename = arg;
             } else {
                 Error("Invalid argument: ", arg);
@@ -199,7 +211,8 @@ int main(int argc, const char** argv) {
 
     Print("--------------| Parsing |--------------");
     {
-        Parser parser = Parser(tokens, inputFilename);
+        ParsingCache cache;
+        Parser parser = Parser(tokens, inputFilename, stdlibIncludePath, cache);
         ast = parser.parse();
 
         Print("--------------| Syntax Errors |--------------");

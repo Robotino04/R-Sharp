@@ -16,11 +16,11 @@ class ErrorPrinter : public AstVisitor {
 
         void visit(std::shared_ptr<AstErrorStatement> node) {
             Error(node->name);
-            printErrorToken(node->token, source);
+            printErrorToken(node->token, *(node->token.source));
         };
         void visit(std::shared_ptr<AstErrorProgramItem> node) {
             Error(node->name);
-            printErrorToken(node->token, source);
+            printErrorToken(node->token, *(node->token.source));
         };
     
     private:

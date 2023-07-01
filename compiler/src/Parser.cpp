@@ -1,12 +1,17 @@
 #include "R-Sharp/Parser.hpp"
+#include "R-Sharp/Tokenizer.hpp"
 
-Parser::Parser(std::vector<Token> const& tokens, std::string const& filename) : tokens(tokens), filename(filename){
+#include <filesystem>
+
+Parser::Parser(std::vector<Token> const& tokens, std::string const& filename, std::string const& importSearchPath, ParsingCache& cache) : tokens(tokens), filename(filename), importSearchPath(importSearchPath), cache(cache){
     program = std::make_shared<AstProgram>();
 }
 
 std::shared_ptr<AstProgram> Parser::parse() {
+    cache.addWildcard(filename);
     hasError = false;
     isRecovering = false;
+    Print("Parsing ", std::filesystem::absolute(filename));
     auto prog = parseProgram();
     return prog;
 }
@@ -117,14 +122,24 @@ Token Parser::getToken(int offset) const{
 std::shared_ptr<AstProgram> Parser::parseProgram() {
     while (!isAtEnd()) {
         bool wereRecovering = isRecovering;
-        auto item = parseProgramItem();
 
-        if (item->getType() == AstNodeType::AstErrorProgramItem && !wereRecovering){
-            program->items.push_back(item);
+        while (match(TokenType::Comment)) consume(TokenType::Comment);
+
+        try{
+            TokenRestorer _(*this);
+            auto importedThings = parseImportStatement();
+            program->items.insert(program->items.end(), importedThings.begin(), importedThings.end());
         }
-        else if (item->getType() != AstNodeType::AstErrorProgramItem){
-            program->items.push_back(item);
-            isRecovering = false;
+        catch(ParsingError){
+            auto item = parseProgramItem();
+
+            if (item->getType() == AstNodeType::AstErrorProgramItem && !wereRecovering){
+                program->items.push_back(item);
+            }
+            else if (item->getType() != AstNodeType::AstErrorProgramItem){
+                program->items.push_back(item);
+                isRecovering = false;
+            }
         }
     }
     return program;
@@ -194,6 +209,121 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseGlobalVariableDefinition(){
     var->variable->name = var->name;
     consume(TokenType::Semicolon);
     return var;
+}
+std::vector<std::shared_ptr<AstProgramItem>> Parser::parseImportStatement(){
+    bool importEverything = false;
+
+    std::vector<Token> identifiersToImport = {};
+    
+    if (match(TokenType::Star)){
+        consume(TokenType::Star);
+        importEverything = true;
+    }
+    else{
+        identifiersToImport.push_back(consume(TokenType::Identifier));
+        while(match(TokenType::Comma)){
+            consume(TokenType::Comma);
+            identifiersToImport.push_back(consume(TokenType::Identifier));
+        }
+    }
+
+    consume(TokenType::At);
+
+    std::vector<Token> importPath = {};
+    importPath.push_back(consume(TokenType::Identifier));
+    while(match(TokenType::DoubleColon)){
+        consume(TokenType::DoubleColon);
+        importPath.push_back(consume(TokenType::Identifier));
+    }
+    consume(TokenType::Semicolon);
+    
+    // preprocessing
+
+    std::string path;
+    if (importPath.at(0).value == "std")
+        importPath.at(0).value = importSearchPath;
+    else{
+        path = std::filesystem::absolute(filename).remove_filename();
+    }
+
+    for (auto tok : importPath){
+        path += tok.value + "/";
+    }
+    // remove the trailing slash
+    path = path.substr(0, path.size()-1);
+    path += ".rs";
+    path = std::filesystem::absolute(path);
+
+    if (!identifiersToImport.empty()){
+        identifiersToImport.erase(std::remove_if(identifiersToImport.begin(), identifiersToImport.end(), [&](auto const& ident){
+            return cache.contains(path, ident.value);
+        }), identifiersToImport.end());
+    }
+    
+    if (cache.containsWildcard(path)){
+        // this file was already fully imported
+        return {};
+    }
+
+    if (importEverything) {
+        cache.addWildcard(path);
+    }
+    else{
+        if (identifiersToImport.empty()){
+            // everything that is to import, was already imported
+            return {};
+        }
+    }
+
+
+    // Tokenize and parse
+    Tokenizer tokenizer(path);
+    auto tokens = tokenizer.tokenize();
+    Parser parser(tokens, path, importSearchPath, cache);
+    auto importedRoot = parser.parse();
+
+    if (parser.hasErrors()){
+        hasError = true;
+        return importedRoot->items;
+    }
+
+    if (importEverything){
+        return importedRoot->items;
+    }
+
+
+    std::vector<std::shared_ptr<AstProgramItem>> importedItems;
+
+    for (auto ident : identifiersToImport){
+        const auto filterForName = [&](auto other){
+            if (other->getType() == AstNodeType::AstFunctionDefinition){
+                auto func = std::static_pointer_cast<AstFunctionDefinition>(other);
+                return func->name == ident.value;
+            }
+            else if (other->getType() == AstNodeType::AstVariableDeclaration){
+                auto var = std::static_pointer_cast<AstVariableDeclaration>(other);
+                return var->name == ident.value;
+            }
+            else{
+                return false;
+            }
+        };
+        if (cache.containsNonWildcard(path, ident.value)){
+            continue;
+        }
+        auto item = std::find_if(importedRoot->items.begin(), importedRoot->items.end(), filterForName);
+        if (item == importedRoot->items.end()){
+            auto error = std::make_shared<AstErrorProgramItem>(stringify("Cannot find program item named '", ident.value, "' in ", std::filesystem::absolute(path)));
+            error->token = ident;
+            importedItems.push_back(error);
+            hasError = true;
+        }
+        else{
+            cache.add(path, ident.value);
+            importedItems.push_back(*item);
+        }
+    }
+    return importedItems;
 }
 
 

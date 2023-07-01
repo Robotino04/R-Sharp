@@ -2,6 +2,7 @@
 
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Token.hpp"
+#include "R-Sharp/ParsingCache.hpp"
 
 #include <string>
 #include <memory>
@@ -33,7 +34,7 @@ namespace {
 
 class Parser{
     public:
-        Parser(std::vector<Token> const& tokens, std::string const& filename);
+        Parser(std::vector<Token> const& tokens, std::string const& filename, std::string const& importSearchPath, ParsingCache& cache);
 
         std::shared_ptr<AstProgram> parse();
 
@@ -71,6 +72,8 @@ class Parser{
         int currentTokenIndex = 0;
 
         std::string filename;
+        std::string importSearchPath;
+        ParsingCache& cache;
 
         std::shared_ptr<AstProgram> program;
 
@@ -80,6 +83,7 @@ class Parser{
         std::shared_ptr<AstProgramItem> parseProgramItem();
         std::shared_ptr<AstFunctionDefinition> parseFunctionDefinition();
         std::shared_ptr<AstVariableDeclaration> parseGlobalVariableDefinition();
+        std::vector<std::shared_ptr<AstProgramItem>> parseImportStatement();
 
         std::shared_ptr<AstStatement> parseStatement();
         std::shared_ptr<AstExpression> parseExpression();

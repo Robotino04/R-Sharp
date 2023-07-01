@@ -1,0 +1,1 @@
+some_function @ std::test::import::recursive2_explicit;
