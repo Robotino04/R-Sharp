@@ -66,8 +66,6 @@ class AArch64CodeGenerator : public AstVisitor {
         void resetStackPointer(std::shared_ptr<AstBlock> scope);
 
     private:
-        int stackOffset = 0;
-
         std::string source_text;
         std::string source_data;
         std::string source_bss;

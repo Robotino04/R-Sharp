@@ -128,8 +128,6 @@ void NASMCodeGenerator::generateFunctionProlouge(){
     emitIndented("push r14\n");
     emitIndented("push r15\n");
     emitIndented("mov rbp, rsp\n");
-
-    stackOffset = 0;
 }
 
 void NASMCodeGenerator::generateFunctionEpilouge(){
@@ -173,6 +171,10 @@ std::string NASMCodeGenerator::getRegisterWithSize(std::string reg, int size){
 // program
 void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     node->globalScope->accept(this);
+    
+    for (auto var : node->globalScope->variables){
+        var->accessor = getUniqueLabel(var->name);
+    }
 
     for (auto const& child : node->getChildren()){
         if (!child) continue;
@@ -189,7 +191,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
 
     // uninitialized global variables
     for (auto var : node->uninitializedGlobalVariables){
-        emit(var->accessStr.substr(1, var->accessStr.size()-2) + ":\n", BinarySection::BSS);
+        emit(std::get<std::string>(var->accessor) + ":\n", BinarySection::BSS);
         emit("    resb " + std::to_string(var->sizeInBytes) + "\n", BinarySection::BSS);
     }
 }
@@ -202,7 +204,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
         child->accept(this);
 
         emitIndented("; Load argument " + std::to_string(argumentNumber) + "\n");
-        emitIndented("mov " + sizeToNASMType(child->variable->sizeInBytes) + " " + child->variable->accessStr + ", ");
+        emitIndented("mov " + sizeToNASMType(child->variable->sizeInBytes) + " [rbp -" + std::to_string(std::get<int>(child->variable->accessor)) + "], ");
 
         switch(argumentNumber){
             case 0: emit("rdi\n"); break;
@@ -244,25 +246,12 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
 void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     emitIndented("; Block begin (" + node->name + ")\n");
     indent();
-    int scopeSize = 0;
-    for (auto var : node->variables){
-
-        if (var->isGlobal){
-            var->accessStr = "[." + getUniqueLabel(var->name) +"]";
-        }
-        else{
-            stackOffset += var->sizeInBytes;
-            scopeSize += var->sizeInBytes;
-            var->accessStr = "[rbp - " + std::to_string(stackOffset) +"]";
-        }
-    }
 
     for (auto child : node->getChildren()){
         if (child) child->accept(this);
     }
 
     // don't change stack pointer if it wasn't modified
-    if (scopeSize) stackOffset -= scopeSize;
     if (!node->isMerged) resetStackPointer(node);
     dedent();
     emitIndented("; Block end (" + node->name + ")\n");
@@ -305,10 +294,6 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
 
     node->loop->skipAccessString = increment_label;
     node->loop->breakAccessString = end_label;
-
-    // manually generate the access string for the counter variable
-    stackOffset += node->initialization->variable->sizeInBytes;
-    node->initialization->variable->accessStr = "[rbp - " + std::to_string(stackOffset) +"]";
 
     emitIndented("; For loop\n");
     emitIndented("; For loop initialization\n");
@@ -582,7 +567,12 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     node->rvalue->accept(this);
     if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
         auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
-        emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " " + var->variable->accessStr + ", rax\n");
+        if (var->variable->isGlobal){
+            emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [" + std::get<std::string>(var->variable->accessor) + "], rax\n");
+        }
+        else{
+            emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(var->variable->accessor)) + "], rax\n");
+        }
     }
     else if(node->lvalue->getType() == AstNodeType::AstDereference){
         auto deref = std::static_pointer_cast<AstDereference>(node->lvalue);
@@ -681,14 +671,20 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     }
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
-    emitIndented("lea rax, " + node->operand->variable->accessStr + "\n");
+    if (node->operand->variable->isGlobal)
+        emitIndented("lea rax, [" + std::get<std::string>(node->operand->variable->accessor) + "]\n");
+    else
+        emitIndented("lea rax, [rbp - " + std::to_string(std::get<int>(node->operand->variable->accessor)) + "]\n");
 }
 
 
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);
     emitIndented("; Variable Access(" + node->name + ")\n");
-    emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", " + node->variable->accessStr + "\n");
+    if (node->variable->isGlobal)
+        emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", [" + std::get<std::string>(node->variable->accessor) + "]\n");
+    else
+        emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "]\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node){
     node->operand->accept(this);
@@ -711,11 +707,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         }
         auto intNode = std::dynamic_pointer_cast<AstInteger>(node->value);
         emit("    ; Global Variable (" + node->name + ")\n", BinarySection::Data);
-        // remove the brackets from the name
-        std::string label = node->variable->accessStr.substr(1, node->variable->accessStr.size()-2);
-
-        emit("    global " + label + "\n", BinarySection::Data);
-        emit("    " + label + ": ", BinarySection::Data);
+        emit("    global " + std::get<std::string>(node->variable->accessor) + "\n", BinarySection::Data);
+        emit("    " + std::get<std::string>(node->variable->accessor) + ": ", BinarySection::Data);
         switch(node->variable->sizeInBytes){
             case 1: emit("db " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
             case 2: emit("dw " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
@@ -733,7 +726,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         if (node->value){
             node->value->accept(this);
             emitIndented("sub rsp, " + std::to_string(node->variable->sizeInBytes) + "\n");
-            emitIndented("mov " + node->variable->accessStr + ", " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
+            emitIndented("mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
         }
         else{
             emitIndented("push " + sizeToNASMType(node->variable->sizeInBytes) + " 0\n");

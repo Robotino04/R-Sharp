@@ -14,6 +14,7 @@ class VariableSizeInserter : public AstVisitor {
 
         void insert(std::function<int(std::shared_ptr<AstType>)> typeToSize);
 
+        void visit(std::shared_ptr<AstFunctionDefinition> node) override;
         void visit(std::shared_ptr<AstForLoopDeclaration> node) override;
         void visit(std::shared_ptr<AstBlock> node) override;
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
@@ -23,4 +24,5 @@ class VariableSizeInserter : public AstVisitor {
         std::function<int(std::shared_ptr<AstType>)> typeToSize;
 
         std::vector<std::shared_ptr<AstBlock>> scopes;
+        int stackOffset = 0;
 };

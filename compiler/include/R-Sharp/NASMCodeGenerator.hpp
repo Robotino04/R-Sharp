@@ -71,8 +71,6 @@ class NASMCodeGenerator : public AstVisitor {
         static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
 
     private:
-        int stackOffset = 0;
-
         std::string sizeToNASMType(int size);
         std::string getRegisterWithSize(std::string reg, int size);
 

@@ -8,6 +8,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <variant>
 
 template<typename... Args>
 std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
@@ -68,8 +69,9 @@ struct SemanticVariableData{
     std::weak_ptr<AstType> type;
     std::string name;
     int sizeInBytes = 0;
-    std::string accessStr;
-    int stackOffset = 0;
+
+    // either a global label or the stack offset
+    std::variant<std::string, int> accessor = "Invailid global label. Most likely didn't visit this node.";
 
     bool operator ==(SemanticVariableData other) const{
         return isGlobal == other.isGlobal && type.lock() == other.type.lock();
