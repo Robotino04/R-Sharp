@@ -61,7 +61,7 @@ Token Parser::consume(){
     currentTokenIndex++;
     return token;
 }
-Token Parser::Parser::consume(TokenType type){
+Token Parser::consume(TokenType type){
     if (!match(type)){
         parserError("Expected ", tokenTypeToString(type), " but got ", getCurrentToken().toString());
     }
@@ -133,7 +133,6 @@ std::shared_ptr<AstProgram> Parser::parseProgram() {
 // program items
 std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
     try{
-        TokenRestorer _(*this);
         try{
             TokenRestorer _(*this);
             auto var = parseVariableDeclaration();
