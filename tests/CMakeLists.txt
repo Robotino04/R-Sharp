@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 
 add_executable(compilerTester "compilerTester.cpp")
-set(RSHARP_TEST_LIB_SRC "${CMAKE_SOURCE_DIR}/stdlib/test/pointers.cpp")
+set(RSHARP_STDLIB "${CMAKE_SOURCE_DIR}/stdlib/")
+set(RSHARP_TEST_LIB_SRC "${RSHARP_STDLIB}/test/pointers.cpp")
 get_filename_component(RSHARP_TEST_LIB_SRC "${RSHARP_TEST_LIB_SRC}" REALPATH)
 
 
@@ -20,7 +21,7 @@ function(add_compilation_test test_name test_file, out_dir out_lang)
         endif()
     endif()
 
-    add_test(NAME "${test_name}_${out_lang}" COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir} ${out_lang} ${RSHARP_TEST_LIB_SRC} ${proxy} ${compiler})
+    add_test(NAME "${test_name}_${out_lang}" COMMAND compilerTester $<TARGET_FILE:rsc> ${test_file} ${out_dir} ${out_lang} ${RSHARP_TEST_LIB_SRC} ${RSHARP_STDLIB} ${proxy} ${compiler})
 endfunction()
 
 

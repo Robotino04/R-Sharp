@@ -196,8 +196,8 @@ CommandResult exec(std::string const& cmd) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 6) {
-        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language> <test library source> [proxy] [gcc compiler]\n";
+    if (argc < 7) {
+        std::cout << "Usage: " << argv[0] << " <compiler> <input file> <output dir> <output language> <test library source> <stdlib directory> [proxy] [gcc compiler]\n";
         std::cout << "  proxy is something like qemu\n";
         return 1;
     }
@@ -209,6 +209,7 @@ int main(int argc, char** argv) {
     std::string outputDir = argv[++i];
     std::string outputLanguage = argv[++i];
     std::string testLibrarySource = argv[++i];
+    std::string standardLibrary = argv[++i];
     std::string proxy = "";
     std::string gccCompiler = "gcc";
     if (i+1 < argc) proxy = argv[++i];
@@ -229,7 +230,7 @@ int main(int argc, char** argv) {
 
     std::string test_lib_command = gccCompiler + " -c -g " + testLibrarySource + " -o " + test_lib_outfile;
 
-    std::string rsharp_command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage + " --compiler " + gccCompiler + " --link " + test_lib_outfile;
+    std::string rsharp_command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage + " --compiler " + gccCompiler + " --link " + test_lib_outfile + " --stdlib " + standardLibrary;
 
     ExecutionResults realResults;
 
