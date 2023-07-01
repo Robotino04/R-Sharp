@@ -78,6 +78,8 @@ class Parser{
         std::shared_ptr<AstParameterList> parseParameterList();
 
         std::shared_ptr<AstProgramItem> parseProgramItem();
+        std::shared_ptr<AstFunctionDefinition> parseFunctionDefinition();
+        std::shared_ptr<AstVariableDeclaration> parseGlobalVariableDefinition();
 
         std::shared_ptr<AstStatement> parseStatement();
         std::shared_ptr<AstExpression> parseExpression();

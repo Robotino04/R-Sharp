@@ -135,46 +135,11 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
     try{
         try{
             TokenRestorer _(*this);
-            auto var = parseVariableDeclaration();
-            var->variable = std::make_shared<SemanticVariableData>();
-            var->variable->isGlobal = true;
-            var->variable->name = var->name;
-            consume(TokenType::Semicolon);
-            return var;
+            return parseGlobalVariableDefinition();
         }
         catch(ParsingError const& e){}
 
-        auto function = std::make_shared<AstFunctionDefinition>();
-        function->tags = parseTags();
-        function->token = consume(TokenType::ID);
-        function->name = function->token.value;
-
-        function->parameters = parseParameterList();
-        consume(TokenType::Colon);
-        function->semanticType = parseType();
-
-
-        function->functionData = std::make_shared<SemanticFunctionData>();
-        function->functionData->name = function->name;
-        function->functionData->returnType = function->semanticType;
-        function->functionData->parameters = function->parameters;
-
-        if(std::find(function->tags->tags.begin(), function->tags->tags.end(), AstTags::Value::Extern) == function->tags->tags.end()){
-            auto body = parseStatement();
-            if (body->getType() == AstNodeType::AstExpressionStatement && std::dynamic_pointer_cast<AstExpressionStatement>(body)->expression->getType() == AstNodeType::AstEmptyExpression){
-                parserError("Function cannot only contain an empty expression. Use {} instead.");
-            }
-            if (body->getType() == AstNodeType::AstBlock)
-                function->body = std::dynamic_pointer_cast<AstBlock>(body);
-            else{
-                function->body = std::make_shared<AstBlock>();
-                function->body->items.push_back(body);
-            }
-        }
-        else{
-            consume(TokenType::Semicolon);
-        }
-        return function;
+        return parseFunctionDefinition();
     }
     catch(ParsingError const& e){
         hasError = true;
@@ -188,6 +153,49 @@ std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
         return err;
     }
 }
+std::shared_ptr<AstFunctionDefinition> Parser::parseFunctionDefinition(){
+    auto function = std::make_shared<AstFunctionDefinition>();
+    function->tags = parseTags();
+    function->token = consume(TokenType::ID);
+    function->name = function->token.value;
+
+    function->parameters = parseParameterList();
+    consume(TokenType::Colon);
+    function->semanticType = parseType();
+
+
+    function->functionData = std::make_shared<SemanticFunctionData>();
+    function->functionData->name = function->name;
+    function->functionData->returnType = function->semanticType;
+    function->functionData->parameters = function->parameters;
+
+    if(std::find(function->tags->tags.begin(), function->tags->tags.end(), AstTags::Value::Extern) == function->tags->tags.end()){
+        auto body = parseStatement();
+        if (body->getType() == AstNodeType::AstExpressionStatement && std::dynamic_pointer_cast<AstExpressionStatement>(body)->expression->getType() == AstNodeType::AstEmptyExpression){
+            parserError("Function cannot only contain an empty expression. Use {} instead.");
+        }
+        if (body->getType() == AstNodeType::AstBlock)
+            function->body = std::dynamic_pointer_cast<AstBlock>(body);
+        else{
+            function->body = std::make_shared<AstBlock>();
+            function->body->items.push_back(body);
+        }
+    }
+    else{
+        consume(TokenType::Semicolon);
+    }
+    return function;
+
+}
+std::shared_ptr<AstVariableDeclaration> Parser::parseGlobalVariableDefinition(){
+    auto var = parseVariableDeclaration();
+    var->variable = std::make_shared<SemanticVariableData>();
+    var->variable->isGlobal = true;
+    var->variable->name = var->name;
+    consume(TokenType::Semicolon);
+    return var;
+}
+
 
 std::shared_ptr<AstStatement> Parser::parseStatement() {
     // If an error occurs, the parser will try to recover by skipping this statement and returning an error statement.
