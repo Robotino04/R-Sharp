@@ -208,6 +208,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBlock> node){
             stackOffset += var->sizeInBytes;
             scopeSize += var->sizeInBytes;
             var->accessStr = "[fp, -" + std::to_string(stackOffset) +"]";
+            var->stackOffset = stackOffset;
         }
     }
 
@@ -634,6 +635,16 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     emitIndented("// Restore after function call (" + node->name + ")\n");
     emitIndented("ldp x29, x30, [sp], 16\n");
 }
+void AArch64CodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
+    emitIndented("// addres of (" + node->operand->name + ")\n");
+    if (node->operand->variable->isGlobal){
+        emitIndented("ldr x0, =" + node->operand->variable->accessStr + "\n");
+    }
+    else{
+        emitIndented("sub x0, fp, " + std::to_string(node->operand->variable->stackOffset) + "\n");
+    }
+}
+
 
 
 // declarations

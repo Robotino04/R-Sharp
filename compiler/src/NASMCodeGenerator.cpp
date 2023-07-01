@@ -680,6 +680,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
         }
     }
 }
+void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
+    emitIndented("lea rax, " + node->operand->variable->accessStr + "\n");
+}
+
 
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);

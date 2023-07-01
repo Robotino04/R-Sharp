@@ -34,6 +34,7 @@ class CCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstAssignment> node) override;
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
+        void visit(std::shared_ptr<AstAddressOf> node) override;
 
         void visit(std::shared_ptr<AstVariableAccess> node) override;
         void visit(std::shared_ptr<AstDereference> node) override;

@@ -69,6 +69,7 @@ struct SemanticVariableData{
     std::string name;
     int sizeInBytes = 0;
     std::string accessStr;
+    int stackOffset = 0;
 
     bool operator ==(SemanticVariableData other) const{
         return isGlobal == other.isGlobal && type.lock() == other.type.lock();
@@ -407,6 +408,17 @@ struct AstTypeConversion : public AstExpression, public std::enable_shared_from_
     
     GET_SINGLE_CHILDREN(value)
     std::shared_ptr<AstExpression> value;
+};
+
+struct AstAddressOf : public AstExpression, public std::enable_shared_from_this<AstAddressOf> {
+    BASE(AstAddressOf)
+    AstAddressOf(std::shared_ptr<AstVariableAccess> operand): operand(operand) {}
+
+    TO_STRING_NAME(AstAddressOf)
+
+    GET_SINGLE_CHILDREN(operand)
+
+    SINGLE_CHILD(AstVariableAccess, operand)
 };
 
 struct AstLValue : public virtual AstExpression{

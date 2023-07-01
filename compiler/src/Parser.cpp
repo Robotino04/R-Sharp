@@ -505,6 +505,9 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
         return parseFunctionCall();
     else if (matchAny({TokenType::ID, TokenType::Star}))
         return parseLValue();
+    else if (match(TokenType::DollarSign)){
+        return parseAstAddressOf();
+    }
     else{
         parserError("Expected expression but got ", getCurrentToken().toString());
         return nullptr;
@@ -555,6 +558,11 @@ std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
     }
     consume(TokenType::RightParen);
     return functionCall;
+}
+std::shared_ptr<AstAddressOf> Parser::parseAstAddressOf(){
+    std::shared_ptr<AstAddressOf> address_of = std::make_shared<AstAddressOf>(consume(TokenType::DollarSign));
+    address_of->operand = parseVariableAccess();
+    return address_of;
 }
 
 

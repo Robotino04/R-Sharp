@@ -303,6 +303,13 @@ void CCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     }
     emit(")");
 }
+void CCodeGenerator::visit(std::shared_ptr<AstAddressOf> node) {
+    emit("(&");
+    node->operand->accept(this);
+    emit(")");
+}
+
+
 // Declarations
 void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     emitIndented("");

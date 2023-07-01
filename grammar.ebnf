@@ -42,7 +42,9 @@ equalityExp = relationalExp, {("==" | "!="), relationalExp};
 relationalExp = additiveExp, {("<" | ">" | "<=" | ">="), additiveExp};
 additiveExp = term, {("+" | "-"), term};
 term = factor, {("*" | "/" | "%"), factor};
-factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | lvalue | functionCall;
+factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | lvalue | functionCall | address_of;
+
+address_of = '$', identifier;
 
 lvalue = identifier | dereference;
 dereference = '*', factor;

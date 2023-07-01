@@ -456,6 +456,15 @@ void SemanticValidator::visit(std::shared_ptr<AstAssignment> node){
             node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
         }
     }
+    else if (node->lvalue->getType() == AstNodeType::AstDereference){
+        node->semanticType = node->lvalue->semanticType;
+    }
+    else{
+        hasError = true;
+        Error("Unimplemented type of assignment");
+        printErrorToken(node->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+    }
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
     // visit the children
@@ -539,6 +548,13 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
         node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
 }
+
+void SemanticValidator::visit(std::shared_ptr<AstAddressOf> node) {
+    node->operand->accept(this);
+    node->semanticType = std::make_shared<AstPointerType>(node->operand->semanticType);
+}
+
+
 void SemanticValidator::visit(std::shared_ptr<AstFunctionDefinition> node){
     // push the function context to include parameters
     node->parameters->parameterBlock = std::make_shared<AstBlock>();

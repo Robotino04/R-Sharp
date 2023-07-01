@@ -227,6 +227,7 @@ Token Tokenizer::nextToken(){
         else SIMPLE_TOKEN('%', TokenType::Percent)
 
         else SIMPLE_TOKEN('=', TokenType::Assign)
+        else SIMPLE_TOKEN('$', TokenType::DollarSign)
 
         else COMPLEX_SET_TOKEN(validIdentifierBegin, validIdentifierChars, TokenType::Identifier)
         else SET_TOKEN(numbers, TokenType::Number)

@@ -35,6 +35,7 @@ VISITOR_FN(AstAssignment)
 VISITOR_FN(AstConditionalExpression)
 VISITOR_FN(AstEmptyExpression)
 VISITOR_FN(AstFunctionCall)
+VISITOR_FN(AstAddressOf)
 
 VISITOR_FN(AstVariableAccess)
 VISITOR_FN(AstDereference)

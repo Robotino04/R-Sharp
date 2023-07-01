@@ -38,6 +38,7 @@ enum class AstNodeType {
     AstFunctionCall,
     AstDereference,
     AstTypeConversion,
+    AstAddressOf,
     
 
     AstVariableDeclaration,
@@ -82,11 +83,12 @@ struct AstAssignment;
 struct AstConditionalExpression;
 struct AstEmptyExpression;
 struct AstFunctionCall;
+struct AstTypeConversion;
+struct AstAddressOf;
 
 struct AstLValue;
 struct AstDereference;
 struct AstVariableAccess;
-struct AstTypeConversion;
 
 struct AstVariableDeclaration;
 struct AstParameterList;
