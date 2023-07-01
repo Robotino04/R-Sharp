@@ -568,10 +568,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
         auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
         if (var->variable->isGlobal){
-            emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [" + std::get<std::string>(var->variable->accessor) + "], rax\n");
+            emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [" + std::get<std::string>(var->variable->accessor) + "], " + getRegisterWithSize("rax", var->variable->sizeInBytes) + "\n");
         }
         else{
-            emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(var->variable->accessor)) + "], rax\n");
+            emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(var->variable->accessor)) + "], " + getRegisterWithSize("rax", var->variable->sizeInBytes) + "\n");
         }
     }
     else if(node->lvalue->getType() == AstNodeType::AstDereference){
