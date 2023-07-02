@@ -2,7 +2,7 @@
 output: "Hello, World!\n"
 */
 
-[extern] putchar(c: i32): i32;
+putchar @ std::libc;
 
 main(): i32 {
     putchar(72);
