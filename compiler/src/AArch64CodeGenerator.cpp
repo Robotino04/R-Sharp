@@ -415,7 +415,22 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         case AstBinaryType::Divide:
             emitIndented("// Divide\n");
-            emitIndented("sdiv x0, x0, x1\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 1)
+                emitIndented("sxtb w0, w0    // sign extend from 8-bit to 16-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) <= 2)
+                emitIndented("sxth w0, w0    // sign extend from 16-bit to 32-bit\n");
+
+            
+            if (sizeFromSemanticalType(node->right->semanticType) == 1)
+                emitIndented("sxtb w1, w1    // sign extend from 8-bit to 16-bit\n");
+            if (sizeFromSemanticalType(node->right->semanticType) <= 2)
+                emitIndented("sxth w1, w1    // sign extend from 16-bit to 32-bit\n");
+
+            if (sizeFromSemanticalType(node->left->semanticType) == 8)
+                emitIndented("sdiv x0, x0, x1\n");
+            else
+                emitIndented("sdiv w0, w0, w1\n");
+
             break;
         case AstBinaryType::Modulo:
             emitIndented("// Modulo\n");
@@ -502,7 +517,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstInteger> node){
     // movk MOVes and Keeps the rest
 
     uint64_t valueCopy = static_cast<uint64_t>(node->value);
-    for (int shiftAmount = 0; valueCopy && shiftAmount < 64; shiftAmount += 16){
+    for (int shiftAmount = 0; valueCopy >> shiftAmount && shiftAmount < 64; shiftAmount += 16){
         if (shiftAmount == 0){
             emitIndented("movz x0, " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + "\n");
         }
@@ -515,10 +530,35 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     emitIndented("// Variable Access(" + node->name + ")\n");
     if (node->variable->isGlobal){
         emitIndented("ldr x9, =[" + std::get<std::string>(node->variable->accessor) + "]\n");
-        emitIndented("ldr x0, [x9]\n");
+        emitIndented("ldr");
+            switch(node->variable->sizeInBytes){
+                case 1: emit("b w0"); break;
+                case 2: emit("h w0"); break;
+                case 4: emit(" w0"); break;
+                case 8: emit(" x0"); break;
+                default:
+                    Error("AArch64 Generator: Variable size ", node->variable->sizeInBytes, " not supported!");
+                    printErrorToken(node->token, R_SharpSource);
+                    exit(1);
+                    break;
+            }
+            emit(", [x9]\n");
     }
-    else
-        emitIndented("ldr x0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n");
+    else{
+        emitIndented("ldr");
+        switch(node->variable->sizeInBytes){
+            case 1: emit("b w0"); break;
+            case 2: emit("h w0"); break;
+            case 4: emit(" w0"); break;
+            case 8: emit(" x0"); break;
+            default:
+                Error("AArch64 Generator: Variable size ", node->variable->sizeInBytes, " not supported!");
+                printErrorToken(node->token, R_SharpSource);
+                exit(1);
+                break;
+        }
+        emit(", [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n");
+    }
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     node->rvalue->accept(this);
@@ -526,10 +566,34 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
         auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
         if (var->variable->isGlobal){
             emitIndented("ldr x9, =[" + std::get<std::string>(var->variable->accessor) + "]\n");
-            emitIndented("str x0, [x9]\n");
+            emitIndented("str");
+            switch(var->variable->sizeInBytes){
+                case 1: emit("b w0"); break;
+                case 2: emit("h w0"); break;
+                case 4: emit(" w0"); break;
+                case 8: emit(" x0"); break;
+                default:
+                    Error("AArch64 Generator: Variable size ", var->variable->sizeInBytes, " not supported!");
+                    printErrorToken(node->token, R_SharpSource);
+                    exit(1);
+                    break;
+            }
+            emit(", [x9]\n");
         }
         else{
-            emitIndented("str x0, [fp, -" + std::to_string(std::get<int>(var->variable->accessor)) + "]\n");
+            emitIndented("str");
+            switch(var->variable->sizeInBytes){
+                case 1: emit("b w0"); break;
+                case 2: emit("h w0"); break;
+                case 4: emit(" w0"); break;
+                case 8: emit(" x0"); break;
+                default:
+                    Error("AArch64 Generator: Variable size ", var->variable->sizeInBytes, " not supported!");
+                    printErrorToken(node->token, R_SharpSource);
+                    exit(1);
+                    break;
+            }
+            emit(", [fp, -" + std::to_string(std::get<int>(var->variable->accessor)) + "]\n");
         }
     }
     else if(node->lvalue->getType() == AstNodeType::AstDereference){
@@ -627,6 +691,42 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
         emitIndented("sub x0, fp, " + std::to_string(std::get<int>(node->operand->variable->accessor)) + "\n");
     }
 }
+void AArch64CodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
+    int originSize = sizeFromSemanticalType(node->value->semanticType);
+    int targetSize = sizeFromSemanticalType(node->semanticType);
+    node->value->accept(this);
+    if (targetSize > originSize){
+        emitIndented("// Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize) + " bytes.\n");
+        emitIndented("sxt");
+        switch(originSize){
+            case 1: emit("b "); break;
+            case 2: emit("h "); break;
+            case 4: emit("w "); break;
+            case 8: emit("d "); break;
+            default:
+                Fatal("AArch64 Generator: Converting from size ", originSize, " not supported!");
+                break;
+        }
+        switch(targetSize){
+            case 1:
+            case 2:
+            case 4:
+                emit("w0, "); break;
+            case 8:
+                emit("x0, "); break;
+            default:
+                Fatal("AArch64 Generator: Converting to size  ", targetSize, " not supported!");
+                break;
+        }
+        emit("w0\n");
+    }
+    else if (targetSize == originSize);
+    else{
+        emitIndented("// explicit and to detect invalid upcasts later (" + std::to_string(originSize) + " Bytes --> " + std::to_string(targetSize) + " Bytes)\n");
+        emitIndented("mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
+        emitIndented("and x0, x0, x1\n");
+    }
+}
 
 
 
@@ -663,11 +763,20 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         emitIndented("// Variable (" + node->name + ")\n");
         if (node->value){
             node->value->accept(this);
-            emitIndented("str x0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n");
         }
         else{
             emitIndented("mov x0, 0\n");
-            emitIndented("str x0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n");
+        }
+        switch(node->variable->sizeInBytes){
+            case 1: emitIndented("strb w0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
+            case 2: emitIndented("strh w0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
+            case 4: emitIndented("str w0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
+            case 8: emitIndented("str x0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
+            default:
+                Error("AArch64 Generator: Variable size ", node->variable->sizeInBytes, " not supported!");
+                printErrorToken(node->token, R_SharpSource);
+                exit(1);
+                break;
         }
     }
 }

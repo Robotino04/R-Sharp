@@ -7,6 +7,7 @@
 #include <sstream>
 #include <map>
 #include <tuple>
+#include <math.h>
 
 NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
     this->root = root;
@@ -163,6 +164,21 @@ std::string NASMCodeGenerator::getRegisterWithSize(std::string reg, int size){
         {{"rax", 2}, "ax"},
         {{"rax", 4}, "eax"},
         {{"rax", 8}, "rax"},
+
+        {{"rbx", 1}, "bl"},
+        {{"rbx", 2}, "bx"},
+        {{"rbx", 4}, "ebx"},
+        {{"rbx", 8}, "rbx"},
+
+        {{"rcx", 1}, "cl"},
+        {{"rcx", 2}, "cx"},
+        {{"rcx", 4}, "ecx"},
+        {{"rcx", 8}, "rcx"},
+
+        {{"rdx", 1}, "dl"},
+        {{"rdx", 2}, "dx"},
+        {{"rdx", 4}, "edx"},
+        {{"rdx", 8}, "rdx"},
     };
 
     return map.at({reg, size});
@@ -467,8 +483,16 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         case AstBinaryType::Divide:
             emitIndented("; Divide\n");
-            emitIndented("cqo\n");
-            emitIndented("idiv rbx\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 1)
+                emitIndented("cbw    ; sign extend from 8-bit to 16-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 2)
+                emitIndented("cwd    ; sign extend from 16-bit to 32-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 4)
+                emitIndented("cdq    ; sign extend from 32-bit to 64-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 8)
+                emitIndented("cqo    ; sign extend from 64-bit to 128-bit\n");
+
+            emitIndented("idiv " + getRegisterWithSize("rbx", sizeFromSemanticalType(node->left->semanticType)) + "\n");
             break;
         case AstBinaryType::Modulo:
             emitIndented("; Modulo\n");
@@ -567,6 +591,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     node->rvalue->accept(this);
     if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
         auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
+        emitIndented("; Variable assignment (" + var->name + ")\n");
         if (var->variable->isGlobal){
             emitIndented("mov " + sizeToNASMType(var->variable->sizeInBytes) + " [" + std::get<std::string>(var->variable->accessor) + "], " + getRegisterWithSize("rax", var->variable->sizeInBytes) + "\n");
         }
@@ -577,7 +602,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     else if(node->lvalue->getType() == AstNodeType::AstDereference){
         auto deref = std::static_pointer_cast<AstDereference>(node->lvalue);
         auto size = sizeFromSemanticalType(deref->semanticType);
-        emitIndented("; Assignment\n");
+        emitIndented("; Dereference Assignment\n");
         emitIndented("push rax\n");
 
         // put the address to store to into rax
@@ -676,11 +701,32 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
     else
         emitIndented("lea rax, [rbp - " + std::to_string(std::get<int>(node->operand->variable->accessor)) + "]\n");
 }
+void NASMCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
+    int originSize = sizeFromSemanticalType(node->value->semanticType);
+    int targetSize = sizeFromSemanticalType(node->semanticType);
+    node->value->accept(this);
+    if (targetSize > originSize){
+        emitIndented("; Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize) + " bytes.\n");
+        emitIndented("movsx ");
+        emit(getRegisterWithSize("rax", targetSize) + ", ");
+        emit(getRegisterWithSize("rax", originSize) + "\n");
+    }
+    else if (targetSize == originSize);
+    else{
+        emitIndented("; explicit and to detect invalid upcasts later (" + std::to_string(originSize) + " Bytes --> " + std::to_string(targetSize) + " Bytes)\n");
+        emitIndented("mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
+        emitIndented("and rax, rbx\n");
+    }
+}
 
 
 void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);
     emitIndented("; Variable Access(" + node->name + ")\n");
+    if (node->variable->sizeInBytes != 8 && node->variable->sizeInBytes != 4){
+        // non 32-bit and 64-bit operations don't clear the remaining bits
+        emitIndented("xor eax, eax\n");
+    }
     if (node->variable->isGlobal)
         emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", [" + std::get<std::string>(node->variable->accessor) + "]\n");
     else
@@ -729,7 +775,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
             emitIndented("mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
         }
         else{
-            emitIndented("push " + sizeToNASMType(node->variable->sizeInBytes) + " 0\n");
+            emitIndented("sub rsp, " + std::to_string(node->variable->sizeInBytes) + "\n");
+            emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], 0\n");
         }
     }
 }

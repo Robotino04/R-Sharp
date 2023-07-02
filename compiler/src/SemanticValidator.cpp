@@ -445,9 +445,15 @@ void SemanticValidator::visit(std::shared_ptr<AstAssignment> node){
     if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
         auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
         if (isVariableDeclared(var->name)){
-            requireType(node->rvalue);
+            requireEquivalentTypes(node->lvalue, node->lvalue);
             var->variable = getVariable(var->name);
-            node->semanticType = var->semanticType;
+            if (!isEqualTypeInSharedPointer(node->lvalue->semanticType, node->rvalue->semanticType)){
+                // apply an automaic type conversion
+                node->rvalue = std::make_shared<AstTypeConversion>(node->rvalue, node->lvalue->semanticType);
+            }
+            else{
+                node->semanticType = var->semanticType;
+            }
         }
         else{
             hasError = true;
