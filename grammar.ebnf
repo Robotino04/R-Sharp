@@ -34,7 +34,6 @@ if = 'if', "(", expression, ")", statement, {elif}, [else];
 elif = 'elif', "(", expression, ")", statement;
 else = 'else', statement;
 
-
 expression = assignment | conditionalExp;
 conditionalExp = logicalOrExp, ["?", expression ":" expression];
 logicalOrExp = logicalAndExp, {"||", logicalAndExp};
@@ -43,12 +42,14 @@ equalityExp = relationalExp, {("==" | "!="), relationalExp};
 relationalExp = additiveExp, {("<" | ">" | "<=" | ">="), additiveExp};
 additiveExp = term, {("+" | "-"), term};
 term = factor, {("*" | "/" | "%"), factor};
-factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | lvalue | functionCall | address_of;
+factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | lvalue | functionCall | address_of | character_literal;
 
 address_of = '$', identifier;
 
 lvalue = identifier | dereference;
 dereference = '*', factor;
+
+character_literal = ''', character, ''';
 
 type = "i8" | "i16" | "i32" | "i64" | "c_void" | pointer;
 pointer = '*', type;

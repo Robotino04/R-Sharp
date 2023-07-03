@@ -112,6 +112,7 @@ class Parser{
         std::shared_ptr<AstAssignment> parseAssignment();
         std::shared_ptr<AstFunctionCall> parseFunctionCall();
         std::shared_ptr<AstAddressOf> parseAstAddressOf();
+        std::shared_ptr<AstInteger> parseCharacterLiteral();
 
         std::shared_ptr<AstLValue> parseLValue();
         std::shared_ptr<AstVariableAccess> parseVariableAccess();

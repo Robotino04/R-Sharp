@@ -12,25 +12,25 @@ main(): i32 {
 
     // print "What is your name? "
 
-    putchar(87);
-    putchar(104);
-    putchar(97);
-    putchar(116);
-    putchar(32);
-    putchar(105);
-    putchar(115);
-    putchar(32);
-    putchar(121);
-    putchar(111);
-    putchar(117);
-    putchar(114);
-    putchar(32);
-    putchar(110);
-    putchar(97);
-    putchar(109);
-    putchar(101);
-    putchar(63);
-    putchar(32);
+    putchar('W');
+    putchar('h');
+    putchar('a');
+    putchar('t');
+    putchar(' ');
+    putchar('i');
+    putchar('s');
+    putchar(' ');
+    putchar('y');
+    putchar('o');
+    putchar('u');
+    putchar('r');
+    putchar(' ');
+    putchar('n');
+    putchar('a');
+    putchar('m');
+    putchar('e');
+    putchar('?');
+    putchar(' ');
 
     for (; name_length < name_buffer_length; name_length = name_length+1){
         *(name - -4*name_length) = getchar();
@@ -40,20 +40,20 @@ main(): i32 {
     }
 
     // print "Hello "
-    putchar(72);
-    putchar(101);
-    putchar(108);
-    putchar(108);
-    putchar(111);
-    putchar(32);
+    putchar('H');
+    putchar('e');
+    putchar('l');
+    putchar('l');
+    putchar('o');
+    putchar(' ');
 
     for (i: i32 = 0; i<name_length; i = i+1){
         putchar(*(name - -4*i));
     }
 
     // print "!\n"
-    putchar(33);
-    putchar(10);
+    putchar('!');
+    putchar('\n');
 
     free(name);
 

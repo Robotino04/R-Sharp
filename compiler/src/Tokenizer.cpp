@@ -151,7 +151,8 @@ char Tokenizer::getChar(int offset) const{
         int line_ = line; \
         int column_ = column; \
         size_t pos_ = currentPosition; \
-        auto chars = consumeUntil(endChars) + endChars; \
+        std::string chars = consume(startChars); \
+        chars += consumeUntil(endChars) + endChars; \
         token = Token(type, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr); \
     }
 #define SET_TOKEN(characters, type) \
@@ -178,6 +179,21 @@ Token Tokenizer::nextToken(){
 
         ENCLOSING_TOKEN("//", "\n", TokenType::Comment)
         else ENCLOSING_TOKEN("/*", "*/", TokenType::Comment)
+        else  if (match('\'')) {
+            int line_ = line;
+            int column_ = column;
+            size_t pos_ = currentPosition;
+            std::string chars = consume("\'");
+            while(!match('\'')){
+                char c = consume();
+                chars += c;
+                if (c == '\\'){
+                    chars += consume();
+                }
+            }
+            chars += consume("\'");
+            token = Token(TokenType::CharacterLiteral, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr);
+        }
 
         else KEYWORD_TOKEN("if", TokenType::If)
         else KEYWORD_TOKEN("elif", TokenType::Elif)
@@ -232,6 +248,7 @@ Token Tokenizer::nextToken(){
 
         else SIMPLE_TOKEN('=', TokenType::Assign)
         else SIMPLE_TOKEN('$', TokenType::DollarSign)
+
         
 
         else COMPLEX_SET_TOKEN(validIdentifierBegin, validIdentifierChars, TokenType::Identifier)

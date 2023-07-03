@@ -61,6 +61,8 @@ enum class TokenType{
     Assign,                     // "="
     DollarSign,                 // "$"
 
+    CharacterLiteral,        // "'" . "'"
+
     Identifier = ID,
     Bang = ExclamationPoint,
 };

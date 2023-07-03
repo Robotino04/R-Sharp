@@ -645,6 +645,15 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
     else if (match(TokenType::DollarSign)){
         return parseAstAddressOf();
     }
+    else if (match(TokenType::CharacterLiteral)){
+        try{
+            TokenRestorer _(*this);
+            return parseCharacterLiteral();
+        }
+        catch(ParsingError& e){
+            throw;
+        }
+    }
     else{
         parserError("Expected expression but got ", getCurrentToken().toString());
         return nullptr;
@@ -714,6 +723,34 @@ std::shared_ptr<AstDereference> Parser::parseDereference(){
     auto lvalue = std::make_shared<AstDereference>(parseFactor());
     lvalue->token = tok;
     return lvalue;
+}
+std::shared_ptr<AstInteger> Parser::parseCharacterLiteral(){
+    auto tok = consume(TokenType::CharacterLiteral);
+
+    auto character = std::make_shared<AstInteger>();
+    character->token = tok;
+    if (tok.value.size() == 3){
+        character->value = tok.value.at(1);
+    }
+    else if (tok.value.size() == 4 && tok.value.at(1) == '\\'){
+        switch(tok.value.at(2)){
+            case 'n': character->value = '\n'; break;
+            case 'r': character->value = '\r'; break;
+            case 't': character->value = '\t'; break;
+            case 'e': character->value = '\e'; break;
+            case 'b': character->value = '\b'; break;
+            case '\\': character->value = '\\'; break;
+            default:
+                parserError("Character contains invalid escape code: ", tok.toString());
+                return nullptr;
+        }
+    }
+    else{
+        parserError("Character literal is too big or empty: ", tok.toString());
+        return nullptr;
+    }
+    character->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I8);
+    return character;
 }
 
 
