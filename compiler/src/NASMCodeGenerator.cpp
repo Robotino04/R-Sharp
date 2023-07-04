@@ -469,12 +469,25 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
         emitIndented("pop rax\n");
     }
     switch (node->type){
-        case AstBinaryType::Add:
+        case AstBinaryType::Add:{
             emitIndented("; Add\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            }
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("imul rax, rax, " + std::to_string(sizeFromSemanticalType(node->right->semanticType)) + "\n");
+            }
             emitIndented("add rax, rbx\n");
             break;
+        }
         case AstBinaryType::Subtract:
             emitIndented("; Subtract\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            }
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("imul rax, rax, " + std::to_string(sizeFromSemanticalType(node->right->semanticType)) + "\n");
+            }
             emitIndented("sub rax, rbx\n");
             break;
         case AstBinaryType::Multiply:

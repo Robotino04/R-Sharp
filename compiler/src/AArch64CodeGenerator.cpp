@@ -403,11 +403,35 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
     switch (node->type){
         case AstBinaryType::Add:
             emitIndented("// Add\n");
-            emitIndented("add x0, x0, x1\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                // x0 = x0 + (x1 * x2)
+                emitIndented("madd x0, x1, x2, x0\n");
+            }
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                // x0 = x1 + (x0 * x2)
+                emitIndented("madd x0, x0, x2, x1\n");
+            }
+            else{
+                emitIndented("add x0, x0, x1\n");
+            }
             break;
         case AstBinaryType::Subtract:
             emitIndented("// Subtract\n");
-            emitIndented("sub x0, x0, x1\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                // x0 = x0 - (x1 * x2)
+                emitIndented("msub x0, x1, x2, x0\n");
+            }
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                // x0 = x1 - (x0 * x2)
+                emitIndented("msub x0, x0, x2, x1\n");
+            }
+            else{
+                emitIndented("sub x0, x0, x1\n");
+            }
             break;
         case AstBinaryType::Multiply:
             emitIndented("// Multiply\n");

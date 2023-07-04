@@ -370,9 +370,9 @@ void SemanticValidator::visit(std::shared_ptr<AstBinary> node){
             // we don't allow pointer arithmetic other than subtraction
             // (so the c compiler is happy)
             Warning("Pointer arithmetic is not currently implemented properly. Use with courage!");
-            if (node->type != AstBinaryType::Subtract){
+            if (node->type != AstBinaryType::Subtract && node->type != AstBinaryType::Add){
                 hasError = true;
-                Error("Two pointers can only be subtracted. (For c reasons)");
+                Error("Two pointers can only be added and subtracted.");
                 printErrorToken(node->token, source);
                 node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
                 return;
