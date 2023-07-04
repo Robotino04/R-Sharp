@@ -672,7 +672,6 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
     emitIndented("mov x0, 1\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
-    // rdi, rsi, rdx, rcx, r8, and r9 are used for parameters
     // more than 6 parameters are not supported yet
 
     if (node->arguments.size() > 6){
@@ -680,7 +679,6 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
         printErrorToken(node->token, R_SharpSource);
         exit(1);
     }
-    // save registers
 
     // evaluate arguments
     for (auto arg : node->arguments){

@@ -33,8 +33,8 @@ main(): i32 {
     putchar(' ');
 
     for (; name_length < name_buffer_length; name_length = name_length+1){
-        *(name - -4*name_length) = getchar();
-        if (*(name - -4*name_length) == 10){
+        *(name + name_length) = getchar();
+        if (*(name + name_length) == 10){
             break;
         }
     }
@@ -48,7 +48,7 @@ main(): i32 {
     putchar(' ');
 
     for (i: i32 = 0; i<name_length; i = i+1){
-        putchar(*(name - -4*i));
+        putchar(*(name + i));
     }
 
     // print "!\n"

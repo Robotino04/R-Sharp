@@ -168,9 +168,8 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
         case AstNodeType::AstPointerType:{
             auto expected_type = std::static_pointer_cast<AstPointerType>(expected->semanticType);
             if (found->semanticType->getType() == AstNodeType::AstPrimitiveType){
-                // TODO: remove
-                // temporarily allow i64 to pointer conversions
-                return std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type == RSharpPrimitiveType::I64;
+                // temporarily allow int to pointer conversions
+                return std::find(integerTypes.begin(), integerTypes.end(), std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type) != integerTypes.end();
             }
             else if (found->semanticType->getType() == AstNodeType::AstPointerType){
                 auto found_type = std::static_pointer_cast<AstPointerType>(found->semanticType);
