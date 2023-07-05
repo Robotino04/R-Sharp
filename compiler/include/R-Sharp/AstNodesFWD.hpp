@@ -16,6 +16,7 @@ enum class AstNodeType {
 
     AstErrorStatement,
     AstErrorProgramItem,
+    AstErrorExpression,
 
     AstBlock,
     AstReturn,
@@ -56,6 +57,7 @@ struct AstProgram;
 
 struct AstErrorStatement;
 struct AstErrorProgramItem;
+struct AstErrorExpression;
 
 struct AstStatement;
 struct AstExpression;

@@ -659,13 +659,17 @@ std::shared_ptr<AstExpression> Parser::parseFactor() {
         return nullptr;
     }
 }
-std::shared_ptr<AstInteger> Parser::parseNumber() {
+std::shared_ptr<AstExpression> Parser::parseNumber() {
     std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>(consume(TokenType::Number));
     try{
-        number->value = std::stoull(number->token.value);
+        number->value = std::stoll(number->token.value);
     }
     catch(std::out_of_range){
-        parserError("Number doesn't fit into 64 bits: ", number->token.value);
+        hasError = true;
+        auto error = std::make_shared<AstErrorExpression>(stringify(filename, ":", getCurrentToken().position.line, ":", getCurrentToken().position.column, ":\tNumber doesn't fit into 64 bits."));
+        error->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        error->token = number->token;
+        return error;
     }
     number->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64);
     return number;

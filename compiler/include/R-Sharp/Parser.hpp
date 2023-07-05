@@ -108,7 +108,7 @@ class Parser{
         std::shared_ptr<AstExpression> parseAdditiveExp();
         std::shared_ptr<AstExpression> parseTerm();
         std::shared_ptr<AstExpression> parseFactor();
-        std::shared_ptr<AstInteger> parseNumber();
+        std::shared_ptr<AstExpression> parseNumber();
         std::shared_ptr<AstAssignment> parseAssignment();
         std::shared_ptr<AstFunctionCall> parseFunctionCall();
         std::shared_ptr<AstAddressOf> parseAstAddressOf();

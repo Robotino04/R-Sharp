@@ -167,6 +167,10 @@ struct AstErrorProgramItem : public AstProgramItem, public AstErrorNode, public 
     BASE(AstErrorProgramItem)
     TO_STRING_NAME(AstErrorProgramItem)
 };
+struct AstErrorExpression : public AstExpression, public AstErrorNode, public std::enable_shared_from_this<AstErrorExpression> {
+    BASE(AstErrorExpression)
+    TO_STRING_NAME(AstErrorExpression)
+};
 // ----------------------------------| Statements |---------------------------------- //
 struct AstBlock : public AstStatement, public std::enable_shared_from_this<AstBlock> {
     BASE(AstBlock)

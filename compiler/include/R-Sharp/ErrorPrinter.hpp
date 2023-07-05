@@ -14,11 +14,15 @@ class ErrorPrinter : public AstVisitor {
             root->accept(this);
         }
 
-        void visit(std::shared_ptr<AstErrorStatement> node) {
+        void visit(std::shared_ptr<AstErrorStatement> node) override{
             Error(node->name);
             printErrorToken(node->token, *(node->token.source));
         };
-        void visit(std::shared_ptr<AstErrorProgramItem> node) {
+        void visit(std::shared_ptr<AstErrorExpression> node) override{
+            Error(node->name);
+            printErrorToken(node->token, *(node->token.source));
+        };
+        void visit(std::shared_ptr<AstErrorProgramItem> node) override{
             Error(node->name);
             printErrorToken(node->token, *(node->token.source));
         };

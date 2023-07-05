@@ -278,7 +278,9 @@ std::vector<Token> Tokenizer::tokenize(){
 
     std::vector<Token> tokens;
     while (!isAtEnd()) {
-        tokens.push_back(nextToken());
+        auto tok = nextToken();
+        if (tok.type != TokenType::Comment)
+            tokens.push_back(tok);
     }
     tokens.push_back(Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column}, source_ptr));
     if (getErrorCount()){
