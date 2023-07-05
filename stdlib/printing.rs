@@ -4,8 +4,9 @@ print_number(number: i64): c_void{
     // negative integer limit
     if (number == -9223372036854775807 - 1){
         putchar('-');
-        putchar('9');
-        number = 223372036854775808;
+        print_number(922337203685477580);
+        putchar('8');
+        return;
     }
     if (number < 0){
         putchar('-');

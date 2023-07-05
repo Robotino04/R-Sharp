@@ -580,6 +580,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstUnary> node){
 void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
     node->left->accept(this);
 
+    int leftSize = sizeFromSemanticalType(node->left->semanticType);
+
     // logical and and or will short circuit, so the right side is not evaluated until necessary
     if (!(node->type == AstBinaryType::LogicalAnd || node->type == AstBinaryType::LogicalOr)){
         emitIndented("push rax\n");
@@ -628,46 +630,54 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         case AstBinaryType::Modulo:
             emitIndented("; Modulo\n");
-            emitIndented("cqo\n");
-            emitIndented("idiv rbx\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 1)
+                emitIndented("cbw    ; sign extend from 8-bit to 16-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 2)
+                emitIndented("cwd    ; sign extend from 16-bit to 32-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 4)
+                emitIndented("cdq    ; sign extend from 32-bit to 64-bit\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 8)
+                emitIndented("cqo    ; sign extend from 64-bit to 128-bit\n");
+
+            emitIndented("idiv " + getRegisterWithSize("rbx", sizeFromSemanticalType(node->left->semanticType)) + "\n");
             emitIndented("mov rax, rdx\n");
             break;
 
         case AstBinaryType::Equal:
             emitIndented("; Equal\n");
-            emitIndented("cmp rax, rbx\n");
-            emitIndented("mov rax, 0\n");
+            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
             emitIndented("sete al\n");
+            emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::NotEqual:
             emitIndented("; Not Equal\n");
-            emitIndented("cmp rax, rbx\n");
-            emitIndented("mov rax, 0\n");
+            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
             emitIndented("setne al\n");
+            emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::LessThan:
             emitIndented("; Less Than\n");
-            emitIndented("cmp rax, rbx\n");
-            emitIndented("mov rax, 0\n");
+            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
             emitIndented("setl al\n");
+            emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::LessThanOrEqual:
             emitIndented("; Less Than Or Equal\n");
-            emitIndented("cmp rax, rbx\n");
-            emitIndented("mov rax, 0\n");
+            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
             emitIndented("setle al\n");
+            emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::GreaterThan:
             emitIndented("; Greater Than\n");
-            emitIndented("cmp rax, rbx\n");
-            emitIndented("mov rax, 0\n");
+            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
             emitIndented("setg al\n");
+            emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::GreaterThanOrEqual:
             emitIndented("; Greater Than Or Equal\n");
-            emitIndented("cmp rax, rbx\n");
-            emitIndented("mov rax, 0\n");
+            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
             emitIndented("setge al\n");
+            emitIndented("movzx eax, al\n");
             break;
 
         case AstBinaryType::LogicalAnd:{
