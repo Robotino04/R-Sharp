@@ -382,6 +382,21 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     emitIndented("; Block begin (" + node->name + ")\n");
     indent();
 
+    if (!node->isMerged){
+        emitIndented("; allocate local variables\n");
+        emitIndented("sub rsp, " + std::to_string(node->sizeOfLocalVariables) + "\n");
+        int max_name_length = 0;
+        for (auto var : node->variables){
+            max_name_length = std::max<int>(max_name_length, var->name.length());
+        }
+        max_name_length += 4;
+        for (auto var : node->variables){
+            emitIndented("; " + var->name);
+            for (int i=0; i<max_name_length - var->name.length(); i++) emit(" ");
+            emit(std::to_string(std::get<int>(var->accessor)) + "\n");
+        }
+    }
+
     for (auto child : node->getChildren()){
         if (child) child->accept(this);
     }
@@ -917,11 +932,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         emitIndented("; Variable (" + node->name + ")\n");
         if (node->value){
             node->value->accept(this);
-            emitIndented("sub rsp, " + std::to_string(node->variable->sizeInBytes) + "\n");
             emitIndented("mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
         }
         else{
-            emitIndented("sub rsp, " + std::to_string(node->variable->sizeInBytes) + "\n");
             emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], 0\n");
         }
     }
