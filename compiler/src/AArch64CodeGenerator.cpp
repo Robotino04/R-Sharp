@@ -55,6 +55,7 @@ void AArch64CodeGenerator::emitIndented(std::string const& str, AArch64CodeGener
 
 int AArch64CodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
     static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
+        {RSharpPrimitiveType::C_void, 1}, // should only be used for pointer arithmetic
         {RSharpPrimitiveType::I8, 1},
         {RSharpPrimitiveType::I16, 2},
         {RSharpPrimitiveType::I32, 4},
@@ -404,12 +405,12 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
         case AstBinaryType::Add:
             emitIndented("// Add\n");
             if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype)) + "\n");
                 // x0 = x0 + (x1 * x2)
                 emitIndented("madd x0, x1, x2, x0\n");
             }
             else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype)) + "\n");
                 // x0 = x1 + (x0 * x2)
                 emitIndented("madd x0, x0, x2, x1\n");
             }
@@ -807,4 +808,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstDereference> node){
     node->operand->accept(this);
     emitIndented("// Dereference\n");
     emitIndented("ldr x0, [x0]\n");
+    int targetSize = sizeFromSemanticalType(node->semanticType);
+    emitIndented("// explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(targetSize) + " Bytes)\n");
+    emitIndented("mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
+    emitIndented("and x0, x0, x1\n");
 }

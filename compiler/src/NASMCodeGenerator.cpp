@@ -56,6 +56,7 @@ void NASMCodeGenerator::emitIndented(std::string const& str, NASMCodeGenerator::
 
 int NASMCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
     static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
+        {RSharpPrimitiveType::C_void, 1}, // should only be used for pointer arithmetic
         {RSharpPrimitiveType::I8, 1},
         {RSharpPrimitiveType::I16, 2},
         {RSharpPrimitiveType::I32, 4},
@@ -472,10 +473,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
         case AstBinaryType::Add:{
             emitIndented("; Add\n");
             if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+                emitIndented("imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype)) + "\n");
             }
             else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("imul rax, rax, " + std::to_string(sizeFromSemanticalType(node->right->semanticType)) + "\n");
+                emitIndented("imul rax, rax, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype)) + "\n");
             }
             emitIndented("add rax, rbx\n");
             break;
@@ -750,6 +751,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node){
     auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);
     emitIndented("; Dereference\n");
     emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", [rax]\n");
+    int targetSize = sizeFromSemanticalType(node->semanticType);
+    emitIndented("; explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(targetSize) + " Bytes)\n");
+    emitIndented("mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
+    emitIndented("and rax, rbx\n");
 }
 
 
