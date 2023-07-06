@@ -197,7 +197,9 @@ FILE* popen2(std::string command, Popen2Type type, int& pid){
     pid_t child_pid;
 
     int fd[2];
-    pipe(fd);
+    if(pipe(fd) == -1){
+        throw std::runtime_error("pipe() failed!");
+    }
 
     if((child_pid = fork()) == -1){
         throw std::runtime_error("fork() failed!");
