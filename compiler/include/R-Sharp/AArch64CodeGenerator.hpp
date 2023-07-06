@@ -65,6 +65,7 @@ class AArch64CodeGenerator : public AstVisitor {
         void generateFunctionProlouge();
         void generateFunctionEpilouge();
         void resetStackPointer(std::shared_ptr<AstBlock> scope);
+        void setupLocalVariables(std::shared_ptr<AstBlock> scope);
 
     private:
         std::string source_text;

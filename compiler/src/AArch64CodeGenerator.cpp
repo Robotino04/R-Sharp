@@ -120,6 +120,20 @@ void AArch64CodeGenerator::generateFunctionEpilouge(){
     
     // TODO: restore callee-saved registers
 }
+void AArch64CodeGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
+    emitIndented("// allocate local variables\n");
+    emitIndented("sub sp, sp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
+    int max_name_length = 0;
+    for (auto var : scope->variables){
+        max_name_length = std::max<int>(max_name_length, var->name.length());
+    }
+    max_name_length += 4;
+    for (auto var : scope->variables){
+        emitIndented("// " + var->name);
+        for (int i=0; i<max_name_length - var->name.length(); i++) emit(" ");
+        emit(std::to_string(std::get<int>(var->accessor)) + "\n");
+    }
+}
 void AArch64CodeGenerator::resetStackPointer(std::shared_ptr<AstBlock> scope){
     emitIndented("// Restore stack pointer to before this scope (" + scope->name + ")\n");
     emitIndented("add sp, sp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
@@ -201,6 +215,9 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
 void AArch64CodeGenerator::visit(std::shared_ptr<AstBlock> node){
     emitIndented("// Block begin (" + node->name + ")\n");
     indent();
+    
+    if (!node->isMerged) setupLocalVariables(node);
+
 
     for (auto child : node->getChildren()){
         if (child) child->accept(this);
@@ -251,6 +268,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
 
     emitIndented("// For loop\n");
     emitIndented("// For loop initialization\n");
+    setupLocalVariables(node->initializationContext);
     node->initialization->accept(this);
 
     emitIndented("// For loop\n");
@@ -791,10 +809,10 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
             emitIndented("mov x0, 0\n");
         }
         switch(node->variable->sizeInBytes){
-            case 1: emitIndented("strb w0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
-            case 2: emitIndented("strh w0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
-            case 4: emitIndented("str w0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
-            case 8: emitIndented("str x0, [sp, -" + std::to_string(node->variable->sizeInBytes) + "]!\n"); break;
+            case 1: emitIndented("strb w0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
+            case 2: emitIndented("strh w0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
+            case 4: emitIndented("str w0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
+            case 8: emitIndented("str x0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
             default:
                 Error("AArch64 Generator: Variable size ", node->variable->sizeInBytes, " not supported!");
                 printErrorToken(node->token, R_SharpSource);

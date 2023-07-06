@@ -67,6 +67,7 @@ class NASMCodeGenerator : public AstVisitor {
 
         void generateFunctionProlouge();
         void generateFunctionEpilouge();
+        void setupLocalVariables(std::shared_ptr<AstBlock> scope);
         void resetStackPointer(std::shared_ptr<AstBlock> scope);
 
         static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
