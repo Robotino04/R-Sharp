@@ -3,6 +3,14 @@
 #include <fstream>
 #include <array>
 #include <memory>
+#include <optional>
+#include <chrono>
+#include <thread>
+#include <atomic>
+
+#include <unistd.h>
+#include <signal.h>
+#include <wait.h>
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -168,6 +176,7 @@ bool validate(ExecutionResults real, ExecutionResults expected){
 struct CommandResult {
     int returnCode;
     std::string output;
+    bool wasKilled = false;
 };
 
 template<typename T>
@@ -177,21 +186,110 @@ void printBits(T const& value) {
     }
 }
 
-CommandResult exec(std::string const& cmd) {
+enum class Popen2Type{
+    Reading,
+    Writing,
+};
+
+FILE* popen2(std::string command, Popen2Type type, int& pid){
+    static const int READ = 0;
+    static const int WRITE = 1;
+    pid_t child_pid;
+
+    int fd[2];
+    pipe(fd);
+
+    if((child_pid = fork()) == -1){
+        throw std::runtime_error("fork() failed!");
+    }
+
+    /* child process */
+    if (child_pid == 0){
+        if (type == Popen2Type::Reading){
+            close(fd[READ]);    //Close the READ end of the pipe since the child's fd is write-only
+            dup2(fd[WRITE], 1); //Redirect stdout to pipe
+            close(fd[WRITE]);
+        }
+        else{
+            close(fd[WRITE]);    //Close the WRITE end of the pipe since the child's fd is read-only
+            dup2(fd[READ], 0);   //Redirect stdin to pipe
+            close(fd[READ]);
+        }
+
+        setpgid(child_pid, child_pid); //Needed so negative PIDs can kill children of /bin/sh
+        execl("/bin/sh", "sh", "-c", command.c_str(), NULL);
+        exit(127);
+    }
+    else{
+        if (type == Popen2Type::Reading){
+            close(fd[WRITE]); //Close the WRITE end of the pipe since parent's fd is read-only
+        }
+        else{
+            close(fd[READ]); //Close the READ end of the pipe since parent's fd is write-only
+        }
+    }
+
+    pid = child_pid;
+
+    if (type == Popen2Type::Reading){
+        return fdopen(fd[READ], "r");
+    }
+
+    return fdopen(fd[WRITE], "w");
+}
+
+CommandResult execute(std::string const& cmd, std::optional<std::chrono::seconds> timeout) {
     std::array<char, 128> buffer;
     CommandResult result;
 
-    auto const pcloseThatStoresTheResult = [&](FILE* f){
-        result.returnCode = (int8_t)WEXITSTATUS(pclose(f));
-    };
+    int childPid = 0;
 
-    std::unique_ptr<FILE, decltype(pcloseThatStoresTheResult)> pipe(popen((cmd + " 2>&1").c_str(), "r"), pcloseThatStoresTheResult);
+    std::unique_ptr<FILE, decltype(&fclose)> pipe(popen2(cmd + " 2>&1", Popen2Type::Reading, childPid), fclose);
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result.output += buffer.data();
+    std::cout << "Child PID is " << childPid << "\n";
+    
+    // start a timeout
+    std::atomic<bool> watchdog_stop = false;
+    std::thread timeout_watchdog([&](){
+        if (!timeout.has_value()) return;
+        auto endTime = std::chrono::system_clock::now() + timeout.value();
+
+        while (std::chrono::system_clock::now() < endTime){
+            if (watchdog_stop){
+                return;
+            }
+            // don't use 100% cpu
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+
+        if (childPid != 0){
+            // the program is probably stuck somehow. Kill it with SIGKILL.
+            std::cout << "Timeout reached. Killing with SIGKILL.\n";
+            result.wasKilled = true;
+            killpg(childPid, SIGKILL);
+        }
+        else{
+            std::cout << "Child PID is 0. Not killing.\n";
+        }
+    });
+
+    // read stdout of child
+    while (!feof(pipe.get())) {
+        if (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+            result.output += buffer.data();
+        else{
+            break;
+        }
     }
+    watchdog_stop = true;
+    timeout_watchdog.join();
+
+    int status;
+    waitpid(childPid, &status, 0);
+    result.returnCode = (int8_t)WEXITSTATUS(status);
+
     return result;
 }
 
@@ -235,14 +333,14 @@ int main(int argc, char** argv) {
     ExecutionResults realResults;
 
     std::cout << "Compiling Test Library: " << test_lib_command << "\n";
-    auto test_lib_result = exec(test_lib_command);
+    auto test_lib_result = execute(test_lib_command, std::optional<std::chrono::seconds>());
     if (test_lib_result.returnCode){
         std::cout << test_lib_result.output << "\n";
         return 1;
     }
 
     std::cout << "Compiling: " << rsharp_command << "\n";
-    auto compilerResult = exec(rsharp_command);
+    auto compilerResult = execute(rsharp_command, std::optional<std::chrono::seconds>());
 
     realResults.compilationReturnValue = compilerResult.returnCode;
 
@@ -252,9 +350,18 @@ int main(int argc, char** argv) {
             executionCommand = proxy + " " + outputFile;
         else
             executionCommand = outputFile;
-        std::cout << "Runnning: " << executionCommand << "\n";
-        auto programResult = exec(executionCommand);
-
+        
+        auto timeout = std::chrono::seconds(10);
+        std::cout << "Runnning: " << executionCommand << " (Timeout: " << timeout.count() << "s)\n";
+        auto programResult = execute(executionCommand, timeout);
+        if (programResult.output.length() > 1000){
+            std::cout << "Output is more than 1000 characters. It will be truncated!\n";
+            programResult.output = programResult.output.substr(0, 1000);
+        }
+        if (programResult.wasKilled){
+            std::cout << "Testee was killed by timeout.\nFAILED\n";
+            return 1;
+        }
 
         realResults.returnValue = programResult.returnCode;
         realResults.output = programResult.output;
