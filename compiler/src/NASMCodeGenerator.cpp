@@ -838,16 +838,17 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
         }
     }
 
-    emitIndented("; Fix stack alignment\n");
+    emitIndented("; Align to 16 bytes\n");
     emitIndented("mov rbx, rsp\n");
-    emitIndented("add rsp, 16\n");
-    emitIndented("and rsp, ~15\n");
+    emitIndented("add rsp, 15\n");
+    emitIndented("and rsp, -16\n");
+    emitIndented("sub rbx, rsp\n");
 
     emitIndented("; Function Call (" + node->name + ")\n");
     emitIndented("call " + node->function->name + "\n");
 
     emitIndented("; Reset stack alignment\n");
-    emitIndented("mov rsp, rbx\n");
+    emitIndented("add rsp, rbx\n");
 
     emitIndented("; Restore after function call (" + node->name + ")\n");
     // restore registers
