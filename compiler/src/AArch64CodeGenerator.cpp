@@ -112,13 +112,18 @@ std::string AArch64CodeGenerator::getUniqueLabel(std::string const& prefix){
 void AArch64CodeGenerator::generateFunctionProlouge(){
     emitIndented("// Create stack frame\n");
 
-    // TODO: save callee-saved registers
+    for (int i=19; i<=28; i++){
+        emitIndented("push x" + std::to_string(i) + "\n");
+    }
     emitIndented("mov fp, sp\n");
+
 }
 void AArch64CodeGenerator::generateFunctionEpilouge(){
     emitIndented("// Destroy stack frame\n");
     
-    // TODO: restore callee-saved registers
+    for (int i=28; i>=19; i--){
+        emitIndented("pop x" + std::to_string(i) + "\n");
+    }
 }
 void AArch64CodeGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
     emitIndented("// allocate local variables\n");
@@ -588,6 +593,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
             emit(", [x9]\n");
     }
     else{
+        emitIndented("sub x19, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
         emitIndented("ldr");
         switch(node->variable->sizeInBytes){
             case 1: emit("b w0"); break;
@@ -600,7 +606,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
                 exit(1);
                 break;
         }
-        emit(", [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n");
+        emit(", [x19]\n");
     }
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
@@ -624,6 +630,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
             emit(", [x9]\n");
         }
         else{
+            emitIndented("sub x19, fp, " + std::to_string(std::get<int>(var->variable->accessor)) + "\n");
             emitIndented("str");
             switch(var->variable->sizeInBytes){
                 case 1: emit("b w0"); break;
@@ -636,7 +643,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
                     exit(1);
                     break;
             }
-            emit(", [fp, -" + std::to_string(std::get<int>(var->variable->accessor)) + "]\n");
+            emit(", [x19]\n");
         }
     }
     else if(node->lvalue->getType() == AstNodeType::AstDereference){
@@ -647,15 +654,15 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
         // put the address to store to into x0
         deref->operand->accept(this);
 
-        emitIndented("mov x1, x0\n");
+        emitIndented("mov x19, x0\n");
         emitIndented("pop x0\n");
 
         auto size = sizeFromSemanticalType(deref->semanticType);
         switch(size){
-            case 1: emitIndented("strb w0, [x1]\n"); break;
-            case 2: emitIndented("strh w0, [x1]\n"); break;
-            case 4: emitIndented("str w0, [x1]\n"); break;
-            case 8: emitIndented("str x0, [x1]\n"); break;
+            case 1: emitIndented("strb w0, [x19]\n"); break;
+            case 2: emitIndented("strh w0, [x19]\n"); break;
+            case 4: emitIndented("str w0, [x19]\n"); break;
+            case 8: emitIndented("str x0, [x19]\n"); break;
             default:
                 Error("AArch64 Generator: Variable size ", size, " not supported!");
                 printErrorToken(deref->operand->token, R_SharpSource);
@@ -808,11 +815,12 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         else{
             emitIndented("mov x0, 0\n");
         }
+        emitIndented("sub x19, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
         switch(node->variable->sizeInBytes){
-            case 1: emitIndented("strb w0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
-            case 2: emitIndented("strh w0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
-            case 4: emitIndented("str w0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
-            case 8: emitIndented("str x0, [fp, -" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"); break;
+            case 1: emitIndented("strb w0, [x19]\n"); break;
+            case 2: emitIndented("strh w0, [x19]\n"); break;
+            case 4: emitIndented("str w0, [x19]\n"); break;
+            case 8: emitIndented("str x0, [x19]\n"); break;
             default:
                 Error("AArch64 Generator: Variable size ", node->variable->sizeInBytes, " not supported!");
                 printErrorToken(node->token, R_SharpSource);
