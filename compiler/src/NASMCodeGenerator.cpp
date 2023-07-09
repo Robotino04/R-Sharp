@@ -840,7 +840,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
 
     emitIndented("; Align to 16 bytes\n");
     emitIndented("mov rbx, rsp\n");
-    emitIndented("add rsp, 15\n");
+    emitIndented("sub rsp, 15\n");
     emitIndented("and rsp, -16\n");
     emitIndented("sub rbx, rsp\n");
 

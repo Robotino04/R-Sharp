@@ -7,8 +7,7 @@ putchar, getchar, malloc, memset, free @ std::libc;
 main(): i32 {
     name_buffer_length: i32 = 50;
     name: *i32 = malloc(name_buffer_length*4);
-    memset(name, 13, name_buffer_length*4);
-    name_length: i32 = 0;
+    memset(name, '_', name_buffer_length*4);
 
     // print "What is your name? "
 
@@ -31,10 +30,11 @@ main(): i32 {
     putchar('e');
     putchar('?');
     putchar(' ');
-
+    
+    name_length: i32 = 0;
     for (; name_length < name_buffer_length; name_length = name_length+1){
         *(name + name_length) = getchar();
-        if (*(name + name_length) == 10){
+        if (*(name + name_length) == '\n'){   
             break;
         }
     }
