@@ -81,6 +81,7 @@ struct SemanticVariableData{
 struct SemanticLoopData{
     std::string breakAccessString;
     std::string skipAccessString;
+    bool hasAdditionalCleanup = false;
 };
 
 struct SemanticFunctionData{

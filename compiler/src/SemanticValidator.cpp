@@ -278,6 +278,7 @@ void SemanticValidator::visit(std::shared_ptr<AstExpressionStatement> node){
 
 void SemanticValidator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    loops.top()->hasAdditionalCleanup = true;
     node->initializationContext->name = "for loop counter";
     variableContexts.back()->hasLoopCurrently = true;
     node->initializationContext->accept(this);
@@ -286,6 +287,7 @@ void SemanticValidator::visit(std::shared_ptr<AstForLoopDeclaration> node){
 }
 void SemanticValidator::visit(std::shared_ptr<AstForLoopExpression> node){
     loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    loops.top()->hasAdditionalCleanup = false;
     variableContexts.back()->hasLoopCurrently = true;
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     variableContexts.back()->hasLoopCurrently = false;
@@ -293,6 +295,7 @@ void SemanticValidator::visit(std::shared_ptr<AstForLoopExpression> node){
 }
 void SemanticValidator::visit(std::shared_ptr<AstWhileLoop> node){
     loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    loops.top()->hasAdditionalCleanup = false;
     variableContexts.back()->hasLoopCurrently = true;
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     variableContexts.back()->hasLoopCurrently = false;
@@ -300,6 +303,7 @@ void SemanticValidator::visit(std::shared_ptr<AstWhileLoop> node){
 }
 void SemanticValidator::visit(std::shared_ptr<AstDoWhileLoop> node){
     loops.push(node->loop = std::make_shared<SemanticLoopData>());
+    loops.top()->hasAdditionalCleanup = false;
     variableContexts.back()->hasLoopCurrently = true;
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     variableContexts.back()->hasLoopCurrently = false;
@@ -316,7 +320,15 @@ void SemanticValidator::visit(std::shared_ptr<AstBreak> node){
     }
     else{
         node->loop = loops.top();
-        node->containedScopes = {std::next(it.base(), 1), variableContexts.end()};
+        if (node->loop->hasAdditionalCleanup){
+            // advance by one to NOT cleanup the additional context.
+            // that is handled after the end label.
+            node->containedScopes = {std::next(it.base(), 1), variableContexts.end()};
+        }
+        else{
+            // otherwise, cleanup everything
+            node->containedScopes = {it.base(), variableContexts.end()};
+        }
     }
 }
 void SemanticValidator::visit(std::shared_ptr<AstSkip> node){
