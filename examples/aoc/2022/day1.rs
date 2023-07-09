@@ -1,7 +1,3 @@
-/*
-output: "Hello, World!\n"
-*/
-
 putchar, getchar, malloc, memset, free @ std::libc;
 
 print_number @ std::printing;
