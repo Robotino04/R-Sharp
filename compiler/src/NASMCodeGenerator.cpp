@@ -70,6 +70,16 @@ int NASMCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
         case AstNodeType::AstPointerType:{
             return 8;
         }
+        case AstNodeType::AstArrayType:{
+            auto array = std::static_pointer_cast<AstArrayType>(type);
+            if (!array->size.has_value()){
+                throw std::runtime_error("Array without size during code generation.");
+            }
+            if (array->size.value()->getType() != AstNodeType::AstInteger){
+                throw std::runtime_error("Array with non constant size during code generation.");
+            }
+            return sizeFromSemanticalType(array->subtype) * std::static_pointer_cast<AstInteger>(array->size.value())->value;
+        }
         default: throw std::runtime_error("Unimplemented type used");
     }
 }
@@ -864,10 +874,11 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     }
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
-    if (node->operand->variable->isGlobal)
-        emitIndented("lea rax, [" + std::get<std::string>(node->operand->variable->accessor) + "]\n");
+    auto opVariable = std::dynamic_pointer_cast<AstVariableAccess>(node->operand);
+    if (opVariable->variable->isGlobal)
+        emitIndented("lea rax, [" + std::get<std::string>(opVariable->variable->accessor) + "]\n");
     else
-        emitIndented("lea rax, [rbp - " + std::to_string(std::get<int>(node->operand->variable->accessor)) + "]\n");
+        emitIndented("lea rax, [rbp - " + std::to_string(std::get<int>(opVariable->variable->accessor)) + "]\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     int originSize = sizeFromSemanticalType(node->value->semanticType);
@@ -910,6 +921,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node){
     emitIndented("mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
     emitIndented("and rax, rbx\n");
 }
+void NASMCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
+    // TODO: implement
+}
 
 
 // declarations
@@ -941,12 +955,34 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     }
     else{
         emitIndented("; Variable (" + node->name + ")\n");
-        if (node->value){
-            node->value->accept(this);
-            emitIndented("mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
-        }
-        else{
-            emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], 0\n");
+        switch (node->variable->sizeInBytes){
+            case 1:
+            case 2:
+            case 4:
+            case 8:
+                if (node->value){
+                    node->value->accept(this);
+                    emitIndented("mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
+                }
+                else{
+                    emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], 0\n");
+                }
+                break;
+            
+            default:{
+                emitIndented("; Zero out " + std::to_string(sizeFromSemanticalType(node->semanticType)) + " bytes of stack space\n");
+                emitIndented("mov rax, " + std::to_string(sizeFromSemanticalType(node->semanticType)) + "\n");
+                emitIndented("mov rbx, 0\n");
+                std::string label = getUniqueLabel(".memset");
+                emitIndented(label + ":\n");
+                indent();
+                emitIndented("mov byte [rbp-" + std::to_string(std::get<int>(node->variable->accessor)) + "], al\n");
+                emitIndented("dec rax\n");
+                // emitIndented("cmp rax, 0\n");
+                emitIndented("jz " + label + "\n");
+                dedent();
+                break;
+            }
         }
     }
 }

@@ -2,6 +2,8 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Logging.hpp"
 
+#include <map>
+
 CCodeGenerator::CCodeGenerator(std::shared_ptr<AstProgram> root){
     this->root = root;
 }
@@ -43,12 +45,45 @@ void CCodeGenerator::blockNextIndentedEmit(){
     indentedEmitBlocked = true;
 }
 
+int CCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
+    static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
+        {RSharpPrimitiveType::C_void, 1}, // should only be used for pointer arithmetic
+        {RSharpPrimitiveType::I8, 1},
+        {RSharpPrimitiveType::I16, 2},
+        {RSharpPrimitiveType::I32, 4},
+        {RSharpPrimitiveType::I64, 8},
+    };
+
+    switch(type->getType()){
+        case AstNodeType::AstPrimitiveType:{
+            return primitive_sizes.at(std::static_pointer_cast<AstPrimitiveType>(type)->type);
+        }
+        case AstNodeType::AstPointerType:{
+            return 8;
+        }
+        case AstNodeType::AstArrayType:{
+            auto array = std::static_pointer_cast<AstArrayType>(type);
+            if (!array->size.has_value()){
+                throw std::runtime_error("Array without size during code generation.");
+            }
+            if (array->size.value()->getType() != AstNodeType::AstInteger){
+                throw std::runtime_error("Array with non constant size during code generation.");
+            }
+            return sizeFromSemanticalType(array->subtype) * std::static_pointer_cast<AstInteger>(array->size.value())->value;
+        }
+        default: throw std::runtime_error("Unimplemented type used");
+    }
+}
+
 void CCodeGenerator::visit(std::shared_ptr<AstProgram> node){
     for (auto& function : node->items) {
         function->accept(this);
         emit("\n");
     }
     *current_source =   "#include <stdint.h>\n\n"
+                        // "static void zero_memory_r_sharp_internal(void* address, uint64_t len){\n"
+                        // "    for (int i=0; i<len; i++){*(char*)(address + i) = 0;}\n"
+                        // "}\n\n"
                         "// ----------Declarations----------\n"
                         + source_declarations + "\n"
                         "// -----------Definitions-----------\n"
@@ -57,8 +92,9 @@ void CCodeGenerator::visit(std::shared_ptr<AstProgram> node){
 void CCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
     emit("(");
     for (auto const& parameter : node->parameters) {
+        clearTypeInformation();
         parameter->semanticType->accept(this);
-        emit(" " + parameter->name);
+        emit(getCTypeFromPreviousNode(parameter->name));
 
         if (parameter != node->parameters.back()) {
             emit(", ");
@@ -74,17 +110,17 @@ void CCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
     if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) != node->tags->tags.end()){
         emit("extern ");
     }
+    
+    clearTypeInformation();
     node->semanticType->accept(this);
-    emit(" " + node->name);
+    auto returnType = getCTypeFromPreviousNode("");
+    emit(returnType + " " + node->name);
     node->parameters->accept(this);
     emit(";\n");
 
-
-
     current_source = &source_definitions;
     if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
-        node->semanticType->accept(this);
-        emit(" " + node->name);
+        emit(returnType + " " + node->name);
         node->parameters->accept(this);
 
         node->body->accept(this);
@@ -198,9 +234,6 @@ void CCodeGenerator::visit(std::shared_ptr<AstBreak> node){
 void CCodeGenerator::visit(std::shared_ptr<AstSkip> node){
     emitIndented("continue;");
 }
-void CCodeGenerator::visit(std::shared_ptr<AstErrorStatement> node){
-    emitIndented("// Error(\"" + node->name + "\");");
-}
 
 // Expressions
 void CCodeGenerator::visit(std::shared_ptr<AstInteger> node){
@@ -312,13 +345,16 @@ void CCodeGenerator::visit(std::shared_ptr<AstAddressOf> node) {
 
 // Declarations
 void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
-    emitIndented("");
+    clearTypeInformation();
     node->semanticType->accept(this);
-    emit(" " + node->name);
+    emitIndented(getCTypeFromPreviousNode(node->name));
     if (node->value){
         emit(" = ");
         node->value->accept(this);
     }
+    // else{
+    //     emit("; zero_memory_r_sharp_internal(&" + node->name + ", " + std::to_string(sizeFromSemanticalType(node->semanticType)) + ")");
+    // }
     emit(";");
 }
 
@@ -329,9 +365,18 @@ void CCodeGenerator::visit(std::shared_ptr<AstDereference> node){
     emit("*");
     node->operand->accept(this);
 }
+void CCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
+    emit("(");
+    node->array->accept(this);
+    emit(")[");
+    node->index->accept(this);
+    emit("]");
+}
 void CCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     emit("((");
+    clearTypeInformation();
     node->semanticType->accept(this);
+    emit(getCTypeFromPreviousNode(""));
     emit(")(");
     node->value->accept(this);
     emit("))");
@@ -340,11 +385,11 @@ void CCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
 
 void CCodeGenerator::visit(std::shared_ptr<AstPrimitiveType> node){
     switch (node->type){
-        case RSharpPrimitiveType::I8: emit("int8_t"); break;
-        case RSharpPrimitiveType::I16: emit("int16_t"); break;
-        case RSharpPrimitiveType::I32: emit("int32_t"); break;
-        case RSharpPrimitiveType::I64: emit("int64_t"); break;
-        case RSharpPrimitiveType::C_void: emit("void"); break;
+        case RSharpPrimitiveType::I8: leftTypeInformation += "int8_t"; break;
+        case RSharpPrimitiveType::I16: leftTypeInformation += "int16_t"; break;
+        case RSharpPrimitiveType::I32: leftTypeInformation += "int32_t"; break;
+        case RSharpPrimitiveType::I64: leftTypeInformation += "int64_t"; break;
+        case RSharpPrimitiveType::C_void: leftTypeInformation += "void"; break;
 
         default:
             Fatal("Unimplemented type Nr.", static_cast<int>(node->type));
@@ -353,5 +398,25 @@ void CCodeGenerator::visit(std::shared_ptr<AstPrimitiveType> node){
 }
 void CCodeGenerator::visit(std::shared_ptr<AstPointerType> node){
     node->subtype->accept(this);
-    emit("*");
+    if (middleTypeInformation.length() != 0){
+        middleTypeInformation =+ "*";
+        return;
+    }
+
+    if (rightTypeInformation.length() != 0){
+        middleTypeInformation =+ "*";
+        return;
+    }
+
+    leftTypeInformation += "*";
+}
+
+void CCodeGenerator::visit(std::shared_ptr<AstArrayType> node) {
+    node->subtype->accept(this);
+    
+    rightTypeInformation += "[";
+    if (node->size.has_value()){
+        rightTypeInformation += std::to_string(std::dynamic_pointer_cast<AstInteger>(node->size.value())->value);
+    }
+    rightTypeInformation += "]";
 }

@@ -25,7 +25,6 @@ statement = return
           | skip
           | if;
 
-functionCall = identifier, "(", [expression, {",", expression}], ")";
 
 possible_tag_values = "extern";
 tags = [ "[", possible_tag_values, {",", possible_tag_values}, "]", ];
@@ -35,28 +34,29 @@ elif = 'elif', "(", expression, ")", statement;
 else = 'else', statement;
 
 expression = assignment | conditionalExp;
+assignment = prefixExp, "=", expression;
 conditionalExp = logicalOrExp, ["?", expression ":" expression];
 logicalOrExp = logicalAndExp, {"||", logicalAndExp};
 logicalAndExp = equalityExp, {"&&", equalityExp};
 equalityExp = relationalExp, {("==" | "!="), relationalExp};
 relationalExp = additiveExp, {("<" | ">" | "<=" | ">="), additiveExp};
-additiveExp = term, {("+" | "-"), term};
-term = factor, {("*" | "/" | "%"), factor};
-factor = ("(", expression, ")") | number | (("-" | "~" | "!"), factor) | lvalue | functionCall | address_of | character_literal;
+additiveExp = multiplicativeExp, {("+" | "-"), multiplicativeExp};
+multiplicativeExp = prefixExp, {("*" | "/" | "%"), prefixExp};
+prefixExp = {"-" | "~" | "!" | "$" | "*"}, postfixExp;
+postfixExp =  (primaryExp, { '[', expression, ']' }) | functionCall;
+primaryExp = "(", expression, ")" | character_literal | number | identifier;
 
-address_of = '$', identifier;
 
-lvalue = identifier | dereference;
-dereference = '*', factor;
-
+functionCall = identifier, "(", [expression, {",", expression}], ")";
 character_literal = ''', character, ''';
 
-type = "i8" | "i16" | "i32" | "i64" | "c_void" | pointer;
+type = "i8" | "i16" | "i32" | "i64" | "c_void" | pointer | unsized_array | sized_array;
 pointer = '*', type;
+sized_array = '[', type, ',', number, ']';
+unsized_array = '[', type, ']';
 
 parameterList = identifier, ":", type {",", identifier, ":", type };
 
 variableDeclaration = identifier, ":", type, ["=", expression] ";";
-assignment = lvalue, "=", expression;
 
 identifier = ("_" | letter), {"_" | letter | digit};

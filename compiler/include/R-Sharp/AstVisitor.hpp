@@ -4,13 +4,17 @@
 
 #include <memory>
 
-#define VISITOR_FN(NAME) virtual void visit(std::shared_ptr<NAME> node);
+#define VISITOR_FN(NAME) virtual void visit(std::shared_ptr<NAME> node) {visit(std::dynamic_pointer_cast<AstNode>(node));}
 
 class AstVisitor {
 public:
     virtual ~AstVisitor() = default;
 
-    virtual void visit(std::shared_ptr<AstNode> node);
+    virtual void visit(std::shared_ptr<AstNode> node) {
+        for (auto& child : node->getChildren()) {
+            if (child) child->accept(this);
+        }
+    }
 
     VISITOR_FN(AstProgram);
     
@@ -42,11 +46,13 @@ public:
     VISITOR_FN(AstFunctionCall);
     VISITOR_FN(AstAddressOf);
 
-    VISITOR_FN(AstDereference);
     VISITOR_FN(AstTypeConversion);
+    VISITOR_FN(AstDereference);
+    VISITOR_FN(AstArrayAccess);
     
     VISITOR_FN(AstVariableDeclaration);
     VISITOR_FN(AstPointerType);
+    VISITOR_FN(AstArrayType);
     VISITOR_FN(AstPrimitiveType);
 
     VISITOR_FN(AstTags);

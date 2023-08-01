@@ -106,21 +106,21 @@ class Parser{
         std::shared_ptr<AstExpression> parseEqualityExp();
         std::shared_ptr<AstExpression> parseRelationalExp();
         std::shared_ptr<AstExpression> parseAdditiveExp();
-        std::shared_ptr<AstExpression> parseTerm();
-        std::shared_ptr<AstExpression> parseFactor();
-        std::shared_ptr<AstExpression> parseNumber();
-        std::shared_ptr<AstAssignment> parseAssignment();
-        std::shared_ptr<AstFunctionCall> parseFunctionCall();
-        std::shared_ptr<AstAddressOf> parseAstAddressOf();
-        std::shared_ptr<AstInteger> parseCharacterLiteral();
+        std::shared_ptr<AstExpression> parseMultiplicativeExp();
+        std::shared_ptr<AstExpression> parsePrefixExp();
+        std::shared_ptr<AstExpression> parsePostfixExp();
+        std::shared_ptr<AstExpression> parsePrimaryExp();
 
-        std::shared_ptr<AstLValue> parseLValue();
-        std::shared_ptr<AstVariableAccess> parseVariableAccess();
-        std::shared_ptr<AstDereference> parseDereference();
+
+        std::shared_ptr<AstAssignment> parseAssignment();
+        
+        std::shared_ptr<AstExpression> parseNumber();
+        std::shared_ptr<AstFunctionCall> parseFunctionCall();
+        std::shared_ptr<AstInteger> parseCharacterLiteral();
 
         std::shared_ptr<AstVariableDeclaration> parseVariableDeclaration();
 
-
+        std::shared_ptr<AstArrayType> parseArrayType();
         std::shared_ptr<AstType> parseType();
         std::shared_ptr<AstTags> parseTags();
 

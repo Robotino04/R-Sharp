@@ -69,6 +69,16 @@ int AArch64CodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
         case AstNodeType::AstPointerType:{
             return 8;
         }
+        case AstNodeType::AstArrayType:{
+            auto array = std::static_pointer_cast<AstArrayType>(type);
+            if (!array->size.has_value()){
+                throw std::runtime_error("Array without size during code generation.");
+            }
+            if (array->size.value()->getType() != AstNodeType::AstInteger){
+                throw std::runtime_error("Array with non constant size during code generation.");
+            }
+            return sizeFromSemanticalType(array->subtype) * std::static_pointer_cast<AstInteger>(array->size.value())->value;
+        }
         default: throw std::runtime_error("Unimplemented type used");
     }
 }
@@ -731,12 +741,13 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     emitIndented("ldp x29, x30, [sp], 16\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
-    emitIndented("// addres of (" + node->operand->name + ")\n");
-    if (node->operand->variable->isGlobal){
-        emitIndented("ldr x0, =" + std::get<std::string>(node->operand->variable->accessor) + "\n");
+    auto operandAsVarAccess = std::dynamic_pointer_cast<AstVariableAccess>(node->operand);
+    emitIndented("// addres of (" + operandAsVarAccess->name + ")\n");
+    if (operandAsVarAccess->variable->isGlobal){
+        emitIndented("ldr x0, =" + std::get<std::string>(operandAsVarAccess->variable->accessor) + "\n");
     }
     else{
-        emitIndented("sub x0, fp, " + std::to_string(std::get<int>(node->operand->variable->accessor)) + "\n");
+        emitIndented("sub x0, fp, " + std::to_string(std::get<int>(operandAsVarAccess->variable->accessor)) + "\n");
     }
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
@@ -822,9 +833,16 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
             case 4: emitIndented("str w0, [x19]\n"); break;
             case 8: emitIndented("str x0, [x19]\n"); break;
             default:
-                Error("AArch64 Generator: Variable size ", node->variable->sizeInBytes, " not supported!");
-                printErrorToken(node->token, R_SharpSource);
-                exit(1);
+                emitIndented("// Zero out " + std::to_string(sizeFromSemanticalType(node->semanticType)) + " bytes of stack space\n");
+                emitIndented("mov x0, " + std::to_string(sizeFromSemanticalType(node->semanticType)) + "\n");
+                emitIndented("mov x1, 0\n");
+                std::string label = getUniqueLabel(".memset");
+                emitIndented(label + ":\n");
+                indent();
+                emitIndented("sub x19, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
+                emitIndented("strb w1, [x19]\n");
+                emitIndented("cbz x0, " + label + "\n");
+                dedent();
                 break;
         }
     }

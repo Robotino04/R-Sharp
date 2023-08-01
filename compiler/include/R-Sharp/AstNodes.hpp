@@ -9,6 +9,7 @@
 #include <string>
 #include <memory>
 #include <variant>
+#include <optional>
 
 template<typename... Args>
 std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
@@ -321,7 +322,7 @@ struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAss
     GET_SINGLE_CHILDREN(rvalue, lvalue)
     TO_STRING(AstAssignment)
 
-    SINGLE_CHILD(AstLValue, lvalue)
+    SINGLE_CHILD(AstExpression, lvalue)
     SINGLE_CHILD(AstExpression, rvalue)
 };
 
@@ -419,35 +420,41 @@ struct AstTypeConversion : public AstExpression, public std::enable_shared_from_
 
 struct AstAddressOf : public AstExpression, public std::enable_shared_from_this<AstAddressOf> {
     BASE(AstAddressOf)
-    AstAddressOf(std::shared_ptr<AstVariableAccess> operand): operand(operand) {}
+    AstAddressOf(std::shared_ptr<AstExpression> operand): operand(operand) {}
 
-    TO_STRING_NAME(AstAddressOf)
+    TO_STRING(AstAddressOf)
 
     GET_SINGLE_CHILDREN(operand)
 
-    SINGLE_CHILD(AstVariableAccess, operand)
+    SINGLE_CHILD(AstExpression, operand)
 };
 
-struct AstLValue : public virtual AstExpression{
-    DESTRUCTOR(AstLValue)
-};
-
-struct AstVariableAccess : public AstLValue, public std::enable_shared_from_this<AstVariableAccess> {
+struct AstVariableAccess : public AstExpression, public std::enable_shared_from_this<AstVariableAccess> {
     BASE(AstVariableAccess)
     TO_STRING_NAME(AstVariableAccess)
 
     std::shared_ptr<SemanticVariableData> variable;
 };
 
-struct AstDereference : public AstLValue, public std::enable_shared_from_this<AstDereference> {
+struct AstDereference : public AstExpression, public std::enable_shared_from_this<AstDereference> {
     BASE(AstDereference)
     AstDereference(std::shared_ptr<AstExpression> operand): operand(operand) {}
 
-    TO_STRING_NAME(AstDereference)
+    TO_STRING(AstDereference)
 
     GET_SINGLE_CHILDREN(operand)
 
     SINGLE_CHILD(AstExpression, operand)
+};
+
+struct AstArrayAccess : public AstExpression, public std::enable_shared_from_this<AstArrayAccess> {
+    BASE(AstArrayAccess)
+    TO_STRING(AstArrayAccess)
+
+    GET_SINGLE_CHILDREN(array, index)
+
+    SINGLE_CHILD(AstExpression, array)
+    SINGLE_CHILD(AstExpression, index)
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
@@ -501,6 +508,42 @@ struct AstPointerType : public AstType, public std::enable_shared_from_this<AstP
     std::shared_ptr<AstType> subtype;
 };
 
+struct AstArrayType : public AstType, public std::enable_shared_from_this<AstArrayType>{
+    AstArrayType(std::shared_ptr<AstType> subtype): subtype(subtype) {};
+
+
+    BASE(AstArrayType);
+    std::string toString() const override{
+        if (size.has_value()){
+            if (size.value()->getType() != AstNodeType::AstInteger){
+                return "Array of unknown size of: " + subtype->toString();
+            }
+            else{
+                return "Array of size " + std::to_string(std::static_pointer_cast<AstInteger>(size.value())->value) + " of: " + subtype->toString();
+            }
+        }
+        else {
+            return "Unsized array of: " + subtype->toString();
+        }
+    }
+
+    
+    bool isErrorType() override{
+        return subtype->isErrorType() || (size.has_value() && size.value()->getType() != AstNodeType::AstInteger);
+    }
+    
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
+        if (size.has_value()){
+            return combineChildren(subtype, size.value());
+        }
+        else
+            return combineChildren(subtype);
+    }
+    
+    std::shared_ptr<AstType> subtype;
+    std::optional<std::shared_ptr<AstExpression>> size;
+};
+
 
 struct AstTags : public AstNode, public std::enable_shared_from_this<AstTags>{
     BASE(AstTags);
@@ -513,7 +556,7 @@ struct AstTags : public AstNode, public std::enable_shared_from_this<AstTags>{
                 default: str += "[unknown tag]"; break;
             }
         }
-        return str.substr(0, str.length()-3);
+        return str.substr(0, str.length()-2);
     }
     
     enum class Value{

@@ -40,11 +40,13 @@ enum class AstNodeType {
     AstDereference,
     AstTypeConversion,
     AstAddressOf,
+    AstArrayAccess,
     
 
     AstVariableDeclaration,
     AstPrimitiveType,
     AstPointerType,
+    AstArrayType,
     AstTags,
 };
 
@@ -87,6 +89,7 @@ struct AstEmptyExpression;
 struct AstFunctionCall;
 struct AstTypeConversion;
 struct AstAddressOf;
+struct AstArrayAccess;
 
 struct AstLValue;
 struct AstDereference;
@@ -96,6 +99,7 @@ struct AstVariableDeclaration;
 struct AstParameterList;
 struct AstType;
 struct AstPointerType;
+struct AstArrayType;
 struct AstPrimitiveType;
 struct AstTags;
 

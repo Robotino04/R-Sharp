@@ -341,8 +341,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::cout << "Compiling: " << rsharp_command << "\n";
-    auto compilerResult = execute(rsharp_command, std::optional<std::chrono::seconds>());
+    auto timeout = std::chrono::seconds(10);
+    std::cout << "Compiling: " << rsharp_command << " (Timeout: " << timeout.count() << "s)\n";
+    auto compilerResult = execute(rsharp_command, timeout);
+    if (compilerResult.wasKilled){
+        std::cout << "Compiler was killed by timeout.\nFAILED\n";
+        return 1;
+    }
 
     realResults.compilationReturnValue = compilerResult.returnCode;
 

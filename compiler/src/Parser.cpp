@@ -148,13 +148,12 @@ std::shared_ptr<AstProgram> Parser::parseProgram() {
 // program items
 std::shared_ptr<AstProgramItem> Parser::parseProgramItem(){
     try{
-        try{
-            TokenRestorer _(*this);
+        if (match({TokenType::Identifier, TokenType::Colon})){
             return parseGlobalVariableDefinition();
         }
-        catch(ParsingError const& e){}
-
-        return parseFunctionDefinition();
+        else{
+            return parseFunctionDefinition();
+        }
     }
     catch(ParsingError const& e){
         hasError = true;
@@ -599,66 +598,114 @@ std::shared_ptr<AstExpression> Parser::parseRelationalExp() {
     return additiveExp;
 }
 std::shared_ptr<AstExpression> Parser::parseAdditiveExp() {
-    auto term = parseTerm();
+    auto term = parseMultiplicativeExp();
 
     while (matchAny({TokenType::Plus, TokenType::Minus})) {
         Token operatorToken = consumeAnyOne({TokenType::Plus, TokenType::Minus});
-        auto next_term = parseTerm();
+        auto next_term = parseMultiplicativeExp();
 
         term = std::make_shared<AstBinary>(term, toBinaryOperator(operatorToken.type), next_term);
         term->token = operatorToken;
     }
     return term;
 }
-std::shared_ptr<AstExpression> Parser::parseTerm() {
-    auto factor = parseFactor();
+std::shared_ptr<AstExpression> Parser::parseMultiplicativeExp() {
+    auto factor = parsePrefixExp();
 
     while (matchAny({TokenType::Star, TokenType::Slash, TokenType::Percent})) {
         Token operatorToken = consumeAnyOne({TokenType::Star, TokenType::Slash, TokenType::Percent});
-        auto next_factor = parseFactor();
+        auto next_factor = parsePrefixExp();
 
         factor = std::make_shared<AstBinary>(factor, toBinaryOperator(operatorToken.type), next_factor);
         factor->token = operatorToken;
     }
     return factor;
 }
-std::shared_ptr<AstExpression> Parser::parseFactor() {
+std::shared_ptr<AstExpression> Parser::parsePrefixExp(){
+
+    std::vector<Token> operators;
+
+    while (matchAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde, TokenType::DollarSign, TokenType::Star})) {
+        operators.push_back(consume());
+    }
+
+    auto exp = parsePostfixExp();
+
+    for (auto it = operators.rbegin(); it != operators.rend(); it++){
+        switch(it->type){
+            case TokenType::Bang:
+            case TokenType::Minus:
+            case TokenType::Tilde:{
+                exp = std::make_shared<AstUnary>(toUnaryOperator(it->type), exp);
+                exp->token = *it;
+                break;
+            }
+            case TokenType::DollarSign:{
+                exp = std::make_shared<AstAddressOf>(exp);
+                exp->token = *it;
+                break;
+            }
+            case TokenType::Star:{
+                exp = std::make_shared<AstDereference>(exp);
+                exp->token = *it;
+                break;
+            }
+            default:
+                parserError("Expected prefix operator, but got ", it->toString());
+                break;
+        }
+    }
+
+    return exp;
+}
+
+std::shared_ptr<AstExpression> Parser::parsePostfixExp(){
+    if (match({TokenType::Identifier, TokenType::LeftParen})){
+        return parseFunctionCall();
+    }
+
+    auto exp = parsePrimaryExp();
+
+    while (match(TokenType::LeftBracket)) {
+        Token operatorToken = consume(TokenType::LeftBracket);
+        auto next_exp = std::make_shared<AstArrayAccess>();
+        next_exp->token = operatorToken;
+        next_exp->array = exp;
+        next_exp->index = parseExpression();
+        consume(TokenType::RightBracket);
+
+        exp = next_exp;
+    }
+
+    return exp;
+}
+
+std::shared_ptr<AstExpression> Parser::parsePrimaryExp() {
     if (match(TokenType::LeftParen)) {
         consume(TokenType::LeftParen);
         auto expression = parseExpression();
         consume(TokenType::RightParen);
         return expression;
     }
-    else if (matchAny({TokenType::Bang, TokenType::Minus, TokenType::Tilde})) {
-        Token operatorToken = consumeAnyOne({TokenType::Bang, TokenType::Minus, TokenType::Tilde});
-        auto factor = parseFactor();
-        auto unary = std::make_shared<AstUnary>(toUnaryOperator(operatorToken.type), factor);
-        unary->token = operatorToken;
-        return unary;
-    }
     else if (match(TokenType::Number))
         return parseNumber();
-    else if (match({TokenType::ID, TokenType::LeftParen}))
-        return parseFunctionCall();
-    else if (matchAny({TokenType::ID, TokenType::Star}))
-        return parseLValue();
-    else if (match(TokenType::DollarSign)){
-        return parseAstAddressOf();
-    }
     else if (match(TokenType::CharacterLiteral)){
-        try{
-            TokenRestorer _(*this);
-            return parseCharacterLiteral();
-        }
-        catch(ParsingError& e){
-            throw;
-        }
+        TokenRestorer _(*this);
+        return parseCharacterLiteral();
+    }
+    else if (match(TokenType::Identifier)){
+        auto varAccess = std::make_shared<AstVariableAccess>();
+        varAccess->token = consume(TokenType::Identifier);
+        varAccess->name = varAccess->token.value;
+        return varAccess;
     }
     else{
-        parserError("Expected expression but got ", getCurrentToken().toString());
+        parserError("Expected primary expression but got ", getCurrentToken().toString());
         return nullptr;
     }
 }
+
+
 std::shared_ptr<AstExpression> Parser::parseNumber() {
     std::shared_ptr<AstInteger> number = std::make_shared<AstInteger>(consume(TokenType::Number));
     try{
@@ -674,22 +721,10 @@ std::shared_ptr<AstExpression> Parser::parseNumber() {
     number->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64);
     return number;
 }
-std::shared_ptr<AstLValue> Parser::parseLValue(){
-    if (match(TokenType::Identifier)){
-        return parseVariableAccess();
-    }
-    else if (match(TokenType::Star)){
-        return parseDereference();
-    }
-    else{
-        parserError("Expected lvalue but got ", getCurrentToken().toString());
-        return nullptr;
-    }
-}
 
 std::shared_ptr<AstAssignment> Parser::parseAssignment() {
     std::shared_ptr<AstAssignment> assignment = std::make_shared<AstAssignment>();
-    assignment->lvalue = parseLValue();
+    assignment->lvalue = parsePrefixExp();
     assignment->token = consume(TokenType::Assign);
     assignment->rvalue = parseExpression();
     return assignment;
@@ -709,25 +744,7 @@ std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
     consume(TokenType::RightParen);
     return functionCall;
 }
-std::shared_ptr<AstAddressOf> Parser::parseAstAddressOf(){
-    std::shared_ptr<AstAddressOf> address_of = std::make_shared<AstAddressOf>(consume(TokenType::DollarSign));
-    address_of->operand = parseVariableAccess();
-    return address_of;
-}
 
-
-std::shared_ptr<AstVariableAccess> Parser::parseVariableAccess() {
-    std::shared_ptr<AstVariableAccess> variableAccess = std::make_shared<AstVariableAccess>(consume(TokenType::ID));
-    variableAccess->name = variableAccess->token.value;
-    return variableAccess;
-}
-
-std::shared_ptr<AstDereference> Parser::parseDereference(){
-    auto tok = consume(TokenType::Star);
-    auto lvalue = std::make_shared<AstDereference>(parseFactor());
-    lvalue->token = tok;
-    return lvalue;
-}
 std::shared_ptr<AstInteger> Parser::parseCharacterLiteral(){
     auto tok = consume(TokenType::CharacterLiteral);
 
@@ -774,6 +791,17 @@ std::shared_ptr<AstVariableDeclaration> Parser::parseVariableDeclaration() {
     return variable;
 }
 
+std::shared_ptr<AstArrayType> Parser::parseArrayType(){
+    auto leftBracket = consume(TokenType::LeftBracket);
+    auto array = std::make_shared<AstArrayType>(parseType());
+    array->token = leftBracket;
+    if (match(TokenType::Comma)){
+        consume(TokenType::Comma);
+        array->size = parseNumber();
+    }
+    consume(TokenType::RightBracket);
+    return array;
+}
 
 std::shared_ptr<AstType> Parser::parseType() {
     if (match(TokenType::Typename)) {
@@ -792,8 +820,11 @@ std::shared_ptr<AstType> Parser::parseType() {
         pointer->token = star;
         return pointer;
     }
+    else if (match(TokenType::LeftBracket)){
+        return parseArrayType();
+    }
     else {
-        parserError("Expected typename or '*' (pointer) but got ", getCurrentToken().toString());
+        parserError("Expected typename, '*' (pointer) or '[' (array) but got ", getCurrentToken().toString());
         return nullptr;
     }
 }

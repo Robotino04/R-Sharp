@@ -451,6 +451,30 @@ void SemanticValidator::visit(std::shared_ptr<AstDereference> node){
         node->semanticType = std::static_pointer_cast<AstPointerType>(node->operand->semanticType)->subtype;
     }
 }
+void SemanticValidator::visit(std::shared_ptr<AstArrayAccess> node) {
+    node->array->accept(this);
+    node->index->accept(this);
+
+    if (node->array->semanticType->getType() != AstNodeType::AstArrayType){
+        hasError = true;
+        Error("Can only index into array, but got ", node->array->semanticType->toString(), "\n");
+        printErrorToken(node->array->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+
+    if (node->array->getType() != AstNodeType::AstVariableAccess){
+        hasError = true;
+        Error("Indexing into ", node->array->toString(), " is not currently supported\n");
+        printErrorToken(node->array->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+
+    node->semanticType = std::dynamic_pointer_cast<AstArrayType>(node->array->semanticType)->subtype;
+}
+
+
 void SemanticValidator::visit(std::shared_ptr<AstAssignment> node){
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
     if (node->lvalue->getType() == AstNodeType::AstVariableAccess){
@@ -568,6 +592,12 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionCall> node){
 
 void SemanticValidator::visit(std::shared_ptr<AstAddressOf> node) {
     node->operand->accept(this);
+    if (node->operand->getType() != AstNodeType::AstVariableAccess){
+        hasError = true;
+        Error("Tried to get address of non-variable.\n");
+        printErrorToken(node->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+    }
     node->semanticType = std::make_shared<AstPointerType>(node->operand->semanticType);
 }
 
@@ -585,5 +615,40 @@ void SemanticValidator::visit(std::shared_ptr<AstFunctionDefinition> node){
         forceContextCollapse();
         node->body->accept(this);
         // the parameterContext will have been popped because it's collapsed
+    }
+    else{
+        // extern functions don't have a body that does the cleanup.
+        popContext();
+    }
+}
+
+void SemanticValidator::visit(std::shared_ptr<AstArrayType> node){
+    AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
+    if (node->subtype->getType() == AstNodeType::AstPrimitiveType && std::static_pointer_cast<AstPrimitiveType>(node->subtype)->type == RSharpPrimitiveType::C_void){
+        hasError = true;
+        Error("Arrays cannot contain the type c_void.");
+        printErrorToken(node->semanticType->token, source);
+        return;
+    }
+
+    if (node->size.has_value()){
+        if (node->size.value()->getType() != AstNodeType::AstInteger){
+            hasError = true;
+            Error("Sized arrays must have a size known at compile-time (currently only integer literals).");
+            printErrorToken(node->size.value()->token, source);
+            return;
+        }
+        if (std::static_pointer_cast<AstInteger>(node->size.value())->value <= 0){
+            hasError = true;
+            Error("Sized arrays must have a positive, non-zero size.");
+            printErrorToken(node->size.value()->token, source);
+            return;
+        }
+    }
+    else{
+        hasError = true;
+        Error("Unsized arrays must be assigned an array literal.");
+        printErrorToken(node->token, source);
+        return;
     }
 }

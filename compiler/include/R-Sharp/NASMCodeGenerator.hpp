@@ -40,11 +40,12 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstEmptyExpression> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
-        void visit(std::shared_ptr<AstAddressOf> node);
-        void visit(std::shared_ptr<AstTypeConversion> node);
+        void visit(std::shared_ptr<AstAddressOf> node) override;
+        void visit(std::shared_ptr<AstTypeConversion> node) override;
 
         void visit(std::shared_ptr<AstVariableAccess> node) override;
         void visit(std::shared_ptr<AstDereference> node) override;
+        void visit(std::shared_ptr<AstArrayAccess> node) override;
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
 
