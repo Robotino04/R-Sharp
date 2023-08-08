@@ -29,6 +29,7 @@ enum class AstNodeType {
     AstBreak,
     AstSkip,
 
+    AstArrayLiteral,
     AstVariableAccess,
     AstAssignment,
     AstUnary,
@@ -80,6 +81,7 @@ struct AstDoWhileLoop;
 struct AstBreak;
 struct AstSkip;
 
+struct AstArrayLiteral;
 struct AstUnary;
 struct AstBinary;
 struct AstInteger;

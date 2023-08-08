@@ -80,14 +80,20 @@ void CCodeGenerator::visit(std::shared_ptr<AstProgram> node){
         function->accept(this);
         emit("\n");
     }
-    *current_source =   "#include <stdint.h>\n\n"
-                        // "static void zero_memory_r_sharp_internal(void* address, uint64_t len){\n"
-                        // "    for (int i=0; i<len; i++){*(char*)(address + i) = 0;}\n"
-                        // "}\n\n"
-                        "// ----------Declarations----------\n"
-                        + source_declarations + "\n"
-                        "// -----------Definitions-----------\n"
-                        + source_definitions;
+    *current_source = 
+R"(#include <stdint.h>
+
+
+static void zero_memory_r_sharp_internal(void* address, uint64_t len){
+    extern void* memset(void*, int, int64_t);
+    memset(address, 0, len);
+}
+
+// ----------Declarations----------
+)"
+    + source_declarations + "\n"
+    "// -----------Definitions-----------\n"
+    + source_definitions;
 }
 void CCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
     emit("(");
@@ -145,7 +151,20 @@ void CCodeGenerator::visit(std::shared_ptr<AstReturn> node){
 }
 void CCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
     emitIndented("");
-    node->expression->accept(this);
+
+    if (node->expression->getType() == AstNodeType::AstArrayLiteral){
+        emit("((");
+        clearTypeInformation();
+        node->expression->semanticType->accept(this);
+        emit(getCTypeFromPreviousNode(""));
+        emit(")");
+        node->expression->accept(this);
+        emit(")");
+    }
+    else{
+        node->expression->accept(this);
+    }
+
     emit(";");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
@@ -238,6 +257,17 @@ void CCodeGenerator::visit(std::shared_ptr<AstSkip> node){
 // Expressions
 void CCodeGenerator::visit(std::shared_ptr<AstInteger> node){
     emit(std::to_string(node->value));
+}
+void CCodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
+    node->semanticType->accept(this);
+    emit("{");
+    bool isFirstIteration = true;
+    for (auto element : node->elements){
+        if (!isFirstIteration) emit(",");
+        element->accept(this);
+        isFirstIteration = false;
+    }
+    emit("}");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstUnary> node){
     emit("(");
@@ -352,9 +382,14 @@ void CCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         emit(" = ");
         node->value->accept(this);
     }
-    // else{
-    //     emit("; zero_memory_r_sharp_internal(&" + node->name + ", " + std::to_string(sizeFromSemanticalType(node->semanticType)) + ")");
-    // }
+    else{
+        if (!node->variable->isGlobal){
+            emit("; zero_memory_r_sharp_internal(&" + node->name + ", " + std::to_string(sizeFromSemanticalType(node->semanticType)) + ")");
+        }
+        else{
+            // the varible will live in the BSS section that is zero from the beginning
+        }
+    }
     emit(";");
 }
 
@@ -366,11 +401,24 @@ void CCodeGenerator::visit(std::shared_ptr<AstDereference> node){
     node->operand->accept(this);
 }
 void CCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
-    emit("(");
-    node->array->accept(this);
-    emit(")[");
-    node->index->accept(this);
-    emit("]");
+    if (node->array->getType() == AstNodeType::AstArrayLiteral){
+        emit("((");
+        clearTypeInformation();
+        node->array->semanticType->accept(this);
+        emit(getCTypeFromPreviousNode(""));
+        emit(")");
+        node->array->accept(this);
+        emit(")[");
+        node->index->accept(this);
+        emit("]");
+    } 
+    else{
+        emit("(");
+        node->array->accept(this);
+        emit(")[");
+        node->index->accept(this);
+        emit("]");
+    }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     emit("((");
@@ -414,9 +462,12 @@ void CCodeGenerator::visit(std::shared_ptr<AstPointerType> node){
 void CCodeGenerator::visit(std::shared_ptr<AstArrayType> node) {
     node->subtype->accept(this);
     
-    rightTypeInformation += "[";
+    std::string insertedTypeInfo = "";
+    insertedTypeInfo += "[";
     if (node->size.has_value()){
-        rightTypeInformation += std::to_string(std::dynamic_pointer_cast<AstInteger>(node->size.value())->value);
+        insertedTypeInfo += std::to_string(std::dynamic_pointer_cast<AstInteger>(node->size.value())->value);
     }
-    rightTypeInformation += "]";
+    insertedTypeInfo += "]";
+
+    rightTypeInformation = insertedTypeInfo + rightTypeInformation;
 }

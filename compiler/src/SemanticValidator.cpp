@@ -3,6 +3,8 @@
 #include "R-Sharp/Utils.hpp"
 
 #include <sstream>
+#include <set>
+#include <queue>
 
 SemanticValidator::SemanticValidator(std::shared_ptr<AstNode> root, std::string const& filename, std::string const& source){
     this->root = root;
@@ -136,6 +138,22 @@ bool isEqualTypeInSharedPointer (std::shared_ptr<AstType> a, std::shared_ptr<Ast
     switch(a->getType()){
         case AstNodeType::AstPrimitiveType: return std::static_pointer_cast<AstPrimitiveType>(a)->type == std::static_pointer_cast<AstPrimitiveType>(b)->type;
         case AstNodeType::AstPointerType: return isEqualTypeInSharedPointer(std::static_pointer_cast<AstPointerType>(a)->subtype, std::static_pointer_cast<AstPointerType>(b));
+        
+        case AstNodeType::AstArrayType:{
+            auto A = std::dynamic_pointer_cast<AstArrayType>(a);
+            auto B = std::dynamic_pointer_cast<AstArrayType>(b);
+            if (!A->size.has_value()){
+                return false;
+            }
+            if (!B->size.has_value()){
+                return false;
+            }
+
+            if (std::dynamic_pointer_cast<AstInteger>(A->size.value())->value != std::dynamic_pointer_cast<AstInteger>(B->size.value())->value){
+                return false;
+            }
+            return true;
+        }
         default: throw std::runtime_error("Unknown type to test equality");
     }
 }
@@ -188,7 +206,28 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
             else {
                 return false;
             }
+        }
+        case AstNodeType::AstArrayType:{
+            auto expected_type = std::static_pointer_cast<AstArrayType>(expected->semanticType);
+            if (found->semanticType->getType() != AstNodeType::AstArrayType){
+                return false;
+            }
+            auto found_type = std::static_pointer_cast<AstArrayType>(found->semanticType);
+            if (!isEqualTypeInSharedPointer(expected_type->subtype, found_type->subtype)){
+                return false;
+            }
+            if (!expected_type->size.has_value()){
+                return true;
+            }
+            if (!found_type->size.has_value()){
+                return true;
+            }
 
+            if (std::dynamic_pointer_cast<AstInteger>(expected_type->size.value())->value != std::dynamic_pointer_cast<AstInteger>(found_type->size.value())->value){
+                return false;
+            }
+
+            return true;
         }
     }
 
@@ -378,9 +417,6 @@ void SemanticValidator::visit(std::shared_ptr<AstBinary> node){
         }
         else{
             // one of the types is a pointer
-            // we don't allow pointer arithmetic other than subtraction
-            // (so the c compiler is happy)
-            Warning("Pointer arithmetic is not currently implemented properly. Use with courage!");
             if (node->type != AstBinaryType::Subtract && node->type != AstBinaryType::Add){
                 hasError = true;
                 Error("Two pointers can only be added and subtracted.");
@@ -463,7 +499,14 @@ void SemanticValidator::visit(std::shared_ptr<AstArrayAccess> node) {
         return;
     }
 
-    if (node->array->getType() != AstNodeType::AstVariableAccess){
+    std::set<AstNodeType> validTypesToIndexInto = {
+        AstNodeType::AstVariableAccess,
+        AstNodeType::AstDereference,
+        AstNodeType::AstArrayLiteral,
+        AstNodeType::AstArrayAccess,
+    };
+
+    if (validTypesToIndexInto.count(node->array->getType()) == 0){
         hasError = true;
         Error("Indexing into ", node->array->toString(), " is not currently supported\n");
         printErrorToken(node->array->token, source);
@@ -472,6 +515,39 @@ void SemanticValidator::visit(std::shared_ptr<AstArrayAccess> node) {
     }
 
     node->semanticType = std::dynamic_pointer_cast<AstArrayType>(node->array->semanticType)->subtype;
+}
+
+void SemanticValidator::visit(std::shared_ptr<AstArrayLiteral> node) {
+    if (node->elements.size() == 0){
+        hasError = true;
+        Error("Zero length array literals aren't supported yet.\n");
+        printErrorToken(node->token, source);
+        node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+        return;
+    }
+
+    std::shared_ptr<AstNode> firstElement = nullptr;
+    std::shared_ptr<AstType> elementType = nullptr;
+    for (int i=0; i<node->elements.size(); i++){
+        auto element = node->elements.at(i);
+        element->accept(this);
+        if (element->semanticType->isErrorType()){
+            node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
+            return;
+        }
+        if (i == 0){
+            elementType = element->semanticType;
+            node->semanticType = std::make_shared<AstArrayType>(elementType);
+            std::static_pointer_cast<AstArrayType>(node->semanticType)->size = std::make_shared<AstInteger>(node->elements.size());
+            node->semanticType->accept(this);
+            firstElement = element;
+        }
+        
+        requireEquivalentTypes(firstElement, element, "Array element doesn't have the correct type");
+        if (!isEqualTypeInSharedPointer(elementType, element->semanticType)){
+            node->elements.at(i) = std::make_shared<AstTypeConversion>(element, elementType);
+        }
+    }
 }
 
 
@@ -485,6 +561,7 @@ void SemanticValidator::visit(std::shared_ptr<AstAssignment> node){
             if (!isEqualTypeInSharedPointer(node->lvalue->semanticType, node->rvalue->semanticType)){
                 // apply an automaic type conversion
                 node->rvalue = std::make_shared<AstTypeConversion>(node->rvalue, node->lvalue->semanticType);
+                node->semanticType = node->rvalue->semanticType;
             }
             else{
                 node->semanticType = var->semanticType;
@@ -532,7 +609,31 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node){
             Error("global variable \"", node->name, "\" is already declared as a function");
             printErrorToken(node->token, source);
         }
-        if (node->value && node->value->getType() != AstNodeType::AstInteger){
+
+        if (node->value && node->value->getType() == AstNodeType::AstArrayLiteral){
+            std::queue<std::shared_ptr<AstNode>> children;
+            node->value->accept(this);
+            children.push(node->value);
+            while (!children.empty()){
+                auto child = children.front();
+                children.pop();
+                if (child->getType() == AstNodeType::AstArrayType){
+                    continue;
+                }
+                if (child->getType() != AstNodeType::AstInteger && child->getType() != AstNodeType::AstArrayLiteral&& child->getType() != AstNodeType::AstTypeConversion){
+                    hasError = true;
+                    Error("expression isn't constant");
+                    printErrorToken(child->token, source);
+                }
+                else{
+                    auto subchildren = child->getChildren();
+                    for (auto subchild : subchildren){
+                        children.push(subchild);
+                    }
+                }
+            }
+        }
+        else if (node->value && node->value->getType() != AstNodeType::AstInteger){
             hasError = true;
             Error("global variable \"", node->name, "\" must be initialized to a constant value (no expression)");
             printErrorToken(node->token, source);

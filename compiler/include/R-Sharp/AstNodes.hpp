@@ -315,6 +315,15 @@ struct AstInteger : public AstExpression, public std::enable_shared_from_this<As
     }
     int64_t value;
 };
+struct AstArrayLiteral : public AstExpression, public std::enable_shared_from_this<AstArrayLiteral> {
+    BASE(AstArrayLiteral)
+    
+    TO_STRING(AstArrayLiteral)
+
+    GET_MULTI_CHILD(elements)
+
+    MULTI_CHILD(AstExpression, elements)
+};
 
 struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAssignment>{
     BASE(AstAssignment)

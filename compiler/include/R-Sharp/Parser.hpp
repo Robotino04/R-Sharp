@@ -117,6 +117,7 @@ class Parser{
         std::shared_ptr<AstExpression> parseNumber();
         std::shared_ptr<AstFunctionCall> parseFunctionCall();
         std::shared_ptr<AstInteger> parseCharacterLiteral();
+        std::shared_ptr<AstArrayLiteral> parseArrayLiteral();
 
         std::shared_ptr<AstVariableDeclaration> parseVariableDeclaration();
 

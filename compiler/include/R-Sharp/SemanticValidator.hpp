@@ -36,6 +36,7 @@ class SemanticValidator : public AstVisitor{
         void visit(std::shared_ptr<AstDereference> node) override;
         void visit(std::shared_ptr<AstArrayAccess> node) override;
 
+        void visit(std::shared_ptr<AstArrayLiteral> node) override;
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
         void visit(std::shared_ptr<AstArrayType> node) override;

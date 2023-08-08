@@ -361,8 +361,10 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
         }
         else{
             auto exp = parseOptionalExpression();
-            consume(TokenType::Semicolon);
-            return std::make_shared<AstExpressionStatement>(exp);
+            auto stmt = std::make_shared<AstExpressionStatement>(exp);
+            stmt->token = consume(TokenType::Semicolon);
+            return stmt;
+             
         }
     }
     catch(ParsingError const& e){
@@ -689,6 +691,9 @@ std::shared_ptr<AstExpression> Parser::parsePrimaryExp() {
     }
     else if (match(TokenType::Number))
         return parseNumber();
+    else if (match(TokenType::LeftBracket)){
+        return parseArrayLiteral();
+    }
     else if (match(TokenType::CharacterLiteral)){
         TokenRestorer _(*this);
         return parseCharacterLiteral();
@@ -773,6 +778,22 @@ std::shared_ptr<AstInteger> Parser::parseCharacterLiteral(){
     character->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I8);
     return character;
 }
+std::shared_ptr<AstArrayLiteral> Parser::parseArrayLiteral(){
+    auto array = std::make_shared<AstArrayLiteral>(consume(TokenType::LeftBracket));
+    while (!match(TokenType::RightBracket)){
+        array->elements.push_back(parseExpression());
+        if (!match(TokenType::Comma)){
+            break;
+        }
+        else{
+            consume(TokenType::Comma);
+        }
+    }
+
+    consume(TokenType::RightBracket);
+    return array;
+}
+
 
 
 

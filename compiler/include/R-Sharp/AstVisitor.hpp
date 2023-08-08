@@ -36,9 +36,11 @@ public:
     VISITOR_FN(AstBreak);
     VISITOR_FN(AstSkip);
 
+    VISITOR_FN(AstInteger);
+    VISITOR_FN(AstArrayLiteral);
+
     VISITOR_FN(AstUnary);
     VISITOR_FN(AstBinary);
-    VISITOR_FN(AstInteger);
     VISITOR_FN(AstVariableAccess);
     VISITOR_FN(AstAssignment);
     VISITOR_FN(AstConditionalExpression);

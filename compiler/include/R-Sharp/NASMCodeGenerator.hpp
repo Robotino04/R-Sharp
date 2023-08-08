@@ -6,6 +6,8 @@
 
 #include <memory>
 #include <string>
+#include <array>
+#include <set>
 
 
 class NASMCodeGenerator : public AstVisitor {
@@ -39,6 +41,7 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstAssignment> node) override;
         void visit(std::shared_ptr<AstConditionalExpression> node) override;
         void visit(std::shared_ptr<AstEmptyExpression> node) override;
+        void visit(std::shared_ptr<AstExpressionStatement> node) override;
         void visit(std::shared_ptr<AstFunctionCall> node) override;
         void visit(std::shared_ptr<AstAddressOf> node) override;
         void visit(std::shared_ptr<AstTypeConversion> node) override;
@@ -46,6 +49,7 @@ class NASMCodeGenerator : public AstVisitor {
         void visit(std::shared_ptr<AstVariableAccess> node) override;
         void visit(std::shared_ptr<AstDereference> node) override;
         void visit(std::shared_ptr<AstArrayAccess> node) override;
+        void visit(std::shared_ptr<AstArrayLiteral> node) override;
 
         void visit(std::shared_ptr<AstVariableDeclaration> node) override;
 
@@ -54,10 +58,11 @@ class NASMCodeGenerator : public AstVisitor {
             Text,
             BSS,
             Data,
+            COUNT
         };
 
-        void indent();
-        void dedent();
+        void indent(BinarySection section = BinarySection::Text);
+        void dedent(BinarySection section = BinarySection::Text);
         
         void emit(std::string const& str, BinarySection section = BinarySection::Text);
         void emitIndented(std::string const& str, BinarySection section = BinarySection::Text);
@@ -73,14 +78,21 @@ class NASMCodeGenerator : public AstVisitor {
 
         static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
 
+        void defineGlobalData(std::shared_ptr<AstExpression> node);
+
+        void functionCallPrologue();
+        void functionCallEpilogue();
+
+
     private:
         std::string sizeToNASMType(int size);
         std::string getRegisterWithSize(std::string reg, int size);
 
-        std::string source_text;
-        std::string source_data;
-        std::string source_bss;
-        int indentLevel;
+        std::array<std::string, static_cast<size_t>(BinarySection::COUNT)> sources;
+        std::array<int, static_cast<size_t>(BinarySection::COUNT)> indentLevels;
+        std::set<std::string> externalLabels;
+
+        int stackPassedValueSize = 0;
 
         std::string R_SharpSource;
 };
