@@ -3,6 +3,7 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Token.hpp"
 #include "R-Sharp/ParsingCache.hpp"
+#include "R-Sharp/Utils/ScopeGuard.hpp"
 
 #include <string>
 #include <memory>
@@ -130,27 +131,20 @@ class Parser{
         std::shared_ptr<AstExpression> parseOptionalExpression();
 
         /*
-        This class is used to store the current state of the parser.
+        A checkpoint is used to store the current state of the parser.
 
-        If a parsing function is not able to parse the current token, it will
-        throw an exception of type ParsingError. The token restorer will
-        restore the parser to the state it was in before the parsing function
-        was called.
+        If a parsing function is not able to parse the current
+        token, it will throw an exception of type ParsingError.
+        The checkpoint will restore the parser to the state it
+        was in when the checkpoint was created.
         */
-        class TokenRestorer{
-            public:
-                TokenRestorer(Parser& parser) : parser(parser) {
-                    savedTokenIndex = parser.currentTokenIndex;
+        [[nodiscard]] ScopeGuard getTokenCheckpoint(){
+            const int savedTokenIndex = currentTokenIndex;
+            return ScopeGuard([this, savedTokenIndex](){
+                // only restore the tokens if an exception was thrown
+                if (std::uncaught_exceptions()){
+                    this->currentTokenIndex = savedTokenIndex;
                 }
-                ~TokenRestorer(){
-                    // only restore the tokens if an exception was thrown
-                    if (std::uncaught_exceptions()){
-                        parser.currentTokenIndex = savedTokenIndex;
-                    }
-                }
-            private:
-                Parser& parser;
-                int savedTokenIndex;
-                bool released = false;
-        };
+            });
+        }
 };

@@ -577,6 +577,9 @@ void SemanticValidator::visit(std::shared_ptr<AstAssignment> node){
     else if (node->lvalue->getType() == AstNodeType::AstDereference){
         node->semanticType = node->lvalue->semanticType;
     }
+    else if (node->lvalue->getType() == AstNodeType::AstArrayAccess){
+        node->semanticType = node->lvalue->semanticType;
+    }
     else{
         hasError = true;
         Error("Unimplemented type of assignment");

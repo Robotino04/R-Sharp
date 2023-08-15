@@ -29,14 +29,19 @@ void CCodeGenerator::dedent(){
 void CCodeGenerator::emit(std::string const& str){
     *current_source += str;
 }
+std::string CCodeGenerator::getIndentation(){
+    std::string res;
+    for (int i=0;i<indentLevel;i++){
+        res += "    ";
+    }
+    return res;
+}
 void CCodeGenerator::emitIndented(std::string const& str){
     if (indentedEmitBlocked){
         indentedEmitBlocked = false;
     }
     else{
-        for (int i=0;i<indentLevel;i++){
-            *current_source += "    ";
-        }
+        *current_source += getIndentation();
     }
 
     *current_source += str;
@@ -53,6 +58,10 @@ int CCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
         {RSharpPrimitiveType::I32, 4},
         {RSharpPrimitiveType::I64, 8},
     };
+
+    if (!type){
+        throw std::runtime_error("No type on node");
+    }
 
     switch(type->getType()){
         case AstNodeType::AstPrimitiveType:{
@@ -87,6 +96,10 @@ R"(#include <stdint.h>
 static void zero_memory_r_sharp_internal(void* address, uint64_t len){
     extern void* memset(void*, int, int64_t);
     memset(address, 0, len);
+}
+static void* copy_memory_r_sharp_internal(void* dst, void* src, uint64_t len){
+    extern void* memcpy(void*, void*, int64_t);
+    return memcpy(dst, src, len);
 }
 
 // ----------Declarations----------
@@ -135,6 +148,8 @@ void CCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
 
 // Statements
 void CCodeGenerator::visit(std::shared_ptr<AstBlock> node){
+    PrefixStatementContext _(this);
+
     emitIndented("{\n");
     indent();
     for (auto const& statement : node->items) {
@@ -145,11 +160,13 @@ void CCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     emitIndented("}\n");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstReturn> node){
+    PrefixStatementContext _(this);
     emitIndented("return ");
     node->value->accept(this);
     emit(";");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
+    PrefixStatementContext _(this);
     emitIndented("");
 
     if (node->expression->getType() == AstNodeType::AstArrayLiteral){
@@ -168,6 +185,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
     emit(";");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
+    PrefixStatementContext _(this);
     emitIndented("if (");
     node->condition->accept(this);
     emit(") {");
@@ -183,6 +201,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
+    PrefixStatementContext _(this);
     emitIndented("for (");
     blockNextIndentedEmit();
     node->initialization->accept(this);
@@ -200,6 +219,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     emitIndented("}");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
+    PrefixStatementContext _(this);
     emitIndented("for (");
     node->variable->accept(this);
     emit("; ");
@@ -218,6 +238,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
+    PrefixStatementContext _(this);
     emitIndented("while (");
     node->condition->accept(this);
     emit(") ");
@@ -232,6 +253,7 @@ void CCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
+    PrefixStatementContext _(this);
     emitIndented("do ");
     if (node->body->getType() == AstNodeType::AstBlock)
         node->body->accept(this);
@@ -342,11 +364,67 @@ void CCodeGenerator::visit(std::shared_ptr<AstBinary> node){
     emit(")");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
-    emit("(");
-    node->lvalue->accept(this);
-    emit(" = ");
-    node->rvalue->accept(this);
-    emit(")");
+    if (node->rvalue->semanticType->getType() == AstNodeType::AstArrayType){
+        std::string rvalue_cache = getUniqueVarName("rvalue_cache");
+
+        {
+            auto decl = std::make_shared<AstVariableDeclaration>();
+            decl->name = rvalue_cache;
+            decl->variable = std::make_shared<SemanticVariableData>();
+            decl->variable->accessor = rvalue_cache;
+            decl->variable->isDefined = true;
+            decl->variable->isGlobal = false;
+            decl->variable->sizeInBytes = sizeFromSemanticalType(node->rvalue->semanticType);
+            decl->semanticType = std::make_shared<AstPointerType>(node->rvalue->semanticType);
+            decl->variable->type = decl->semanticType;
+
+            if (node->rvalue->getType() == AstNodeType::AstArrayLiteral){
+                auto tmp = std::make_shared<AstAddressOf>();
+                tmp->operand = node->rvalue;
+                tmp->semanticType = decl->semanticType;
+                decl->value = tmp;
+            }
+            else{
+                decl->value = node->rvalue;
+            }
+
+            PrefixStatementContext ctx(this);
+            auto last_source = current_source;
+            current_source = &prefixStatements.top();
+            decl->accept(this);
+            current_source = last_source;
+            ctx.applyToParent();
+        }
+
+
+
+        emit("(copy_memory_r_sharp_internal(");
+        
+        // destination
+        emit("&(");
+        node->lvalue->accept(this);
+        emit(")");
+        
+        // source
+        emit(", ");
+        emit(rvalue_cache);
+
+        // size
+        emit(", ");
+        emit(std::to_string(sizeFromSemanticalType(node->lvalue->semanticType)));
+
+        // second operand of comma operator
+        emit("), (");
+        emit(rvalue_cache);
+        emit("))");
+    }
+    else{
+        emit("(");
+        node->lvalue->accept(this);
+        emit(" = ");
+        node->rvalue->accept(this);
+        emit(")");
+    }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     emit("(");
@@ -367,9 +445,19 @@ void CCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     emit(")");
 }
 void CCodeGenerator::visit(std::shared_ptr<AstAddressOf> node) {
-    emit("(&");
-    node->operand->accept(this);
-    emit(")");
+    
+    if (node->operand->getType() != AstNodeType::AstArrayLiteral){
+        emit("(&");
+        node->operand->accept(this);
+        emit(")");
+    }
+    else{
+        clearTypeInformation();
+        node->operand->semanticType->accept(this);
+        emit("(&(" + getCTypeFromPreviousNode("") + ")");
+        node->operand->accept(this);
+        emit(")");
+    }
 }
 
 

@@ -8,7 +8,7 @@
 #include "ANSI/ANSI.hpp"
 
 template<typename ...Args>
-inline void Fatal(Args&& ...args);
+[[noreturn]] inline void Fatal(Args&& ...args);
 
 namespace Internals{
     template <typename ...Args>
@@ -54,7 +54,7 @@ namespace Internals{
 
 
 template<typename ...Args>
-inline void Fatal(Args&& ...args){
+[[noreturn]] inline void Fatal(Args&& ...args){
     Internals::printToStream(std::cout, ANSI::set4BitColor(ANSI::Red), "[ERROR]", Internals::getContext(), ": ", ANSI::reset(), args..., '\n');
     exit(1);
 }

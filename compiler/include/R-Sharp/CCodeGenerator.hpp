@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <stack>
 
 class CCodeGenerator : public AstVisitor {
     public:
@@ -49,6 +50,8 @@ class CCodeGenerator : public AstVisitor {
     private:
         void indent();
         void dedent();
+        std::string getIndentation();
+
         // don't indent the next emit
         void blockNextIndentedEmit();
         
@@ -78,9 +81,65 @@ class CCodeGenerator : public AstVisitor {
             leftTypeInformation = "";
             middleTypeInformation = "";
             rightTypeInformation = "";
-        }
+        }   
 
         std::string leftTypeInformation = "";
         std::string middleTypeInformation = "";
         std::string rightTypeInformation = "";
+
+        std::stack<std::string> prefixStatements;
+        uint64_t uniqueVarID = 0;
+
+        class PrefixStatementContext{
+            public:
+                PrefixStatementContext(CCodeGenerator* parent){
+                    this->parent = parent;
+                    temporary_source = std::make_shared<std::string>("");
+                    last_source = parent->current_source;
+                    parent->current_source = temporary_source.get();
+                    parent->prefixStatements.push("");
+                    applied = false;
+                }
+                ~PrefixStatementContext(){
+                    if (!applied){
+                        apply();
+                    }
+                }
+
+                // insert the topmost prefix statement into the output
+                void apply(){
+                    auto top = parent->prefixStatements.top();
+                    parent->prefixStatements.pop();
+                    if (top.length() != 0){
+                        *last_source += top + "\n" + *parent->current_source;
+                    }
+                    else{
+                        *last_source += *parent->current_source;
+                    }
+                    parent->current_source = last_source;
+
+                    applied = true;
+                }
+
+                // insert the topmost prefix statement into the second highest one
+                void applyToParent(){
+                    auto top = parent->prefixStatements.top();
+                    parent->prefixStatements.pop();
+                    if (top.length() != 0){
+                        parent->prefixStatements.top() = top + parent->prefixStatements.top();
+                    }
+                    parent->current_source = last_source;
+
+                    applied = true;
+                }
+            private:
+                CCodeGenerator* parent;
+                std::shared_ptr<std::string> temporary_source;
+                std::string* last_source;
+                bool applied = false;
+        };
+
+        std::string getUniqueVarName(std::string const& prefix){
+            return prefix + "_r_sharp_internal_" + std::to_string(uniqueVarID++);
+        }
 };

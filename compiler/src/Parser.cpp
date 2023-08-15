@@ -126,7 +126,7 @@ std::shared_ptr<AstProgram> Parser::parseProgram() {
         while (match(TokenType::Comment)) consume(TokenType::Comment);
 
         try{
-            TokenRestorer _(*this);
+            auto ckpt = getTokenCheckpoint();
             auto importedThings = parseImportStatement();
             program->items.insert(program->items.end(), importedThings.begin(), importedThings.end());
         }
@@ -346,7 +346,7 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
         }
         else if (match(TokenType::For)){
             try{
-                TokenRestorer _(*this);
+                auto ckpt = getTokenCheckpoint();
                 return parseForLoopDeclaration();
             }
             catch(ParsingError const& e){
@@ -381,7 +381,7 @@ std::shared_ptr<AstStatement> Parser::parseStatement() {
 }
 std::shared_ptr<AstExpression> Parser::parseExpression() {
     try{
-        TokenRestorer _(*this);
+        auto ckpt = getTokenCheckpoint();
         return parseAssignment();
     }
     catch(ParsingError){
@@ -416,7 +416,7 @@ std::shared_ptr<AstBlockItem> Parser::parseBlockItem() {
 std::shared_ptr<AstReturn> Parser::parseReturn() {
     std::shared_ptr<AstReturn> returnStatement = std::make_shared<AstReturn>(consume(TokenType::Return));
     try{
-        TokenRestorer _(*this);
+        auto ckpt = getTokenCheckpoint();
         returnStatement->value = parseOptionalExpression();
         consume(TokenType::Semicolon);
     }
@@ -695,7 +695,7 @@ std::shared_ptr<AstExpression> Parser::parsePrimaryExp() {
         return parseArrayLiteral();
     }
     else if (match(TokenType::CharacterLiteral)){
-        TokenRestorer _(*this);
+        auto ckpt = getTokenCheckpoint();
         return parseCharacterLiteral();
     }
     else if (match(TokenType::Identifier)){
@@ -884,7 +884,7 @@ std::shared_ptr<AstParameterList> Parser::parseParameterList() {
 // helpers
 std::shared_ptr<AstExpression> Parser::parseOptionalExpression(){
     try{
-        TokenRestorer _(*this);
+        auto ckpt = getTokenCheckpoint();
         return parseExpression();
     }
     catch(ParsingError& e){

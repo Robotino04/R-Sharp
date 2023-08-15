@@ -3,6 +3,7 @@
 #include "R-Sharp/AstVisitor.hpp"
 #include "R-Sharp/Syscall.hpp"
 #include "R-Sharp/Token.hpp"
+#include "R-Sharp/Logging.hpp"
 
 #include <memory>
 #include <string>
@@ -79,12 +80,28 @@ class AArch64CodeGenerator : public AstVisitor {
         void functionCallEpilogue();
 
 
+        enum ValueType {
+            Value,
+            Address,
+        };
+        
+        void expectValueType(ValueType valueType){
+            if (expectedValueType != valueType){
+                Fatal("NASM Generator: Invalid intermediate value type expected!");
+            }
+        }
+
+        std::string getRegisterWithSize(int reg, int size);
+        std::string sizeToSuffix(int size, bool fullSuffix=false);
+
     private:
         std::array<std::string, static_cast<size_t>(BinarySection::COUNT)> sources;
         std::array<int, static_cast<size_t>(BinarySection::COUNT)> indentLevels;
         std::set<std::string> externalLabels;
 
         int stackPassedValueSize = 0;
+        int arrayAccessFinalSize = 0;
+        ValueType expectedValueType = ValueType::Value;
 
         std::string R_SharpSource;
 };
