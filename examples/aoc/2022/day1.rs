@@ -2,25 +2,28 @@ putchar, getchar, malloc, memset, free @ std::libc;
 
 print_number @ std::printing;
 
-read_number(failed: *i8): i64{
+FAIL_EOL: i64 = 1;
+FAIL_EOF: i64 = 2;
+
+read_number(status: *i32): i64{
     number: i64 = 0;
     character: i32 = getchar();
     if (character == '.'){
-        *failed = 2;
+        *status = FAIL_EOF;
         return 0;
     }
     if (character < '0' || character > '9'){
-        *failed = 1;
+        *status = FAIL_EOL;
         return 0;
     }
 
     do{
         if (character == '.'){
-            *failed = 2;
+            *status = FAIL_EOF;
             return 0;
         }
         if (character < '0' || character > '9'){
-            *failed = 1;
+            *status = FAIL_EOL;
             return 0;
         }
         number = number * 10 + (character - '0');
@@ -29,13 +32,13 @@ read_number(failed: *i8): i64{
     return number;
 }
 
-max_index(array: *i64, length: i32): i32{
-    current_max: i64 = *array;
+max_index(array: *[i64, 200], length: i32): i32{
+    current_max: i64 = (*array)[0];
     current_max_index: i32 = 0;
 
     for (i: i32 = 0; i < length; i = i+1){
-        if (*(array + i) > current_max){
-            current_max = *(array + i);
+        if ((*array)[i] > current_max){
+            current_max = (*array)[i];
             current_max_index = i;
         }
     }
@@ -44,16 +47,15 @@ max_index(array: *i64, length: i32): i32{
 
 main(): i32 {
     MAX_NUMBER_ELVES: i32 = 200;
-    calories: *i64 = malloc(MAX_NUMBER_ELVES * 8);
-    memset(calories, 0, MAX_NUMBER_ELVES * 8);
+    calories: [i64, 200];
     
     calorie_index: i32 = 0;
     for (;calorie_index < MAX_NUMBER_ELVES; calorie_index = calorie_index + 1){
-        failed: i8 = 0;
-        while (!failed){
-            *(calories + calorie_index) = *(calories + calorie_index) + read_number($failed);
+        status: i32 = 0;
+        while (!status){
+            calories[calorie_index] = calories[calorie_index] + read_number($status);
         }
-        if (failed == 2){
+        if (status == FAIL_EOF){
             break;
         }
     }
@@ -62,16 +64,16 @@ main(): i32 {
 
     putchar('1');
     putchar('|');
-    print_number(*(calories + max_index(calories, calorie_index)));
+    print_number(calories[max_index($calories, calorie_index)]);
     putchar('\n');
 
     // part 2
 
     top_three_calories: i64 = 0;
     for (i: i32 = 0; i<3; i = i+1){
-        the_max_index: i32 = max_index(calories, calorie_index);
-        top_three_calories = top_three_calories + *(calories + the_max_index);
-        *(calories + the_max_index) = 0;
+        the_max_index: i32 = max_index($calories, calorie_index);
+        top_three_calories = top_three_calories + calories[the_max_index];
+        calories[the_max_index] = 0;
     }
     putchar('3');
     putchar('|');

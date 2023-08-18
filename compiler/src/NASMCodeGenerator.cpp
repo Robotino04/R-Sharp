@@ -905,6 +905,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Address;
     node->operand->accept(this);
+    expectedValueType = ValueType::Value;
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     int originSize = sizeFromSemanticalType(node->value->semanticType);

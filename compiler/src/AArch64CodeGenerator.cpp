@@ -217,7 +217,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node){
         if (argumentNumber == 0) emitIndented("mov x0, x9\n");
 
         emitIndented("// Store argument " + std::to_string(argumentNumber) + " on stack\n");
-        emitIndented("str x" + std::to_string(argumentNumber) + ", [fp, -" + std::to_string(std::get<int>(child->variable->accessor)) + "]\n");
+        emitIndented("str" + sizeToSuffix(child->variable->sizeInBytes) + " " + getRegisterWithSize(argumentNumber, child->variable->sizeInBytes) + ", [fp, -" + std::to_string(std::get<int>(child->variable->accessor)) + "]\n");
 
         argumentNumber++;
     }
@@ -758,6 +758,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Address;
     node->operand->accept(this);
+    expectedValueType = ValueType::Value;
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     int originSize = sizeFromSemanticalType(node->value->semanticType);
