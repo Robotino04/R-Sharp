@@ -2,6 +2,10 @@ putchar, getchar, malloc, memset, free @ std::libc;
 
 print_number @ std::printing;
 
+ROCK: i64 = 0;
+PAPER: i64 = 1;
+SCISSORS: i64 = 2;
+
 main(): i32 {
     score: i64 = 0;
 
@@ -24,9 +28,9 @@ main(): i32 {
         if (my_choice == opponent_choice){
             score = score + 3;
         }
-        else if (my_choice == 0 && opponent_choice == 2
-            || my_choice == 1 && opponent_choice == 0
-            || my_choice == 2 && opponent_choice == 1){
+        else if (my_choice == ROCK && opponent_choice == SCISSORS
+            || my_choice == PAPER && opponent_choice == ROCK
+            || my_choice == SCISSORS && opponent_choice == PAPER){
 
             // win
             score = score + 6;
