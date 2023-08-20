@@ -10,7 +10,6 @@ AstUnaryType toUnaryOperator(TokenType type){
             return AstUnaryType::BinaryNot;
         default:
             Fatal("Invalid unary operator");
-            return AstUnaryType::None;
     }
 }
 
@@ -47,7 +46,6 @@ AstBinaryType toBinaryOperator(TokenType type){
 
         default:
             Fatal("Invalid binary operator");
-            return AstBinaryType::None;
     }
 }
 

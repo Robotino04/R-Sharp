@@ -305,7 +305,6 @@ void CCodeGenerator::visit(std::shared_ptr<AstUnary> node){
             break;
         default:
             Fatal("Invalid unary operator Nr. ", static_cast<int>(node->type));
-            break;
     }
     node->value->accept(this);
     emit(")");
@@ -358,7 +357,6 @@ void CCodeGenerator::visit(std::shared_ptr<AstBinary> node){
 
         default:
             Fatal("Invalid binary operator Nr. ", static_cast<int>(node->type));
-            break;
     }
     node->right->accept(this);
     emit(")");
@@ -529,7 +527,6 @@ void CCodeGenerator::visit(std::shared_ptr<AstPrimitiveType> node){
 
         default:
             Fatal("Unimplemented type Nr.", static_cast<int>(node->type));
-            break;
     }
 }
 void CCodeGenerator::visit(std::shared_ptr<AstPointerType> node){

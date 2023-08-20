@@ -66,9 +66,9 @@ std::string tokenTypeToString(TokenType type){
         case TokenType::DollarSign: return "DollarSign";
 
         case TokenType::CharacterLiteral: return "CharacterLiteral";
+        case TokenType::StringLiteral: return "StringLiteral";
 
         default:
             Fatal("Unknown token type: ", static_cast<int>(type));
-            return "Unknown";
     }
 }

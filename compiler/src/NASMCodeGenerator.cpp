@@ -21,7 +21,6 @@ void NASMCodeGenerator::indent(NASMCodeGenerator::BinarySection section){
 void NASMCodeGenerator::dedent(NASMCodeGenerator::BinarySection section){
     if (!indentLevels.at(static_cast<int>(section))){
         Fatal("Indentation error in section nr. " + std::to_string(static_cast<int>(section)));
-        return;
     }
     indentLevels.at(static_cast<int>(section))--;
 }
@@ -169,7 +168,6 @@ std::string NASMCodeGenerator::sizeToNASMType(int size){
     else if (size == 1) return "byte";
     else{
         Fatal("Invalid size ", size);
-        return "";
     }
 }
 

@@ -176,7 +176,6 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
 
             if (std::find(integerTypes.begin(), integerTypes.end(), expected_type) != integerTypes.end()
              && std::find(integerTypes.begin(), integerTypes.end(), found_type) != integerTypes.end()){
-                Warning("Converting between integer types. (", typeToString(found_type), " --> ", typeToString(expected_type), ")");
                 return true;
             }
 
@@ -531,6 +530,7 @@ void SemanticValidator::visit(std::shared_ptr<AstArrayLiteral> node) {
     for (int i=0; i<node->elements.size(); i++){
         auto element = node->elements.at(i);
         element->accept(this);
+        requireType(element);
         if (element->semanticType->isErrorType()){
             node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
             return;

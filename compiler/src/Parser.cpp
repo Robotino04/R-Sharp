@@ -108,7 +108,6 @@ bool Parser::isAtEnd(int offset) const{
 Token Parser::getCurrentToken() const{
     if (currentTokenIndex >= tokens.size()){
         Fatal("Unexpected end of file");
-        return Token(TokenType::EndOfFile, "");
     }
     return tokens[currentTokenIndex];
 }
@@ -698,6 +697,10 @@ std::shared_ptr<AstExpression> Parser::parsePrimaryExp() {
         auto ckpt = getTokenCheckpoint();
         return parseCharacterLiteral();
     }
+    else if (match(TokenType::StringLiteral)){
+        auto ckpt = getTokenCheckpoint();
+        return parseStringLiteral();
+    }
     else if (match(TokenType::Identifier)){
         auto varAccess = std::make_shared<AstVariableAccess>();
         varAccess->token = consume(TokenType::Identifier);
@@ -765,6 +768,7 @@ std::shared_ptr<AstInteger> Parser::parseCharacterLiteral(){
             case 't': character->value = '\t'; break;
             case 'e': character->value = '\e'; break;
             case 'b': character->value = '\b'; break;
+            case '0': character->value = '\0'; break;
             case '\\': character->value = '\\'; break;
             default:
                 parserError("Character contains invalid escape code: ", tok.toString());
@@ -778,6 +782,63 @@ std::shared_ptr<AstInteger> Parser::parseCharacterLiteral(){
     character->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I8);
     return character;
 }
+
+std::shared_ptr<AstArrayLiteral> Parser::parseStringLiteral(){
+    auto tok = consume(TokenType::StringLiteral);
+
+    auto string = std::make_shared<AstArrayLiteral>();
+    string->token = tok;
+    
+    // remove the quotes
+    tok.value = tok.value.substr(1, tok.value.length()-2);
+
+    for(int i=0; i<tok.value.length(); i++){
+        char c = tok.value.at(i);
+        if (tok.value.at(i) == '\\'){
+            i++;
+            if (i >= tok.value.length()){
+                parserError("String contains invalid escape code: ", tok.toString());
+            }
+            switch(tok.value.at(i)){
+                case 'n': c = '\n'; break;
+                case 'r': c = '\r'; break;
+                case 't': c = '\t'; break;
+                case 'e': c = '\e'; break;
+                case 'b': c = '\b'; break;
+                case '0': c = '\0'; break;
+                case '\\': c = '\\'; break;
+                default:
+                    parserError("String contains invalid escape code: ", tok.toString());
+                    return nullptr;
+            }
+        }
+        string->elements.push_back(std::make_shared<AstInteger>(c));
+        string->elements.back()->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I8);
+
+        // construct a pseudo token
+        Token& element_token = string->elements.back()->token;
+        element_token = tok;
+        element_token.type = TokenType::CharacterLiteral;
+        element_token.position.column += i + 1;
+        element_token.position.startPos += i + 1;
+        element_token.position.endPos = element_token.position.startPos;
+    }
+    // insert a null termination
+    string->elements.push_back(std::make_shared<AstInteger>('\0'));
+    string->elements.back()->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I8);
+    Token& element_token = string->elements.back()->token;
+    element_token = tok;
+    element_token.type = TokenType::CharacterLiteral;
+    element_token.position.column += tok.value.length() + 1;
+    element_token.position.startPos += tok.value.length() + 1;
+    element_token.position.endPos = element_token.position.startPos;
+    
+    auto type = std::make_shared<AstArrayType>();
+    type->subtype = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I8);
+    type->size = std::make_shared<AstInteger>(string->elements.size());
+    return string;
+}
+
 std::shared_ptr<AstArrayLiteral> Parser::parseArrayLiteral(){
     auto array = std::make_shared<AstArrayLiteral>(consume(TokenType::LeftBracket));
     while (!match(TokenType::RightBracket)){

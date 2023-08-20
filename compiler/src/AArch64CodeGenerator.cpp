@@ -19,7 +19,6 @@ void AArch64CodeGenerator::indent(AArch64CodeGenerator::BinarySection section){
 void AArch64CodeGenerator::dedent(AArch64CodeGenerator::BinarySection section){
     if (!indentLevels.at(static_cast<int>(section))){
         Fatal("Indentation error in section nr. " + std::to_string(static_cast<int>(section)));
-        return;
     }
     indentLevels.at(static_cast<int>(section))--;
 }

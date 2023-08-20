@@ -185,6 +185,10 @@ Token Tokenizer::nextToken(){
             size_t pos_ = currentPosition;
             std::string chars = consume("\'");
             while(!match('\'')){
+                if (isAtEnd()){
+                    logError("Unexpected end of file while tokenizing character literal.\n");
+                    break;
+                }
                 char c = consume();
                 chars += c;
                 if (c == '\\'){
@@ -193,6 +197,25 @@ Token Tokenizer::nextToken(){
             }
             chars += consume("\'");
             token = Token(TokenType::CharacterLiteral, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr);
+        }
+        else  if (match('"')) {
+            int line_ = line;
+            int column_ = column;
+            size_t pos_ = currentPosition;
+            std::string chars = consume("\"");
+            while(!match('"')){
+                if (isAtEnd()){
+                    logError("Unexpected end of file while tokenizing string literal.\n");
+                    break;
+                }
+                char c = consume();
+                chars += c;
+                if (c == '\\'){
+                    chars += consume();
+                }
+            }
+            chars += consume("\"");
+            token = Token(TokenType::StringLiteral, chars, TokenLocation{pos_, currentPosition, line_, column_}, source_ptr);
         }
 
         else KEYWORD_TOKEN("if", TokenType::If)
@@ -285,7 +308,6 @@ std::vector<Token> Tokenizer::tokenize(){
     tokens.push_back(Token(TokenType::EndOfFile, "", {currentPosition, currentPosition, line, column}, source_ptr));
     if (getErrorCount()){
         Fatal("Encountered ", getErrorCount(), " error", getErrorCount() == 1 ? "" : "s");
-        return {};
     }
     return tokens;
 }

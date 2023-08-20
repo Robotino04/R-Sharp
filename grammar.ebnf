@@ -44,12 +44,13 @@ additiveExp = multiplicativeExp, {("+" | "-"), multiplicativeExp};
 multiplicativeExp = prefixExp, {("*" | "/" | "%"), prefixExp};
 prefixExp = {"-" | "~" | "!" | "$" | "*"}, postfixExp;
 postfixExp =  (primaryExp, { '[', expression, ']' }) | functionCall;
-primaryExp = "(", expression, ")" | character_literal | number | identifier | array_literal;
+primaryExp = "(", expression, ")" | character_literal | number | identifier | array_literal | string_literal;
 
 
 functionCall = identifier, "(", [expression, {",", expression}], ")";
 character_literal = "'", character, "'";
 array_literal = "[", [expression, {",", expression}], "]";
+string_literal = '"', {character}, '"';
 
 type = "i8" | "i16" | "i32" | "i64" | "c_void" | pointer | unsized_array | sized_array;
 pointer = '*', type;
