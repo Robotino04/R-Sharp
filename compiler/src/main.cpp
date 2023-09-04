@@ -18,6 +18,8 @@
 #include "R-Sharp/AArch64CodeGenerator.hpp"
 #include "R-Sharp/ErrorPrinter.hpp"
 #include "R-Sharp/SemanticValidator.hpp"
+#include "R-Sharp/RSIGenerator.hpp"
+#include "R-Sharp/Graph.hpp"
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -33,7 +35,7 @@ void printHelp(const char* programName) {
 R"(Options:
   -h, --help                Print this help message
   -o, --output <file>       Output file
-  -f, --format <format>     Output format (c, nasm)
+  -f, --format <format>     Output format (c, nasm, aarch64, rsi)
   --compiler <path>         Use this compiler. Default: "gcc"
   --link <file>             Additionally link <file> into the output. Can be repeated.
   --stdlib <path>           Use the standard library at <path>.
@@ -47,61 +49,50 @@ Return values:
 )";
 }
 
-std::stringstream& indent(std::stringstream& ss, int indentLevel) {
-    for (int i = 0; i < indentLevel; i++) {
-        ss << "    ";
+std::string stringify_rsi_operand(RSIOperand const& op){
+    if (std::holds_alternative<RSIConstant>(op)){
+        return std::to_string(std::get<RSIConstant>(op).value);
     }
-    return ss;
+    else if (std::holds_alternative<RSIReference>(op)){
+        return std::get<RSIReference>(op).name;
+    }
+    else if (std::holds_alternative<std::monostate>(op)){
+        Fatal("Empty RSI operand used!");
+    }
+    else{
+        Fatal("Unimplemented RSI Operand!");
+        return "[invalid]"; 
+    }
 }
 
-std::string tokensToString(std::vector<Token> const& tokens) {
-    std::stringstream ss;
-    int braceCount = 0;
-    for (auto const& token : tokens) {
-        switch (token.type) {
-            case TokenType::LeftBrace: braceCount++; break;
-            case TokenType::RightBrace: braceCount--; break;
-            default: break;
-        }
-        if (!ss.str().empty() && ss.str().back() == '\n') {
-            indent(ss, braceCount);
-        }
-        switch (token.type) {
-            case TokenType::ID: ss << token.value; break;
-            case TokenType::Number: ss << token.value; break;
-            case TokenType::Typename: ss << token.value << " "; break;
-            case TokenType::Semicolon: ss << token.value << "\n"; break;
-            case TokenType::Colon: ss << token.value << " "; break;
-            case TokenType::Comma: ss << token.value << " "; break;
-            case TokenType::LeftParen: ss << token.value; break;
-            case TokenType::RightParen: ss << token.value; break;
-            case TokenType::LeftBracket: ss << token.value; break;
-            case TokenType::RightBracket: ss << token.value; break;
-            case TokenType::LeftBrace: ss << token.value << "\n"; break;
-            case TokenType::RightBrace: ss << token.value; break;
-            case TokenType::Star: ss << token.value; break;
-            case TokenType::Comment: ss << "/*" << token.value << "*/"; break;
-
-            case TokenType::Return: ss << token.value << " "; break;
-            default: break;
+std::string stringify_rsi(RSIFunction const& function){
+    std::string result = "";
+    for (auto instr : function.instructions){
+        switch(instr.type){
+            case RSIInstructionType::ADD:
+                result += "add " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + ", " + stringify_rsi_operand(instr.op2) + "\n";
+                break;
+            case RSIInstructionType::MOVE:
+                result += "move " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + "\n";
+                break;
+            case RSIInstructionType::RETURN:
+                result += "ret " + stringify_rsi_operand(instr.op1) + "\n";
+                break;
+            case RSIInstructionType::BINARY_AND:
+                result += "and " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + ", " + stringify_rsi_operand(instr.op2) + "\n";
+                break;
+            default:
+                Fatal("Unimplemented RSI instruction!");
         }
     }
-
-    for (auto const& token : tokens) {
-        switch (token.type) {
-            case TokenType::LeftBrace: braceCount++; break;
-            case TokenType::RightBrace: braceCount--; break;
-            default: break;
-        }
-    }
-
-    return ss.str();
+    return result;
 }
 
 enum class OutputFormat {
     C,
     NASM,
     AArch64,
+    RSI,
 };
 
 int main(int argc, const char** argv) {
@@ -153,6 +144,9 @@ int main(int argc, const char** argv) {
                 }
                 else if (format == "aarch64") {
                     outputFormat = OutputFormat::AArch64;
+                }
+                else if (format == "rsi") {
+                    outputFormat = OutputFormat::RSI;
                 }
                 else {
                     Error("Unknown output format \"" + format + "\"");
@@ -251,6 +245,8 @@ int main(int argc, const char** argv) {
         printer.print();
     }
 
+
+    std::vector<RSIFunction> ir;
     Print("--------------| Generated code |--------------");
     {
         switch(outputFormat) {
@@ -263,8 +259,15 @@ int main(int argc, const char** argv) {
             case OutputFormat::AArch64:
                 outputSource = AArch64CodeGenerator(ast, R_Sharp_Source).generate();
                 break;
+            case OutputFormat::RSI:
+                ir = RSIGenerator(ast, R_Sharp_Source).generate();
+                break;
         }
-        Print(outputSource);
+        if (outputSource.length())
+            Print(outputSource);
+        else{
+            Print(stringify_rsi(ir.at(0)));
+        }
     }
     std::string temporaryFile = outputFilename;
     switch(outputFormat) {
@@ -276,6 +279,9 @@ int main(int argc, const char** argv) {
             break;
         case OutputFormat::AArch64:
             temporaryFile += ".S";
+            break;
+        case OutputFormat::RSI:
+            temporaryFile += ".rsi";
             break;
         default:
             Error("Unknown output format");
@@ -354,6 +360,9 @@ int main(int argc, const char** argv) {
             
             break;
         }
+        case OutputFormat::RSI:
+            Print("No further compilation");
+            return static_cast<int>(ReturnValue::NormalExit);
         default:
             Error("Unsupported output format");
             return static_cast<int>(ReturnValue::UnknownError);
