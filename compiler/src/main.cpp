@@ -103,6 +103,39 @@ int main(int argc, const char** argv) {
     std::vector<std::string> additionalyLinkedFiles;
     std::string stdlibIncludePath = std::filesystem::path(argv[0]).replace_filename("stdlib/");
 
+    using Ver = Vertex<std::string>;
+
+    Graph<std::string> graph;
+    auto a = graph.addVertex(std::make_shared<Ver>("A", Ver::NeighbourList{}));
+    auto b = graph.addVertex(std::make_shared<Ver>("B", Ver::NeighbourList{a.get()}));
+    auto c = graph.addVertex(std::make_shared<Ver>("C", Ver::NeighbourList{a.get()}));
+    auto d = graph.addVertex(std::make_shared<Ver>("D", Ver::NeighbourList{c.get()}));
+    auto e = graph.addVertex(std::make_shared<Ver>("E", Ver::NeighbourList{b.get()}));
+    auto f = graph.addVertex(std::make_shared<Ver>("F", Ver::NeighbourList{c.get(), e.get()}));
+    auto g = graph.addVertex(std::make_shared<Ver>("G", Ver::NeighbourList{d.get(), b.get()}));
+    auto h = graph.addVertex(std::make_shared<Ver>("H", Ver::NeighbourList{g.get(), f.get()}));
+    auto i = graph.addVertex(std::make_shared<Ver>("I", Ver::NeighbourList{e.get(), d.get()}));
+    auto j = graph.addVertex(std::make_shared<Ver>("J", Ver::NeighbourList{a.get(), i.get(), h.get()}));
+
+    std::vector<Color> colors = Color::getNColors(3);
+    a->color = colors.at(0);
+    b->color = colors.at(2);
+
+    for (auto v : graph){
+        printVertex(v);
+        std::cout << v->getTriviallyColorableNumber() << "\n";
+    }
+
+    bool isColorable = graph.colorIn(colors);
+    if (isColorable)
+        std::cout << "Is Colorable\n";
+    else
+        std::cout << "Isn't Colorable\n";
+
+    std::cout << "-------- Result --------\n";
+    printGraph(graph);
+
+    return 0;
 
     if (argc < 2) {
         printHelp(argv[0]);
