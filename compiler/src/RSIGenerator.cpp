@@ -161,7 +161,7 @@ void RSIGenerator::visit(std::shared_ptr<AstReturn> node){
     }
     emit(RSIInstruction{
         .type = RSIInstructionType::RETURN,
-        .op1 = RSIConstant{.value = 0},
+        .op1 = lastResult,
     });
 }
 void RSIGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
@@ -399,7 +399,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         case AstBinaryType::Multiply:
             expectValueType(ValueType::Value);
-                instr.type = RSIInstructionType::MULTIPLY;
+            instr.type = RSIInstructionType::MULTIPLY;
             break;
         case AstBinaryType::Divide:
             expectValueType(ValueType::Value);
@@ -475,6 +475,8 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
             exit(1);
             break;
     }
+
+    emit(instr);
 }
 void RSIGenerator::visit(std::shared_ptr<AstInteger> node){
     expectValueType(ValueType::Value);
@@ -605,16 +607,18 @@ void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     node->value->accept(this);
     if (expectedValueType == ValueType::Value){
         // only typecast values, no addresses
-        emit(RSIInstruction{
-            .type = RSIInstructionType::BINARY_AND,
-            .result = RSIReference{
-                .name = getUniqueLabel("tmp"),
-            },
-            .op1 = lastResult,
-            .op2 = RSIConstant{
-                .value = uint64_t((__uint128_t(1) << targetSize*8)-1),
-            }
-        });
+        Warning("Not using type cast \"sanity and\". May produce wrong outputs.");
+        // emit(RSIInstruction{
+        //     .type = RSIInstructionType::BINARY_AND,
+        //     .result = RSIReference{
+        //         .name = getUniqueLabel("tmp"),
+        //     },
+        //     .op1 = lastResult,
+        //     .op2 = RSIConstant{
+        //         .value = uint64_t((__uint128_t(1) << targetSize*8)-1),
+        //     }
+        // });
+
         // if (targetSize > originSize){
         //     emitIndented("// Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize) + " bytes.\n");
         //     emitIndented("sxt" + sizeToSuffix(originSize, true) + " " + getRegisterWithSize(0, targetSize) + ", w0\n");

@@ -20,6 +20,7 @@
 #include "R-Sharp/SemanticValidator.hpp"
 #include "R-Sharp/RSIGenerator.hpp"
 #include "R-Sharp/Graph.hpp"
+#include "R-Sharp/Utils/LambdaOverload.hpp"
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -50,39 +51,32 @@ Return values:
 }
 
 std::string stringify_rsi_operand(RSIOperand const& op){
-    if (std::holds_alternative<RSIConstant>(op)){
-        return std::to_string(std::get<RSIConstant>(op).value);
-    }
-    else if (std::holds_alternative<RSIReference>(op)){
-        return std::get<RSIReference>(op).name;
-    }
-    else if (std::holds_alternative<std::monostate>(op)){
-        Fatal("Empty RSI operand used!");
-    }
-    else{
-        Fatal("Unimplemented RSI Operand!");
-        return "[invalid]"; 
-    }
+    return std::visit(lambda_overload{
+        [](RSIConstant const& x) { return std::to_string(x.value); },
+        [](RSIReference const& x){ return x.name + "(" + (x.assignedRegister.has_value() ? std::to_string(x.assignedRegister.value().getID()) : "None") + ")"; },
+        [](std::monostate const&){ Fatal("Empty RSI operand used!"); return std::string();},
+    }, op);
 }
 
 std::string stringify_rsi(RSIFunction const& function){
     std::string result = "";
     for (auto instr : function.instructions){
-        switch(instr.type){
-            case RSIInstructionType::ADD:
-                result += "add " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + ", " + stringify_rsi_operand(instr.op2) + "\n";
+        result += RSIMnemonic.at(instr.type);
+        
+        if (instr.type == RSIInstructionType::RETURN){
+            result += " " + stringify_rsi_operand(instr.op1) + "\n";
+            continue;
+        }
+        
+        switch(RSIArgumentsUsed.at(instr.type)){
+            case 1:
+                result += " " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + "\n";
                 break;
-            case RSIInstructionType::MOVE:
-                result += "move " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + "\n";
-                break;
-            case RSIInstructionType::RETURN:
-                result += "ret " + stringify_rsi_operand(instr.op1) + "\n";
-                break;
-            case RSIInstructionType::BINARY_AND:
-                result += "and " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + ", " + stringify_rsi_operand(instr.op2) + "\n";
+            case 2:
+                result += " " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + ", " + stringify_rsi_operand(instr.op2) + "\n";
                 break;
             default:
-                Fatal("Unimplemented RSI instruction!");
+                Fatal("Unimplemented number of arguments used in RSI.");
         }
     }
     return result;
@@ -102,40 +96,6 @@ int main(int argc, const char** argv) {
     std::string compiler = "gcc";
     std::vector<std::string> additionalyLinkedFiles;
     std::string stdlibIncludePath = std::filesystem::path(argv[0]).replace_filename("stdlib/");
-
-    using Ver = Vertex<std::string>;
-
-    Graph<std::string> graph;
-    auto a = graph.addVertex(std::make_shared<Ver>("A", Ver::NeighbourList{}));
-    auto b = graph.addVertex(std::make_shared<Ver>("B", Ver::NeighbourList{a.get()}));
-    auto c = graph.addVertex(std::make_shared<Ver>("C", Ver::NeighbourList{a.get()}));
-    auto d = graph.addVertex(std::make_shared<Ver>("D", Ver::NeighbourList{c.get()}));
-    auto e = graph.addVertex(std::make_shared<Ver>("E", Ver::NeighbourList{b.get()}));
-    auto f = graph.addVertex(std::make_shared<Ver>("F", Ver::NeighbourList{c.get(), e.get()}));
-    auto g = graph.addVertex(std::make_shared<Ver>("G", Ver::NeighbourList{d.get(), b.get()}));
-    auto h = graph.addVertex(std::make_shared<Ver>("H", Ver::NeighbourList{g.get(), f.get()}));
-    auto i = graph.addVertex(std::make_shared<Ver>("I", Ver::NeighbourList{e.get(), d.get()}));
-    auto j = graph.addVertex(std::make_shared<Ver>("J", Ver::NeighbourList{a.get(), i.get(), h.get()}));
-
-    std::vector<Color> colors = Color::getNColors(3);
-    a->color = colors.at(0);
-    b->color = colors.at(2);
-
-    for (auto v : graph){
-        printVertex(v);
-        std::cout << v->getTriviallyColorableNumber() << "\n";
-    }
-
-    bool isColorable = graph.colorIn(colors);
-    if (isColorable)
-        std::cout << "Is Colorable\n";
-    else
-        std::cout << "Isn't Colorable\n";
-
-    std::cout << "-------- Result --------\n";
-    printGraph(graph);
-
-    return 0;
 
     if (argc < 2) {
         printHelp(argv[0]);
