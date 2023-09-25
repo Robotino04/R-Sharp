@@ -6,11 +6,14 @@
 #include <variant>
 #include <map>
 #include <atomic>
+#include <set>
 
 #include "R-Sharp/AstNodesFWD.hpp"
 #include "R-Sharp/Logging.hpp"
 
 enum class RSIInstructionType{
+    NOP,
+
     MOVE,
     RETURN,
 
@@ -39,6 +42,8 @@ enum class RSIInstructionType{
 };
 
 inline const std::map<RSIInstructionType, uint> RSIArgumentsUsed = {
+    {RSIInstructionType::NOP, 0},
+
     {RSIInstructionType::MOVE, 1},
     {RSIInstructionType::RETURN, 1},
 
@@ -66,6 +71,8 @@ inline const std::map<RSIInstructionType, uint> RSIArgumentsUsed = {
 };
 
 inline const std::map<RSIInstructionType, std::string> RSIMnemonic = {
+    {RSIInstructionType::NOP, "nop"},
+
     {RSIInstructionType::MOVE, "mov"},
     {RSIInstructionType::RETURN, "ret"},
 
@@ -96,8 +103,12 @@ struct HWRegister{
     HWRegister(): id(highestID++){
     }
 
-    bool operator==(HWRegister const& other){
+    bool operator==(HWRegister const& other) const{
         return this->getID() == other.getID();
+    }
+
+    bool operator <(HWRegister const& other) const{
+        return this->getID() < other.getID();
     }
 
     inline uint64_t getID() const{
@@ -128,6 +139,14 @@ struct RSIReference{
     std::string name;
     std::optional<std::shared_ptr<SemanticVariableData>> variable;
     std::optional<HWRegister> assignedRegister;
+
+    bool operator < (RSIReference const& other) const{
+        return name < other.name;
+    }
+
+    bool operator == (RSIReference const& other) const{
+        return name == other.name;
+    }
 };
 
 using RSIOperand = std::variant<std::monostate, RSIConstant, RSIReference>;
@@ -138,6 +157,10 @@ struct RSIInstruction{
     RSIOperand result;
     RSIOperand op1;
     RSIOperand op2;
+
+    struct Metadata{
+        std::set<RSIReference> liveVariablesAfter;
+    } meta;
 };
 
 struct RSIFunction{

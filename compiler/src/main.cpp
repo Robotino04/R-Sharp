@@ -19,8 +19,7 @@
 #include "R-Sharp/ErrorPrinter.hpp"
 #include "R-Sharp/SemanticValidator.hpp"
 #include "R-Sharp/RSIGenerator.hpp"
-#include "R-Sharp/Graph.hpp"
-#include "R-Sharp/Utils/LambdaOverload.hpp"
+#include "R-Sharp/RSIAnalysis.hpp"
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -48,38 +47,6 @@ Return values:
   3     There were semantic errors
   4     There were assembling errors
 )";
-}
-
-std::string stringify_rsi_operand(RSIOperand const& op){
-    return std::visit(lambda_overload{
-        [](RSIConstant const& x) { return std::to_string(x.value); },
-        [](RSIReference const& x){ return x.name + "(" + (x.assignedRegister.has_value() ? std::to_string(x.assignedRegister.value().getID()) : "None") + ")"; },
-        [](std::monostate const&){ Fatal("Empty RSI operand used!"); return std::string();},
-    }, op);
-}
-
-std::string stringify_rsi(RSIFunction const& function){
-    std::string result = "";
-    for (auto instr : function.instructions){
-        result += RSIMnemonic.at(instr.type);
-        
-        if (instr.type == RSIInstructionType::RETURN){
-            result += " " + stringify_rsi_operand(instr.op1) + "\n";
-            continue;
-        }
-        
-        switch(RSIArgumentsUsed.at(instr.type)){
-            case 1:
-                result += " " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + "\n";
-                break;
-            case 2:
-                result += " " + stringify_rsi_operand(instr.result) + ", " + stringify_rsi_operand(instr.op1) + ", " + stringify_rsi_operand(instr.op2) + "\n";
-                break;
-            default:
-                Fatal("Unimplemented number of arguments used in RSI.");
-        }
-    }
-    return result;
 }
 
 enum class OutputFormat {
@@ -259,7 +226,11 @@ int main(int argc, const char** argv) {
         if (outputSource.length())
             Print(outputSource);
         else{
-            Print(stringify_rsi(ir.at(0)));
+            Print("--------------| Raw RSI |--------------");
+            Print(RSI::stringify_rsi(ir.at(0)));
+            Print("--------------| Liveness analysis |--------------");
+            RSI::analyzeLiveRSIVariables(ir.at(0));
+            Print(RSI::stringify_rsi(ir.at(0)));
         }
     }
     std::string temporaryFile = outputFilename;

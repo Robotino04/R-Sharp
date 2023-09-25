@@ -122,6 +122,10 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         func.name = node->functionData->name;
         func.function = node->functionData;
 
+        emit(RSIInstruction{
+            .type = RSIInstructionType::NOP,
+        });
+
         node->parameters->accept(this);
         node->body->accept(this);
 
