@@ -245,10 +245,22 @@ int main(int argc, const char** argv) {
             Print(outputSource);
         else{
             Print("--------------| Raw RSI |--------------");
-            Print(RSI::stringify_function(ir.at(0), nasmRegisterTranslation));
+            for (auto& func : ir){
+                Print("; Function \"", func.name, "\"");
+                Print(RSI::stringify_function(func, nasmRegisterTranslation));
+            }
             Print("--------------| Liveness analysis |--------------");
-            RSI::analyzeLiveVariables(ir.at(0));
-            Print(RSI::stringify_function(ir.at(0), nasmRegisterTranslation));
+            for (auto& func : ir){
+                RSI::analyzeLiveVariables(func);
+                Print("; Function \"", func.name, "\"");
+                Print(RSI::stringify_function(func, nasmRegisterTranslation));
+            }
+            Print("--------------| Linear scan register assignment |--------------");
+            for (auto& func : ir){
+                RSI::assignRegistersLinearScan(ir.at(0), nasmRegisters);
+                Print("; Function \"", func.name, "\"");
+                Print(RSI::stringify_function(func, nasmRegisterTranslation));
+            }
         }
     }
     std::string temporaryFile = outputFilename;

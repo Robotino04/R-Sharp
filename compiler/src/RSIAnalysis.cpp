@@ -79,4 +79,22 @@ void analyzeLiveVariables(RSI::Function& function){
     }
 }
 
+void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& allRegisters){
+    for (auto& instr : func.instructions){
+        std::vector<HWRegister> unusedRegisters = allRegisters;
+        for (auto& var : instr.meta.liveVariablesAfter){
+            if (var->assignedRegister.has_value()){
+                unusedRegisters.erase(std::remove(unusedRegisters.begin(), unusedRegisters.end(), var->assignedRegister.value()), unusedRegisters.end());
+            }
+        }
+        
+        for (auto& var : instr.meta.liveVariablesAfter){
+            if (!var->assignedRegister.has_value()){
+                var->assignedRegister = unusedRegisters.front();
+                unusedRegisters.erase(unusedRegisters.begin());
+            }
+        }
+    }
+}
+
 }
