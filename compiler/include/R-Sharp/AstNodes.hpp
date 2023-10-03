@@ -4,6 +4,7 @@
 #include "R-Sharp/Token.hpp"
 #include "R-Sharp/AstNodesFWD.hpp"
 #include "R-Sharp/AstVisitor.hpp"
+#include "R-Sharp/RSI.hpp"
 
 #include <vector>
 #include <string>
@@ -70,6 +71,8 @@ struct SemanticVariableData{
     std::weak_ptr<AstType> type;
     std::string name;
     int sizeInBytes = 0;
+
+    std::shared_ptr<RSI::Reference> rsiReference;
 
     // either a global label or the stack offset
     std::variant<std::string, int> accessor = "Invailid global label. Most likely didn't visit this node.";

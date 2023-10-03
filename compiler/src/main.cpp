@@ -56,6 +56,24 @@ enum class OutputFormat {
     RSI,
 };
 
+inline const std::vector<RSI::HWRegister> nasmRegisters(14);
+inline const std::map<RSI::HWRegister, std::string> nasmRegisterTranslation = {
+    {nasmRegisters.at(0), "rax"},
+    {nasmRegisters.at(1), "rbx"},
+    {nasmRegisters.at(2), "rcx"},
+    {nasmRegisters.at(3), "rdx"},
+    {nasmRegisters.at(4), "rsi"},
+    {nasmRegisters.at(5), "rdi"},
+    {nasmRegisters.at(6), "r8"},
+    {nasmRegisters.at(7), "r9"},
+    {nasmRegisters.at(8), "r10"},
+    {nasmRegisters.at(9), "r11"},
+    {nasmRegisters.at(10), "r12"},
+    {nasmRegisters.at(11), "r13"},
+    {nasmRegisters.at(12), "r14"},
+    {nasmRegisters.at(13), "r15"},
+};
+
 int main(int argc, const char** argv) {
     std::string inputFilename;
     std::string outputFilename = "a.out";
@@ -206,7 +224,7 @@ int main(int argc, const char** argv) {
     }
 
 
-    std::vector<RSIFunction> ir;
+    std::vector<RSI::Function> ir;
     Print("--------------| Generated code |--------------");
     {
         switch(outputFormat) {
@@ -227,10 +245,10 @@ int main(int argc, const char** argv) {
             Print(outputSource);
         else{
             Print("--------------| Raw RSI |--------------");
-            Print(RSI::stringify_rsi(ir.at(0)));
+            Print(RSI::stringify_function(ir.at(0), nasmRegisterTranslation));
             Print("--------------| Liveness analysis |--------------");
-            RSI::analyzeLiveRSIVariables(ir.at(0));
-            Print(RSI::stringify_rsi(ir.at(0)));
+            RSI::analyzeLiveVariables(ir.at(0));
+            Print(RSI::stringify_function(ir.at(0), nasmRegisterTranslation));
         }
     }
     std::string temporaryFile = outputFilename;

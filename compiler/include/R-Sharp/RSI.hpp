@@ -11,7 +11,9 @@
 #include "R-Sharp/AstNodesFWD.hpp"
 #include "R-Sharp/Logging.hpp"
 
-enum class RSIInstructionType{
+namespace RSI{
+
+enum class InstructionType{
     NOP,
 
     MOVE,
@@ -41,62 +43,62 @@ enum class RSIInstructionType{
     BINARY_AND,
 };
 
-inline const std::map<RSIInstructionType, uint> RSIArgumentsUsed = {
-    {RSIInstructionType::NOP, 0},
+inline const std::map<InstructionType, uint> numArgumentsUsed = {
+    {InstructionType::NOP, 0},
 
-    {RSIInstructionType::MOVE, 1},
-    {RSIInstructionType::RETURN, 1},
+    {InstructionType::MOVE, 1},
+    {InstructionType::RETURN, 1},
 
-    {RSIInstructionType::NEGATE, 1},
-    {RSIInstructionType::BINARY_NOT, 1},
-    {RSIInstructionType::LOGICAL_NOT, 1},
+    {InstructionType::NEGATE, 1},
+    {InstructionType::BINARY_NOT, 1},
+    {InstructionType::LOGICAL_NOT, 1},
 
-    {RSIInstructionType::ADD, 2},
-    {RSIInstructionType::SUBTRACT, 2},
-    {RSIInstructionType::MULTIPLY, 2},
-    {RSIInstructionType::DIVIDE, 2},
-    {RSIInstructionType::MODULO, 2},
+    {InstructionType::ADD, 2},
+    {InstructionType::SUBTRACT, 2},
+    {InstructionType::MULTIPLY, 2},
+    {InstructionType::DIVIDE, 2},
+    {InstructionType::MODULO, 2},
 
-    {RSIInstructionType::EQUAL, 2},
-    {RSIInstructionType::NOT_EQUAL, 2},
-    {RSIInstructionType::LESS_THAN, 2},
-    {RSIInstructionType::LESS_THAN_OR_EQUAL, 2},
-    {RSIInstructionType::GREATER_THAN, 2},
-    {RSIInstructionType::GREATER_THAN_OR_EQUAL, 2},
+    {InstructionType::EQUAL, 2},
+    {InstructionType::NOT_EQUAL, 2},
+    {InstructionType::LESS_THAN, 2},
+    {InstructionType::LESS_THAN_OR_EQUAL, 2},
+    {InstructionType::GREATER_THAN, 2},
+    {InstructionType::GREATER_THAN_OR_EQUAL, 2},
 
-    {RSIInstructionType::LOGICAL_AND, 2},
-    {RSIInstructionType::LOGICAL_OR, 2},
+    {InstructionType::LOGICAL_AND, 2},
+    {InstructionType::LOGICAL_OR, 2},
 
-    {RSIInstructionType::BINARY_AND, 2},
+    {InstructionType::BINARY_AND, 2},
 };
 
-inline const std::map<RSIInstructionType, std::string> RSIMnemonic = {
-    {RSIInstructionType::NOP, "nop"},
+inline const std::map<InstructionType, std::string> mnemonics = {
+    {InstructionType::NOP, "nop"},
 
-    {RSIInstructionType::MOVE, "mov"},
-    {RSIInstructionType::RETURN, "ret"},
+    {InstructionType::MOVE, "mov"},
+    {InstructionType::RETURN, "ret"},
 
-    {RSIInstructionType::NEGATE, "neg"},
-    {RSIInstructionType::BINARY_NOT, "bnot"},
-    {RSIInstructionType::LOGICAL_NOT, "lnot"},
+    {InstructionType::NEGATE, "neg"},
+    {InstructionType::BINARY_NOT, "bnot"},
+    {InstructionType::LOGICAL_NOT, "lnot"},
 
-    {RSIInstructionType::ADD, "add"},
-    {RSIInstructionType::SUBTRACT, "sub"},
-    {RSIInstructionType::MULTIPLY, "mul"},
-    {RSIInstructionType::DIVIDE, "div"},
-    {RSIInstructionType::MODULO, "mod"},
+    {InstructionType::ADD, "add"},
+    {InstructionType::SUBTRACT, "sub"},
+    {InstructionType::MULTIPLY, "mul"},
+    {InstructionType::DIVIDE, "div"},
+    {InstructionType::MODULO, "mod"},
 
-    {RSIInstructionType::EQUAL, "eq"},
-    {RSIInstructionType::NOT_EQUAL, "neq"},
-    {RSIInstructionType::LESS_THAN, "lt"},
-    {RSIInstructionType::LESS_THAN_OR_EQUAL, "leq"},
-    {RSIInstructionType::GREATER_THAN, "gt"},
-    {RSIInstructionType::GREATER_THAN_OR_EQUAL, "geq"},
+    {InstructionType::EQUAL, "eq"},
+    {InstructionType::NOT_EQUAL, "neq"},
+    {InstructionType::LESS_THAN, "lt"},
+    {InstructionType::LESS_THAN_OR_EQUAL, "leq"},
+    {InstructionType::GREATER_THAN, "gt"},
+    {InstructionType::GREATER_THAN_OR_EQUAL, "geq"},
 
-    {RSIInstructionType::LOGICAL_AND, "land"},
-    {RSIInstructionType::LOGICAL_OR, "lor"},
+    {InstructionType::LOGICAL_AND, "land"},
+    {InstructionType::LOGICAL_OR, "lor"},
 
-    {RSIInstructionType::BINARY_AND, "band"},
+    {InstructionType::BINARY_AND, "band"},
 };
 
 struct HWRegister{
@@ -122,49 +124,52 @@ struct HWRegister{
         static inline std::atomic<uint64_t> highestID = 0;
 };
 
-namespace std{
-    template<>
-    struct hash<HWRegister>{
-        size_t operator() (HWRegister const& reg) const{
-            return std::hash<uint64_t>()(reg.getID());
-        }
-    };
-}
-
-struct RSIConstant{
+struct Constant{
     uint64_t value;
 };
 
-struct RSIReference{
+struct Reference{
     std::string name;
     std::optional<std::shared_ptr<SemanticVariableData>> variable;
     std::optional<HWRegister> assignedRegister;
 
-    bool operator < (RSIReference const& other) const{
+    bool operator < (Reference const& other) const{
         return name < other.name;
     }
 
-    bool operator == (RSIReference const& other) const{
+    bool operator == (Reference const& other) const{
         return name == other.name;
     }
 };
 
-using RSIOperand = std::variant<std::monostate, RSIConstant, RSIReference>;
+using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>>;
 
 
-struct RSIInstruction{
-    RSIInstructionType type;
-    RSIOperand result;
-    RSIOperand op1;
-    RSIOperand op2;
+struct Instruction{
+    InstructionType type;
+    Operand result;
+    Operand op1;
+    Operand op2;
 
     struct Metadata{
-        std::set<RSIReference> liveVariablesAfter;
+        std::set<std::shared_ptr<Reference>> liveVariablesAfter;
     } meta;
 };
 
-struct RSIFunction{
+struct Function{
     std::string name;
     std::shared_ptr<SemanticFunctionData> function;
-    std::vector<RSIInstruction> instructions;
+    std::vector<Instruction> instructions;
 };
+
+}
+
+
+namespace std{
+    template<>
+    struct hash<RSI::HWRegister>{
+        size_t operator() (RSI::HWRegister const& reg) const{
+            return std::hash<uint64_t>()(reg.getID());
+        }
+    };
+}

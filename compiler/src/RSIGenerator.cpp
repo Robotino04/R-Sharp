@@ -43,7 +43,7 @@ int RSIGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
     }
 }
 
-std::vector<RSIFunction> RSIGenerator::generate(){
+std::vector<RSI::Function> RSIGenerator::generate(){
     arrayAccessFinalSize = 0;
     stackPassedValueSize = 0;
 
@@ -122,16 +122,16 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         func.name = node->functionData->name;
         func.function = node->functionData;
 
-        emit(RSIInstruction{
-            .type = RSIInstructionType::NOP,
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::NOP,
         });
 
         node->parameters->accept(this);
         node->body->accept(this);
 
-        emit(RSIInstruction{
-            .type = RSIInstructionType::RETURN,
-            .op1 = RSIConstant{.value = 0},
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::RETURN,
+            .op1 = RSI::Constant{.value = 0},
         });
     }
     else{
@@ -163,8 +163,8 @@ void RSIGenerator::visit(std::shared_ptr<AstReturn> node){
             resetStackPointer(scope->lock());
         }
     }
-    emit(RSIInstruction{
-        .type = RSIInstructionType::RETURN,
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::RETURN,
         .op1 = lastResult,
     });
 }
@@ -327,20 +327,20 @@ void RSIGenerator::visit(std::shared_ptr<AstUnary> node){
     expectValueType(ValueType::Value);
     node->value->accept(this);
     
-    RSIInstruction instr{
-        .result = RSIReference{.name = getUniqueLabel("tmp")},
+    RSI::Instruction instr{
+        .result = std::make_shared<RSI::Reference>(RSI::Reference{.name = getUniqueLabel("tmp")}),
         .op1 = lastResult,
     };
 
     switch (node->type){
         case AstUnaryType::Negate:
-            instr.type = RSIInstructionType::NEGATE;
+            instr.type = RSI::InstructionType::NEGATE;
             break;
         case AstUnaryType::BinaryNot:
-            instr.type = RSIInstructionType::BINARY_NOT;
+            instr.type = RSI::InstructionType::BINARY_NOT;
             break;
         case AstUnaryType::LogicalNot:
-            instr.type = RSIInstructionType::LOGICAL_NOT;
+            instr.type = RSI::InstructionType::LOGICAL_NOT;
             break;
         default:
             Error("RSI Generator: Unary operator not implemented!");
@@ -353,8 +353,8 @@ void RSIGenerator::visit(std::shared_ptr<AstUnary> node){
 void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
     node->left->accept(this);
 
-    RSIInstruction instr{
-        .result = RSIReference{.name = getUniqueLabel("tmp")},
+    RSI::Instruction instr{
+        .result = std::make_shared<RSI::Reference>(RSI::Reference{.name = getUniqueLabel("tmp")}),
         .op1 = lastResult,
     };
     node->right->accept(this);
@@ -380,7 +380,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
             }
             else{
                 expectValueType(ValueType::Value);
-                instr.type = RSIInstructionType::ADD;
+                instr.type = RSI::InstructionType::ADD;
             }
             break;
         case AstBinaryType::Subtract:
@@ -398,45 +398,45 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
             }
             else{
                 expectValueType(ValueType::Value);
-                instr.type = RSIInstructionType::SUBTRACT;
+                instr.type = RSI::InstructionType::SUBTRACT;
             }
             break;
         case AstBinaryType::Multiply:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::MULTIPLY;
+            instr.type = RSI::InstructionType::MULTIPLY;
             break;
         case AstBinaryType::Divide:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::DIVIDE;
+            instr.type = RSI::InstructionType::DIVIDE;
             break;
         case AstBinaryType::Modulo:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::MODULO;
+            instr.type = RSI::InstructionType::MODULO;
             break;
 
         case AstBinaryType::Equal:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::EQUAL;
+            instr.type = RSI::InstructionType::EQUAL;
             break;
         case AstBinaryType::NotEqual:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::NOT_EQUAL;
+            instr.type = RSI::InstructionType::NOT_EQUAL;
             break;
         case AstBinaryType::LessThan:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::LESS_THAN;
+            instr.type = RSI::InstructionType::LESS_THAN;
             break;
         case AstBinaryType::LessThanOrEqual:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::LESS_THAN_OR_EQUAL;
+            instr.type = RSI::InstructionType::LESS_THAN_OR_EQUAL;
             break;
         case AstBinaryType::GreaterThan:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::GREATER_THAN;
+            instr.type = RSI::InstructionType::GREATER_THAN;
             break;
         case AstBinaryType::GreaterThanOrEqual:
             expectValueType(ValueType::Value);
-            instr.type = RSIInstructionType::GREATER_THAN_OR_EQUAL;
+            instr.type = RSI::InstructionType::GREATER_THAN_OR_EQUAL;
             break;
 
         case AstBinaryType::LogicalAnd:{
@@ -484,7 +484,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
 }
 void RSIGenerator::visit(std::shared_ptr<AstInteger> node){
     expectValueType(ValueType::Value);
-    lastResult = RSIConstant{.value = static_cast<uint64_t>(node->value)};
+    lastResult = RSI::Constant{.value = static_cast<uint64_t>(node->value)};
 }
 void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     auto size = sizeFromSemanticalType(node->semanticType);
@@ -503,10 +503,7 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
         // functionCallEpilogue();
     }
     else{
-        lastResult = RSIReference{
-            .name = node->variable->name,
-            .variable = node->variable,
-        };
+        lastResult = node->variable->rsiReference;
     }
 }
 void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
@@ -529,8 +526,8 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
         // functionCallEpilogue();
     }
     else {
-        emit(RSIInstruction{
-            .type = RSIInstructionType::MOVE,
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::MOVE,
             .result = lvalue,
             .op1 = rvalue,
         });
@@ -558,7 +555,7 @@ void RSIGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
     expectValueType(ValueType::Value);
     // emitIndented("// Empty Expression\n");
     // emitIndented("mov x0, 1\n");
-    lastResult = RSIConstant{.value = 1};
+    lastResult = RSI::Constant{.value = 1};
 }
 void RSIGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
     stackPassedValueSize = 0;
@@ -612,13 +609,13 @@ void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node){
     if (expectedValueType == ValueType::Value){
         // only typecast values, no addresses
         Warning("Not using type cast \"sanity and\". May produce wrong outputs.");
-        // emit(RSIInstruction{
-        //     .type = RSIInstructionType::BINARY_AND,
-        //     .result = RSIReference{
+        // emit(RSI::Instruction{
+        //     .type = RSI::InstructionType::BINARY_AND,
+        //     .result = RSI::Reference{
         //         .name = getUniqueLabel("tmp"),
         //     },
         //     .op1 = lastResult,
-        //     .op2 = RSIConstant{
+        //     .op2 = RSI::Constant{
         //         .value = uint64_t((__uint128_t(1) << targetSize*8)-1),
         //     }
         // });
@@ -687,16 +684,17 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
                 node->value->accept(this);
             }
             else{
-                lastResult = RSIConstant{
+                lastResult = RSI::Constant{
                     .value = 0,
                 };
             }
-            emit(RSIInstruction{
-                .type = RSIInstructionType::MOVE,
-                .result = RSIReference{
-                    .name = node->variable->name,
-                    .variable = node->variable,
-                },
+            node->variable->rsiReference = std::make_shared<RSI::Reference>(RSI::Reference{
+                .name = node->variable->name,
+                .variable = node->variable,
+            });
+            emit(RSI::Instruction{
+                .type = RSI::InstructionType::MOVE,
+                .result = node->variable->rsiReference,
                 .op1 = lastResult,
             });
         }
