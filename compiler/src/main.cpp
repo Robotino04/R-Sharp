@@ -20,6 +20,7 @@
 #include "R-Sharp/SemanticValidator.hpp"
 #include "R-Sharp/RSIGenerator.hpp"
 #include "R-Sharp/RSIAnalysis.hpp"
+#include "R-Sharp/Utils/LambdaOverload.hpp"
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -73,6 +74,114 @@ inline const std::map<RSI::HWRegister, std::string> nasmRegisterTranslation = {
     {nasmRegisters.at(12), "r14"},
     {nasmRegisters.at(13), "r15"},
 };
+
+
+inline const std::vector<RSI::HWRegister> aarch64Registers(26);
+inline const std::map<RSI::HWRegister, std::string> aarch64RegistersRegisterTranslation = {
+    {aarch64Registers.at(0), "x0"},
+    {aarch64Registers.at(1), "x1"},
+    {aarch64Registers.at(2), "x2"},
+    {aarch64Registers.at(3), "x3"},
+    {aarch64Registers.at(4), "x4"},
+    {aarch64Registers.at(5), "x5"},
+    {aarch64Registers.at(6), "x6"},
+    {aarch64Registers.at(7), "x7"},
+    {aarch64Registers.at(8), "x8"},
+    {aarch64Registers.at(9), "x9"},
+    {aarch64Registers.at(10), "x10"},
+    {aarch64Registers.at(11), "x11"},
+    {aarch64Registers.at(12), "x12"},
+    {aarch64Registers.at(13), "x13"},
+    {aarch64Registers.at(14), "x14"},
+    {aarch64Registers.at(15), "x15"},
+    {aarch64Registers.at(16), "x16"},
+    {aarch64Registers.at(17), "x17"},
+
+    {aarch64Registers.at(18), "x21"},
+    {aarch64Registers.at(19), "x22"},
+    {aarch64Registers.at(20), "x23"},
+    {aarch64Registers.at(21), "x24"},
+    {aarch64Registers.at(22), "x25"},
+    {aarch64Registers.at(23), "x26"},
+    {aarch64Registers.at(24), "x27"},
+    {aarch64Registers.at(25), "x28"},
+};
+
+std::string translateOperand(RSI::Operand const& op, std::map<RSI::HWRegister, std::string> registerTranslation, std::string constantPrefix){
+    return std::visit(lambda_overload{
+        [&](RSI::Constant const& x) { return constantPrefix + std::to_string(x.value); },
+        [&](std::shared_ptr<RSI::Reference> x){ return registerTranslation.at(x->assignedRegister.value()); },
+        [](std::monostate const&){ Fatal("Empty RSI operand used!"); return std::string();},
+    }, op);
+}
+
+std::string rsiToAarch64(RSI::Function const& function){
+    std::string result = "";
+
+    const auto translateOperandAarch64 = [&](RSI::Operand const& op){return translateOperand(op, aarch64RegistersRegisterTranslation, "#");};
+
+    for (auto const& instr : function.instructions){
+        switch(instr.type){
+            case RSI::InstructionType::ADD:
+                result += "add " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::MOVE:
+                result += "mov " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
+                break;
+            case RSI::InstructionType::RETURN:
+                result += "mov x0, " + translateOperandAarch64(instr.op1) + "\n";
+                result += "ret\n";
+                break;
+
+            case RSI::InstructionType::NOP:
+                break;
+
+            default:
+                Fatal("Unimplemented RSI instrution for aarch64.");
+                break;
+        }
+    }
+
+    return result;
+}
+
+
+std::string rsiToNasm(RSI::Function const& function){
+    std::string result = "";
+
+    const auto translateOperandNasm = [&](RSI::Operand const& op){return translateOperand(op, nasmRegisterTranslation, "");};
+
+    for (auto const& instr : function.instructions){
+        try{
+            if (!std::holds_alternative<std::monostate>(instr.op2) && std::get<std::shared_ptr<RSI::Reference>>(instr.result) != std::get<std::shared_ptr<RSI::Reference>>(instr.op1)){
+                Fatal("RSI instruction is not nasm compatible. (result and op1 are different)");
+            }
+        }
+        catch(std::bad_variant_access){}
+
+        switch(instr.type){
+            case RSI::InstructionType::ADD:
+                result += "add " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::MOVE:
+                result += "mov " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op1) + "\n";
+                break;
+            case RSI::InstructionType::RETURN:
+                result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+                result += "ret\n";
+                break;
+
+            case RSI::InstructionType::NOP:
+                break;
+
+            default:
+                Fatal("Unimplemented RSI instrution for nasm.");
+                break;
+        }
+    }
+
+    return result;
+}
 
 int main(int argc, const char** argv) {
     std::string inputFilename;
@@ -249,6 +358,12 @@ int main(int argc, const char** argv) {
                 Print("; Function \"", func.name, "\"");
                 Print(RSI::stringify_function(func, nasmRegisterTranslation));
             }
+            Print("--------------| Two Operand Compatibility |--------------");
+            for (auto& func : ir){
+                Print("; Function \"", func.name, "\"");
+                RSI::makeTwoOperandCompatible(func);
+                Print(RSI::stringify_function(func, nasmRegisterTranslation));
+            }
             Print("--------------| Liveness analysis |--------------");
             for (auto& func : ir){
                 RSI::analyzeLiveVariables(func);
@@ -260,6 +375,11 @@ int main(int argc, const char** argv) {
                 RSI::assignRegistersLinearScan(ir.at(0), nasmRegisters);
                 Print("; Function \"", func.name, "\"");
                 Print(RSI::stringify_function(func, nasmRegisterTranslation));
+            }
+            Print("--------------| RSI to Nasm |--------------");
+            for (auto& func : ir){
+                Print("; Function \"", func.name, "\"");
+                Print(rsiToNasm(func));
             }
         }
     }

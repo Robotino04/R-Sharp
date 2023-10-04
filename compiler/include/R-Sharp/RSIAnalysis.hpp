@@ -14,4 +14,6 @@ std::string stringify_function(Function const& function, std::map<HWRegister, st
 void analyzeLiveVariables(Function& function);
 
 void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& allRegisters);
+
+void makeTwoOperandCompatible(Function& func);
 }

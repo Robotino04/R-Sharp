@@ -87,11 +87,28 @@ void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& al
                 unusedRegisters.erase(std::remove(unusedRegisters.begin(), unusedRegisters.end(), var->assignedRegister.value()), unusedRegisters.end());
             }
         }
-        
+
         for (auto& var : instr.meta.liveVariablesAfter){
             if (!var->assignedRegister.has_value()){
                 var->assignedRegister = unusedRegisters.front();
                 unusedRegisters.erase(unusedRegisters.begin());
+            }
+        }
+    }
+}
+
+void makeTwoOperandCompatible(Function& func){
+    for (int i=0; i<func.instructions.size(); i++){
+        auto& instr = func.instructions.at(i);
+        if (std::holds_alternative<std::shared_ptr<Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<Reference>>(instr.op1) && !std::holds_alternative<std::monostate>(instr.op2)){
+            if (std::get<std::shared_ptr<Reference>>(instr.result) != std::get<std::shared_ptr<Reference>>(instr.op1)){
+                Instruction move{
+                    .type = InstructionType::MOVE,
+                    .result = instr.result,
+                    .op1 = instr.op1,
+                };
+                instr.op1 = instr.result;
+                func.instructions.insert(func.instructions.begin()+i, move);
             }
         }
     }
