@@ -484,7 +484,14 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
 }
 void RSIGenerator::visit(std::shared_ptr<AstInteger> node){
     expectValueType(ValueType::Value);
-    lastResult = RSI::Constant{.value = static_cast<uint64_t>(node->value)};
+
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::MOVE,
+        .result = std::make_shared<RSI::Reference>(RSI::Reference{
+            .name = getUniqueLabel("constant"),
+        }),
+        .op1 = RSI::Constant{.value = static_cast<uint64_t>(node->value)},
+    });
 }
 void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     auto size = sizeFromSemanticalType(node->semanticType);

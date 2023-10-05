@@ -76,6 +76,143 @@ inline const std::map<RSI::HWRegister, std::string> nasmRegisterTranslation = {
     {nasmRegisters.at(13), "r15"},
 };
 
+inline const std::map<std::pair<std::string, int>, std::string> nasmRegisterSize = {
+    {{"rax", 1}, "al"},
+    {{"rax", 2}, "ax"},
+    {{"rax", 4}, "eax"},
+    {{"rax", 8}, "rax"},
+
+    {{"rbx", 1}, "bl"},
+    {{"rbx", 2}, "bx"},
+    {{"rbx", 4}, "ebx"},
+    {{"rbx", 8}, "rbx"},
+
+    {{"rcx", 1}, "cl"},
+    {{"rcx", 2}, "cx"},
+    {{"rcx", 4}, "ecx"},
+    {{"rcx", 8}, "rcx"},
+
+    {{"rdx", 1}, "dl"},
+    {{"rdx", 2}, "dx"},
+    {{"rdx", 4}, "edx"},
+    {{"rdx", 8}, "rdx"},
+
+    {{"rsi", 1}, "sil"},
+    {{"rsi", 2}, "si"},
+    {{"rsi", 4}, "esi"},
+    {{"rsi", 8}, "rsi"},
+
+    {{"rdi", 1}, "dil"},
+    {{"rdi", 2}, "di"},
+    {{"rdi", 4}, "edi"},
+    {{"rdi", 8}, "rdi"},
+
+    {{"rsp", 1}, "spl"},
+    {{"rsp", 2}, "sp"},
+    {{"rsp", 4}, "esp"},
+    {{"rsp", 8}, "rsp"},
+
+    {{"rbp", 1}, "bpl"},
+    {{"rbp", 2}, "bp"},
+    {{"rbp", 4}, "ebp"},
+    {{"rbp", 8}, "rbp"},
+
+    {{"r0", 1}, "r0b"},
+    {{"r0", 2}, "r0w"},
+    {{"r0", 4}, "r0d"},
+    {{"r0", 8}, "r0"},
+
+
+    {{"r1", 1}, "r1b"},
+    {{"r1", 2}, "r1w"},
+    {{"r1", 4}, "r1d"},
+    {{"r1", 8}, "r1"},
+
+
+    {{"r2", 1}, "r2b"},
+    {{"r2", 2}, "r2w"},
+    {{"r2", 4}, "r2d"},
+    {{"r2", 8}, "r2"},
+
+
+    {{"r3", 1}, "r3b"},
+    {{"r3", 2}, "r3w"},
+    {{"r3", 4}, "r3d"},
+    {{"r3", 8}, "r3"},
+
+
+    {{"r4", 1}, "r4b"},
+    {{"r4", 2}, "r4w"},
+    {{"r4", 4}, "r4d"},
+    {{"r4", 8}, "r4"},
+
+
+    {{"r5", 1}, "r5b"},
+    {{"r5", 2}, "r5w"},
+    {{"r5", 4}, "r5d"},
+    {{"r5", 8}, "r5"},
+
+
+    {{"r6", 1}, "r6b"},
+    {{"r6", 2}, "r6w"},
+    {{"r6", 4}, "r6d"},
+    {{"r6", 8}, "r6"},
+
+
+    {{"r7", 1}, "r7b"},
+    {{"r7", 2}, "r7w"},
+    {{"r7", 4}, "r7d"},
+    {{"r7", 8}, "r7"},
+
+
+    {{"r8", 1}, "r8b"},
+    {{"r8", 2}, "r8w"},
+    {{"r8", 4}, "r8d"},
+    {{"r8", 8}, "r8"},
+
+
+    {{"r9", 1}, "r9b"},
+    {{"r9", 2}, "r9w"},
+    {{"r9", 4}, "r9d"},
+    {{"r9", 8}, "r9"},
+
+
+    {{"r10", 1}, "r10b"},
+    {{"r10", 2}, "r10w"},
+    {{"r10", 4}, "r10d"},
+    {{"r10", 8}, "r10"},
+
+
+    {{"r11", 1}, "r11b"},
+    {{"r11", 2}, "r11w"},
+    {{"r11", 4}, "r11d"},
+    {{"r11", 8}, "r11"},
+
+
+    {{"r12", 1}, "r12b"},
+    {{"r12", 2}, "r12w"},
+    {{"r12", 4}, "r12d"},
+    {{"r12", 8}, "r12"},
+
+
+    {{"r13", 1}, "r13b"},
+    {{"r13", 2}, "r13w"},
+    {{"r13", 4}, "r13d"},
+    {{"r13", 8}, "r13"},
+
+
+    {{"r14", 1}, "r14b"},
+    {{"r14", 2}, "r14w"},
+    {{"r14", 4}, "r14d"},
+    {{"r14", 8}, "r14"},
+
+
+    {{"r15", 1}, "r15b"},
+    {{"r15", 2}, "r15w"},
+    {{"r15", 4}, "r15d"},
+    {{"r15", 8}, "r15"},
+};
+
 
 inline const std::vector<RSI::HWRegister> aarch64Registers(26);
 inline const std::map<RSI::HWRegister, std::string> aarch64RegistersRegisterTranslation = {
@@ -124,14 +261,81 @@ std::string rsiToAarch64(RSI::Function const& function){
     for (auto const& instr : function.instructions){
         switch(instr.type){
             case RSI::InstructionType::ADD:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "add " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
                 break;
+            case RSI::InstructionType::SUBTRACT:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "sub " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::NEGATE:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "neg " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
+                break;
+            case RSI::InstructionType::BINARY_NOT:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "mvn " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
+                break;
+            case RSI::InstructionType::EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", eq\n";
+                break;
+            case RSI::InstructionType::NOT_EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", ne\n";
+                break;
+            case RSI::InstructionType::LESS_THAN:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", lt\n";
+                break;
+            case RSI::InstructionType::LESS_THAN_OR_EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", le\n";
+                break;
+            case RSI::InstructionType::GREATER_THAN:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", gt\n";
+                break;
+            case RSI::InstructionType::GREATER_THAN_OR_EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", ge\n";
+                break;
             case RSI::InstructionType::MOVE:
-                result += "mov " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                if (std::holds_alternative<RSI::Constant>(instr.op1)){
+                    uint64_t valueCopy = static_cast<uint64_t>(std::get<RSI::Constant>(instr.op1).value);
+                    if (valueCopy == 0){
+                        result += "movz " + translateOperandAarch64(instr.result) + ", 0\n";
+                    }
+                    else{
+                        for (int shiftAmount = 0; valueCopy >> shiftAmount && shiftAmount < 64; shiftAmount += 16){
+                            if (shiftAmount == 0){
+                                result += "movz " + translateOperandAarch64(instr.result) + ", " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + "\n";
+                            }
+                            else{
+                                result += "movk " + translateOperandAarch64(instr.result) + ", " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + ", lsl " + std::to_string(shiftAmount) + "\n";
+                            }
+                        }
+                    }
+                }
+                else{
+                    result += "mov " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
+                }
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov x0, " + translateOperandAarch64(instr.op1) + "\n";
                 result += "ret\n";
+                break;
+            case RSI::InstructionType::LOGICAL_NOT:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandAarch64(instr.op1) + ", 0\n";
+                result += "cset " + translateOperandAarch64(instr.result) + ", eq\n";
                 break;
 
             case RSI::InstructionType::NOP:
@@ -162,14 +366,70 @@ std::string rsiToNasm(RSI::Function const& function){
 
         switch(instr.type){
             case RSI::InstructionType::ADD:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "add " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op2) + "\n";
                 break;
+            case RSI::InstructionType::SUBTRACT:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "sub " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::NEGATE:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "neg " + translateOperandNasm(instr.result) + "\n";
+                break;
+            case RSI::InstructionType::BINARY_NOT:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "not " + translateOperandNasm(instr.result) + "\n";
+                break;
+            
+            case RSI::InstructionType::EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandNasm(instr.op1) + ", " + translateOperandNasm(instr.op2) + "\n";
+                result += "sete " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                break;
+            case RSI::InstructionType::NOT_EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandNasm(instr.op1) + ", " + translateOperandNasm(instr.op2) + "\n";
+                result += "setne " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                break;
+            case RSI::InstructionType::LESS_THAN:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandNasm(instr.op1) + ", " + translateOperandNasm(instr.op2) + "\n";
+                result += "setl " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                break;
+            case RSI::InstructionType::LESS_THAN_OR_EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandNasm(instr.op1) + ", " + translateOperandNasm(instr.op2) + "\n";
+                result += "setle " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                break;
+            case RSI::InstructionType::GREATER_THAN:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandNasm(instr.op1) + ", " + translateOperandNasm(instr.op2) + "\n";
+                result += "setg " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                break;
+            case RSI::InstructionType::GREATER_THAN_OR_EQUAL:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "cmp " + translateOperandNasm(instr.op1) + ", " + translateOperandNasm(instr.op2) + "\n";
+                result += "setge " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
+                break;
             case RSI::InstructionType::MOVE:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "mov " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op1) + "\n";
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
                 result += "ret\n";
+                break;
+            case RSI::InstructionType::LOGICAL_NOT:
+                result += "cmp " + translateOperandNasm(instr.op1) + ", 0\n";
+                result += "mov " + translateOperandNasm(instr.result) + ", 0\n";
+                result += "sete " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
                 break;
 
             case RSI::InstructionType::NOP:
@@ -401,13 +661,13 @@ section .text
             }
             else{
                 outputSource =
-R"(; Aarch64 code generated by R-Sharp compiler (using RSI)
+R"(// Aarch64 code generated by R-Sharp compiler (using RSI)
 
 .text
 
 )";
                 for (auto& func : ir){
-                    outputSource += ".extern " + func.name + "\n" + func.name + ":\n";
+                    outputSource += ".global " + func.name + "\n" + func.name + ":\n";
                     outputSource += rsiToAarch64(func) + "\n";
                 }
                 outputFormat = OutputFormat::AArch64;
