@@ -4,7 +4,7 @@
 #include "R-Sharp/Token.hpp"
 #include "R-Sharp/AstNodesFWD.hpp"
 #include "R-Sharp/AstVisitor.hpp"
-#include "R-Sharp/RSI.hpp"
+#include "R-Sharp/RSI_FWD.hpp"
 
 #include <vector>
 #include <string>

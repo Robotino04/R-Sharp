@@ -1,8 +1,6 @@
 #pragma once
 
 #include "R-Sharp/AstVisitor.hpp"
-#include "R-Sharp/Syscall.hpp"
-#include "R-Sharp/Token.hpp"
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/RSI.hpp"
 
@@ -53,14 +51,13 @@ class RSIGenerator : public AstVisitor {
 
         static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
 
+        static std::string getUniqueLabel(std::string const& prefix);
 
     private:
         void emit(RSI::Instruction instr){
             functions.back().instructions.push_back(instr);
             lastResult = instr.result;
         }
-
-        std::string getUniqueLabel(std::string const& prefix);
         
         void resetStackPointer(std::shared_ptr<AstBlock> scope){};
         void setupLocalVariables(std::shared_ptr<AstBlock> scope);

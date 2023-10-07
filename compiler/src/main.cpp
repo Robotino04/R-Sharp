@@ -55,25 +55,44 @@ enum class OutputFormat {
     NASM,
     AArch64,
     RSI_NASM,
-    RSI_Aarch64,
+    RSI_AArch64,
 };
 
-inline const std::vector<RSI::HWRegister> nasmRegisters(14);
+enum class NasmRegisters{
+    RAX,
+    RBX,
+    RCX,
+    RDX,
+    RSI,
+    RDI,
+    R8,
+    R9,
+    R10,
+    R11,
+    R12,
+    R13,
+    R14,
+    R15,
+
+    COUNT,
+};
+
+inline const std::vector<RSI::HWRegister> nasmRegisters(static_cast<int>(NasmRegisters::COUNT));
 inline const std::map<RSI::HWRegister, std::string> nasmRegisterTranslation = {
-    {nasmRegisters.at(0), "rax"},
-    {nasmRegisters.at(1), "rbx"},
-    {nasmRegisters.at(2), "rcx"},
-    {nasmRegisters.at(3), "rdx"},
-    {nasmRegisters.at(4), "rsi"},
-    {nasmRegisters.at(5), "rdi"},
-    {nasmRegisters.at(6), "r8"},
-    {nasmRegisters.at(7), "r9"},
-    {nasmRegisters.at(8), "r10"},
-    {nasmRegisters.at(9), "r11"},
-    {nasmRegisters.at(10), "r12"},
-    {nasmRegisters.at(11), "r13"},
-    {nasmRegisters.at(12), "r14"},
-    {nasmRegisters.at(13), "r15"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)), "rax"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::RBX)), "rbx"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::RCX)), "rcx"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)), "rdx"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::RSI)), "rsi"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::RDI)), "rdi"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R8)), "r8"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R9)), "r9"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R10)), "r10"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R11)), "r11"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R12)), "r12"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R13)), "r13"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R14)), "r14"},
+    {nasmRegisters.at(static_cast<int>(NasmRegisters::R15)), "r15"},
 };
 
 inline const std::map<std::pair<std::string, int>, std::string> nasmRegisterSize = {
@@ -268,6 +287,14 @@ std::string rsiToAarch64(RSI::Function const& function){
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "sub " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
                 break;
+            case RSI::InstructionType::MULTIPLY:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "mul " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::DIVIDE:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "sdiv " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + ", " + translateOperandAarch64(instr.op2) + "\n";
+                break;
             case RSI::InstructionType::NEGATE:
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "neg " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
@@ -372,6 +399,65 @@ std::string rsiToNasm(RSI::Function const& function){
             case RSI::InstructionType::SUBTRACT:
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "sub " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::MULTIPLY:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                result += "push rax\n";
+                result += "push rdx\n";
+                result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+                result += "imul " + translateOperandNasm(instr.op2) + "\n";
+                result += "mov " + translateOperandNasm(instr.result) + ", rax\n";
+
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
+                    result += "pop rdx\n";
+                else
+                    result += "add rsp, 8\n";
+
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
+                    result += "pop rax\n";
+                else
+                    result += "add rsp, 8\n";
+
+                break;
+            case RSI::InstructionType::DIVIDE:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
+                    result += "push rax\n";
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
+                    result += "push rdx\n";
+
+                result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+                result += "cqo\n";
+                result += "idiv " + translateOperandNasm(instr.op2) + "\n";
+                result += "mov " + translateOperandNasm(instr.result) + ", rax\n";
+
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
+                    result += "pop rdx\n";
+
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
+                    result += "pop rax\n";
+
+                break;
+            case RSI::InstructionType::MODULO:
+                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
+                
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
+                    result += "push rax\n";
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
+                    result += "push rdx\n";
+
+                result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+                result += "cqo\n";
+                result += "idiv " + translateOperandNasm(instr.op2) + "\n";
+                result += "mov " + translateOperandNasm(instr.result) + ", rdx\n";
+
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
+                    result += "pop rdx\n";
+
+                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
+                    result += "pop rax\n";
+
                 break;
             case RSI::InstructionType::NEGATE:
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
@@ -497,7 +583,7 @@ int main(int argc, const char** argv) {
                     outputFormat = OutputFormat::RSI_NASM;
                 }
                 else if (format == "rsi_aarch64") {
-                    outputFormat = OutputFormat::RSI_Aarch64;
+                    outputFormat = OutputFormat::RSI_AArch64;
                 }
                 else {
                     Error("Unknown output format \"" + format + "\"");
@@ -611,7 +697,7 @@ int main(int argc, const char** argv) {
                 outputSource = AArch64CodeGenerator(ast, R_Sharp_Source).generate();
                 break;
             case OutputFormat::RSI_NASM:
-            case OutputFormat::RSI_Aarch64:
+            case OutputFormat::RSI_AArch64:
                 ir = RSIGenerator(ast, R_Sharp_Source).generate();
                 break;
         }
@@ -626,17 +712,39 @@ int main(int argc, const char** argv) {
                 Print("; Function \"", func.name, "\"");
                 Print(RSI::stringify_function(func, registerTranslation));
             }
-            Print("--------------| Two Operand Compatibility |--------------");
-            for (auto& func : ir){
-                Print("; Function \"", func.name, "\"");
-                RSI::makeTwoOperandCompatible(func);
-                Print(RSI::stringify_function(func, registerTranslation));
+            if (outputFormat == OutputFormat::RSI_NASM){
+                Print("--------------| Two Operand Compatibility |--------------");
+                for (auto& func : ir){
+                    Print("; Function \"", func.name, "\"");
+                    RSI::makeTwoOperandCompatible(func);
+                    Print(RSI::stringify_function(func, registerTranslation));
+                }
+            }
+            if (outputFormat == OutputFormat::RSI_AArch64){
+                Print("--------------| Replace modulo with div, mul, sub |--------------");
+                for (auto& func : ir){
+                    Print("; Function \"", func.name, "\"");
+                    RSI::replaceModWithDivMulSub(func);
+                    Print(RSI::stringify_function(func, registerTranslation));
+                }
             }
             Print("--------------| Liveness analysis |--------------");
             for (auto& func : ir){
                 RSI::analyzeLiveVariables(func);
                 Print("; Function \"", func.name, "\"");
                 Print(RSI::stringify_function(func, registerTranslation));
+            }
+            {
+                bool hasError = false;
+                for (auto const& func : ir){
+                    if (func.instructions.at(0).meta.liveVariablesAfter.size() != 0){
+                        Error("Function \"", func.name, "\" requires live variables before main code. This probably means some transformation is incorrect.");
+                        hasError = true;
+                    }
+                }
+                if (hasError){
+                    return static_cast<int>(ReturnValue::UnknownError);
+                }
             }
             Print("--------------| Linear scan register assignment |--------------");
             for (auto& func : ir){

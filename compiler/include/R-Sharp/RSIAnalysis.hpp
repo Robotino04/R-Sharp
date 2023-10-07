@@ -16,4 +16,6 @@ void analyzeLiveVariables(Function& function);
 void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& allRegisters);
 
 void makeTwoOperandCompatible(Function& func);
+
+void replaceModWithDivMulSub(Function& func);
 }

@@ -8,40 +8,11 @@
 #include <atomic>
 #include <set>
 
-#include "R-Sharp/AstNodesFWD.hpp"
+#include "R-Sharp/RSI_FWD.hpp"
+#include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Logging.hpp"
 
 namespace RSI{
-
-enum class InstructionType{
-    NOP,
-
-    MOVE,
-    RETURN,
-
-    NEGATE,
-    BINARY_NOT,
-    LOGICAL_NOT,
-
-
-    ADD,
-    SUBTRACT,
-    MULTIPLY,
-    DIVIDE,
-    MODULO,
-    
-    EQUAL,
-    NOT_EQUAL,
-    LESS_THAN,
-    LESS_THAN_OR_EQUAL,
-    GREATER_THAN,
-    GREATER_THAN_OR_EQUAL,
-
-    LOGICAL_AND,
-    LOGICAL_OR,
-
-    BINARY_AND,
-};
 
 inline const std::map<InstructionType, uint> numArgumentsUsed = {
     {InstructionType::NOP, 0},
@@ -107,6 +78,9 @@ struct HWRegister{
 
     bool operator==(HWRegister const& other) const{
         return this->getID() == other.getID();
+    }
+    bool operator!=(HWRegister const& other) const{
+        return !(*this == other);
     }
 
     bool operator <(HWRegister const& other) const{

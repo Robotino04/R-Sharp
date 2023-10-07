@@ -1,4 +1,5 @@
 #include "R-Sharp/RSIAnalysis.hpp"
+#include "R-Sharp/RSIGenerator.hpp"
 
 #include "R-Sharp/Utils/LambdaOverload.hpp"
 
@@ -13,7 +14,7 @@ std::string stringify_operand(Operand const& op, std::map<HWRegister, std::strin
 }
 
 std::string stringify_function(RSI::Function const& function, std::map<HWRegister, std::string> const& registerTranslation){
-    const uint maxLiveVariableStringSize = 35;
+    const uint maxLiveVariableStringSize = 55;
     std::string result = "";
     for (auto instr : function.instructions){
         std::string prefix;
@@ -110,6 +111,35 @@ void makeTwoOperandCompatible(Function& func){
                 instr.op1 = instr.result;
                 func.instructions.insert(func.instructions.begin()+i, move);
             }
+        }
+    }
+}
+
+void replaceModWithDivMulSub(Function& func){
+    for (int i=0; i<func.instructions.size(); i++){
+        auto& instr = func.instructions.at(i);
+        if (instr.type == InstructionType::MODULO){
+            instr.type = InstructionType::DIVIDE;
+
+            auto finalResult = instr.result;
+            instr.result = std::make_shared<Reference>(Reference{.name = RSIGenerator::getUniqueLabel("tmp")});
+
+            Instruction mult{
+                .type = InstructionType::MULTIPLY,
+                .result = std::make_shared<Reference>(Reference{.name = RSIGenerator::getUniqueLabel("tmp")}),
+                .op1 = instr.result,
+                .op2 = instr.op2,
+            };
+            Instruction sub{
+                .type = InstructionType::SUBTRACT,
+                .result = finalResult,
+                .op1 = instr.op1,
+                .op2 = mult.result,
+            };
+            
+            
+            func.instructions.insert(func.instructions.begin()+i+1, mult);
+            func.instructions.insert(func.instructions.begin()+i+2, sub);
         }
     }
 }

@@ -82,3 +82,6 @@ Some of the tests used for R# are from [this](https://github.com/nlsandler/write
 | ymm13      | No             | General Purpose |
 | ymm14      | No             | General Purpose |
 | ymm15      | No             | General Purpose | -->
+
+# References
+- x86_64 reference: <https://www.felixcloutier.com/x86/>
