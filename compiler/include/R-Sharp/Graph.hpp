@@ -115,7 +115,10 @@ class Graph{
         }
 
         bool colorIn(std::vector<VertexColor> const& availableColors){
-            if (vertices.size() == 1){
+            if (vertices.size() == 0){
+                return true;
+            }
+            else if (vertices.size() == 1){
                 if (!vertices.at(0)->color.has_value()){
                     // std::cout << "coloring " << std::to_string(*vertices.at(0)) << " as " << availableColors.at(0).getID() << "\n";
                     vertices.at(0)->color = availableColors.at(0);
