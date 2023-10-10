@@ -63,6 +63,9 @@ std::string RSIGenerator::getUniqueLabel(std::string const& prefix){
     static uint64_t labelCounter = 0;
     return prefix + "_" + std::to_string(labelCounter++);
 }
+std::shared_ptr<RSI::Reference> RSIGenerator::getNewReference(std::string const& name){
+    return std::make_shared<RSI::Reference>(RSI::Reference{.name = getUniqueLabel(name)});
+}
 
 void RSIGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
     int max_name_length = 0;
@@ -123,7 +126,8 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         func.function = node->functionData;
 
         emit(RSI::Instruction{
-            .type = RSI::InstructionType::NOP,
+            .type = RSI::InstructionType::DEFINE_LABEL,
+            .op1 = std::make_shared<RSI::Label>(RSI::Label{.name = func.name}),
         });
 
         node->parameters->accept(this);
@@ -328,7 +332,7 @@ void RSIGenerator::visit(std::shared_ptr<AstUnary> node){
     node->value->accept(this);
     
     RSI::Instruction instr{
-        .result = std::make_shared<RSI::Reference>(RSI::Reference{.name = getUniqueLabel("tmp")}),
+        .result = getNewReference(),
         .op1 = lastResult,
     };
 
@@ -352,18 +356,129 @@ void RSIGenerator::visit(std::shared_ptr<AstUnary> node){
 }
 void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
     node->left->accept(this);
-
-    RSI::Instruction instr{
-        .result = std::make_shared<RSI::Reference>(RSI::Reference{.name = getUniqueLabel("tmp")}),
-        .op1 = lastResult,
-    };
-    node->right->accept(this);
-    instr.op2 = lastResult;
+    const auto leftValue = lastResult;
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
-    if (node->type == AstBinaryType::LogicalOr || node->type == AstBinaryType::LogicalAnd){
-        Fatal("Not implemented!");
+    if (node->type == AstBinaryType::LogicalOr){
+        auto end_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_end")});
+        auto right_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_right")});
+        auto result = getNewReference("result");
+        
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::JUMP_IF_ZERO,
+            .op1 = leftValue,
+            .op2 = right_label,
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::MOVE,
+            .result = result,
+            .op1 = RSI::Constant{.value = 1},
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::JUMP,
+            .op1 = end_label,
+        });
+
+
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::DEFINE_LABEL,
+            .op1 = right_label,
+        });
+        node->right->accept(this);
+        auto rightValue = lastResult;
+        auto zero_constant = getNewReference("constant");
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::MOVE,
+            .result = zero_constant,
+            .op1 = RSI::Constant{.value = 0},
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::NOT_EQUAL,
+            .result = result,
+            .op1 = rightValue,
+            .op2 = zero_constant,
+        });
+
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::DEFINE_LABEL,
+            .op1 = end_label,
+        });
+
+        lastResult = result;
+        return;
     }
+    else if (node->type == AstBinaryType::LogicalAnd){
+        auto end_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_end")});
+        auto right_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_right")});
+        auto result = getNewReference();
+        
+        auto zero_constant = getNewReference("constant");
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::MOVE,
+            .result = zero_constant,
+            .op1 = RSI::Constant{.value = 0},
+        });
+        auto isZeroRef = getNewReference();
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::EQUAL,
+            .result = isZeroRef,
+            .op1 = leftValue,
+            .op2 = zero_constant,
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::JUMP_IF_ZERO,
+            .op1 = isZeroRef,
+            .op2 = right_label,
+
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::MOVE,
+            .result = result,
+            .op1 = zero_constant,
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::JUMP,
+            .op1 = end_label,
+        });
+
+
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::DEFINE_LABEL,
+            .op1 = right_label,
+        });
+        node->right->accept(this);
+        auto rightValue = lastResult;
+        zero_constant = getNewReference("constant");
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::MOVE,
+            .result = zero_constant,
+            .op1 = RSI::Constant{.value = 0},
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::NOT_EQUAL,
+            .result = result,
+            .op1 = rightValue,
+            .op2 = zero_constant,
+        });
+
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::DEFINE_LABEL,
+            .op1 = end_label,
+        });
+
+        lastResult = result;
+        return;
+    }
+
+    node->right->accept(this);
+
+    RSI::Instruction instr{
+        .result = getNewReference(),
+        .op1 = leftValue,
+        .op2 = lastResult,
+    };
+    
+
     switch (node->type){
         case AstBinaryType::Add:
             if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
@@ -487,9 +602,7 @@ void RSIGenerator::visit(std::shared_ptr<AstInteger> node){
 
     emit(RSI::Instruction{
         .type = RSI::InstructionType::MOVE,
-        .result = std::make_shared<RSI::Reference>(RSI::Reference{
-            .name = getUniqueLabel("constant"),
-        }),
+        .result = getNewReference("constant"),
         .op1 = RSI::Constant{.value = static_cast<uint64_t>(node->value)},
     });
 }
@@ -695,10 +808,8 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
                     .value = 0,
                 };
             }
-            node->variable->rsiReference = std::make_shared<RSI::Reference>(RSI::Reference{
-                .name = node->variable->name,
-                .variable = node->variable,
-            });
+            node->variable->rsiReference = getNewReference(node->variable->name);
+            node->variable->rsiReference->variable = node->variable;
             emit(RSI::Instruction{
                 .type = RSI::InstructionType::MOVE,
                 .result = node->variable->rsiReference,

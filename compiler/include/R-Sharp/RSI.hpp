@@ -41,6 +41,10 @@ inline const std::map<InstructionType, uint> numArgumentsUsed = {
     {InstructionType::LOGICAL_OR, 2},
 
     {InstructionType::BINARY_AND, 2},
+
+    {InstructionType::JUMP, 1},
+    {InstructionType::JUMP_IF_ZERO, 2},
+    {InstructionType::DEFINE_LABEL, 1},
 };
 
 inline const std::map<InstructionType, std::string> mnemonics = {
@@ -70,6 +74,10 @@ inline const std::map<InstructionType, std::string> mnemonics = {
     {InstructionType::LOGICAL_OR, "lor"},
 
     {InstructionType::BINARY_AND, "band"},
+
+    {InstructionType::JUMP, "jmp"},
+    {InstructionType::JUMP_IF_ZERO, "jmpz"},
+    {InstructionType::DEFINE_LABEL, "defl"},
 };
 
 struct HWRegister{
@@ -100,6 +108,13 @@ struct HWRegister{
 
 struct Constant{
     uint64_t value;
+
+    bool operator== (Constant const& other) const{
+        return this->value == other.value;
+    }
+    bool operator != (Constant const& other) const{
+        return !(*this == other);
+    }
 };
 
 struct Reference{
@@ -114,9 +129,24 @@ struct Reference{
     bool operator == (Reference const& other) const{
         return name == other.name;
     }
+    bool operator != (Reference const& other) const{
+        return !(*this == other);
+    }
 };
+struct Label{
+    std::string name;
 
-using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>>;
+    bool operator < (Label const& other) const{
+        return name < other.name;
+    }
+
+    bool operator == (Label const& other) const{
+        return name == other.name;
+    }
+    bool operator != (Label const& other) const{
+        return !(*this == other);
+    }
+};
 
 
 struct Instruction{
@@ -126,7 +156,7 @@ struct Instruction{
     Operand op2;
 
     struct Metadata{
-        std::set<std::shared_ptr<Reference>> liveVariablesAfter;
+        std::set<std::shared_ptr<Reference>> liveVariablesBefore = {};
     } meta;
 };
 

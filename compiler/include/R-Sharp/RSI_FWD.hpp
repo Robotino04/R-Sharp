@@ -35,6 +35,10 @@ enum class InstructionType{
     LOGICAL_OR,
 
     BINARY_AND,
+
+    JUMP,
+    JUMP_IF_ZERO,
+    DEFINE_LABEL,
 };
 
 extern const std::map<InstructionType, uint> numArgumentsUsed;
@@ -43,8 +47,9 @@ extern const std::map<InstructionType, std::string> mnemonics;
 struct HWRegister;
 struct Constant;
 struct Reference;
+struct Label;
 
-using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>>;
+using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>, std::shared_ptr<Label>>;
 
 
 struct Instruction;

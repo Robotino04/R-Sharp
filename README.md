@@ -85,3 +85,5 @@ Some of the tests used for R# are from [this](https://github.com/nlsandler/write
 
 # References
 - x86_64 reference: <https://www.felixcloutier.com/x86/>
+- liveness analysis for TAC: <https://www.cs.cmu.edu/~rjsimmon/15411-f15/lec/04-liveness.pdf>
+- register allocation in GCC: <https://gcc.gnu.org/pub/gcc/summit/2003/Graph%20Coloring%20Register%20Allocation.pdf>

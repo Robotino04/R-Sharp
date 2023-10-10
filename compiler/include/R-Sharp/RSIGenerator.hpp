@@ -52,6 +52,7 @@ class RSIGenerator : public AstVisitor {
         static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
 
         static std::string getUniqueLabel(std::string const& prefix);
+        static std::shared_ptr<RSI::Reference> getNewReference(std::string const& name = "tmp");
 
     private:
         void emit(RSI::Instruction instr){
@@ -71,7 +72,7 @@ class RSIGenerator : public AstVisitor {
         
         void expectValueType(ValueType valueType){
             if (expectedValueType != valueType){
-                Fatal("NASM Generator: Invalid intermediate value type expected!");
+                Fatal("RSI Generator: Invalid intermediate value type expected!");
             }
         }
 
