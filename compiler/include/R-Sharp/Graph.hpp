@@ -4,24 +4,28 @@
 #include <algorithm>
 #include <stdexcept>
 #include <functional>
-#include <string>
 #include <optional>
 #include <stdint.h>
 #include <atomic>
+#include <variant>
 
 template<typename DataT>
 class Graph;
 
-struct Color{
-    Color(): id(highestID++){
+struct VertexColor{
+    VertexColor(): id(highestID++){
     }
 
-    static std::vector<Color> getNColors(uint64_t n){
-        return std::vector<Color>(n);
+    static std::vector<VertexColor> getNColors(uint64_t n){
+        return std::vector<VertexColor>(n);
     }
 
-    bool operator==(Color const& other){
+    bool operator==(VertexColor const& other) const{
         return this->getID() == other.getID();
+    }
+
+    bool operator<(VertexColor const& other) const{
+        return this->getID() < other.getID();
     }
 
     inline uint64_t getID() const{
@@ -39,7 +43,11 @@ template <typename DataT>
 struct Vertex{
     public:
         using NeighbourList = std::vector<Vertex<DataT>*>;
-        Vertex(DataT&& data, NeighbourList&& neighbours): data(data), neighbours(neighbours){}
+        
+        template<typename Dummmy = DataT>
+        Vertex(std::enable_if_t<!std::is_same_v<Dummmy, void>, DataT>&& data, NeighbourList&& neighbours): data(data), neighbours(neighbours){}
+        Vertex(NeighbourList&& neighbours): neighbours(neighbours){}
+        Vertex(){}
 
         uint64_t getTriviallyColorableNumber() const{
             uint64_t isColored = this->color.has_value() ? uint64_t(0) << 63 : 0;
@@ -58,69 +66,21 @@ struct Vertex{
             return isColored | ((-coloredNeighbours) & 0xEFFFFFFF) << 32 | uncoloredNeighbours;
         }
 
+
         friend class Graph<DataT>;
     public:
-        DataT data;
-        std::optional<Color> color;
+        std::conditional_t<std::is_same_v<DataT, void>, std::monostate, DataT> data;
+        std::optional<VertexColor> color;
         NeighbourList neighbours;
 };
 
 namespace std{
     template<>
-    struct hash<Color>{
-        size_t operator() (Color const& color) const{
+    struct hash<VertexColor>{
+        size_t operator() (VertexColor const& color) const{
             return std::hash<uint64_t>()(color.getID());
         }
     };
-
-    std::string to_string(Color const& color){
-        return std::to_string(color.getID());
-    }
-    template <typename DataT>
-    std::string to_string(Vertex<DataT> const& vertex);
-
-    template <typename DataT>
-    std::string to_string(Vertex<DataT> const& vertex){
-        return std::to_string(vertex.data) + " (" + (vertex.color.has_value() ? std::to_string(vertex.color.value()) : "None") + ")";
-    }
-    template <>
-    std::string to_string(Vertex<std::string> const& vertex){
-        return "'" + vertex.data + "' (" + (vertex.color.has_value() ? std::to_string(vertex.color.value()) : "None") + ")";
-    }
-}
-
-
-template<typename DataT>
-void printVertex(Vertex<DataT> const& v){
-    if (v.neighbours.size() == 0){
-        std::cout << "\"" << std::to_string(v) << "\"\n";
-        return;
-    }
-
-    std::cout << "\"" << std::to_string(v) << "\" -- {\"";
-    bool isFirst = true;
-    for (auto neighbour : v.neighbours){
-        if (!isFirst){
-            std::cout << "\", \"";
-        }
-        std::cout << std::to_string(*neighbour);
-        isFirst = false;
-    }
-    std::cout << "\"}\n";
-}
-
-template<typename DataT>
-void printVertex(std::shared_ptr<Vertex<DataT>> const& v){
-    printVertex(*v);
-}
-
-template<typename DataT>
-void printGraph(Graph<DataT> const& g){
-    std::cout << "strict graph {\n";
-    for (auto v : g){
-        printVertex(v);
-    }
-    std::cout << "}\n";
 }
 
 template<typename DataT>
@@ -137,6 +97,12 @@ class Graph{
             vertices.push_back(v);
             return v;
         }
+        void addEdge(std::shared_ptr<Vertex<DataT>> a, std::shared_ptr<Vertex<DataT>> b){
+            if (std::find(a->neighbours.begin(), a->neighbours.end(), b.get()) == a->neighbours.end()){
+                a->neighbours.push_back(b.get());
+                b->neighbours.push_back(a.get());
+            }
+        }
         void removeVertex(std::shared_ptr<Vertex<DataT>> v){
             auto it = std::find(vertices.begin(), vertices.end(), v);
             if (it == vertices.end()){
@@ -148,13 +114,13 @@ class Graph{
             vertices.erase(std::remove(vertices.begin(), vertices.end(), v), vertices.end());
         }
 
-        bool colorIn(std::vector<Color> const& availableColors){
+        bool colorIn(std::vector<VertexColor> const& availableColors){
             if (vertices.size() == 1){
                 if (!vertices.at(0)->color.has_value()){
-                    std::cout << "coloring " << std::to_string(*vertices.at(0)) << " as " << availableColors.at(0).getID() << "\n";
+                    // std::cout << "coloring " << std::to_string(*vertices.at(0)) << " as " << availableColors.at(0).getID() << "\n";
                     vertices.at(0)->color = availableColors.at(0);
                 }
-                std::cout << "keeping " << std::to_string(*vertices.at(0)) << " as " << vertices.at(0)->color.value().getID() << "\n";
+                // std::cout << "keeping " << std::to_string(*vertices.at(0)) << " as " << vertices.at(0)->color.value().getID() << "\n";
                 
                 return true;
             }
@@ -165,7 +131,7 @@ class Graph{
                 return a->getTriviallyColorableNumber() < b->getTriviallyColorableNumber();
             });
 
-            std::vector<std::pair<std::shared_ptr<Vertex<DataT>>, std::optional<Color>>> vertexColorBackup;
+            std::vector<std::pair<std::shared_ptr<Vertex<DataT>>, std::optional<VertexColor>>> vertexColorBackup;
             vertexColorBackup.reserve(vertices.size());
             for (auto vertex : *this){
                 vertexColorBackup.emplace_back(vertex, vertex->color);
@@ -178,9 +144,9 @@ class Graph{
             };
 
             for (auto vertexWithLeastNeighbours : verticesSorted){
-                printVertex(vertexWithLeastNeighbours);
-                printGraph(*this);
-                std::cout << "\n--\n";
+                // printVertex(vertexWithLeastNeighbours);
+                // printGraph(*this);
+                // std::cout << "\n--\n";
 
                 // if (vertexWithLeastNeighbours->neighbours.size() >= availableColors.size()){
                 //     return false;
@@ -203,13 +169,13 @@ class Graph{
                         continue;
                     }
                     else{
-                        std::cout << "keeping " << std::to_string(*vertexWithLeastNeighbours) << " as " << vertexWithLeastNeighbours->color.value().getID() << "\n";
+                        // std::cout << "keeping " << std::to_string(*vertexWithLeastNeighbours) << " as " << vertexWithLeastNeighbours->color.value().getID() << "\n";
                         return true;
                     }
                 }
 
 
-                std::vector<Color> availableColorsForVertex = availableColors;
+                std::vector<VertexColor> availableColorsForVertex = availableColors;
                 for (auto neighbour : vertexWithLeastNeighbours->neighbours){
                     if (!neighbour->color.has_value()){
                         restoreColors();
@@ -222,7 +188,7 @@ class Graph{
                     continue;
                 }
 
-                std::cout << "coloring " << std::to_string(*vertexWithLeastNeighbours) << " as " << availableColorsForVertex.at(0).getID() << "\n";
+                // std::cout << "coloring " << std::to_string(*vertexWithLeastNeighbours) << " as " << availableColorsForVertex.at(0).getID() << "\n";
                 vertexWithLeastNeighbours->color = availableColorsForVertex.at(0);
                 return true;
             }

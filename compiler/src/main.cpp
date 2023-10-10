@@ -767,10 +767,10 @@ int main(int argc, const char** argv) {
                     return static_cast<int>(ReturnValue::UnknownError);
                 }
             }
-            Print("--------------| Linear scan register assignment |--------------");
+            Print("--------------| Graph coloring register assignment |--------------");
             for (auto& func : ir){
-                RSI::assignRegistersLinearScan(ir.at(0), allRegisters);
                 Print("; Function \"", func.name, "\"");
+                RSI::assignRegistersGraphColoring(ir.at(0), allRegisters);
                 Print(RSI::stringify_function(func, registerTranslation));
             }
             Print("--------------| RSI to assembly |--------------");

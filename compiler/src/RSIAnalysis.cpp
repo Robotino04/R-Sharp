@@ -1,8 +1,10 @@
 #include "R-Sharp/RSIAnalysis.hpp"
 #include "R-Sharp/RSIGenerator.hpp"
+#include "R-Sharp/Graph.hpp"
 
 #include "R-Sharp/Utils/LambdaOverload.hpp"
 #include "R-Sharp/Utils/ScopeGuard.hpp"
+
 
 namespace RSI{
 
@@ -131,6 +133,9 @@ void analyzeLiveVariables(RSI::Function& function){
     }
 }
 
+/*
+Only works for strictly linear programs without any jumps. Use *assignRegistersGraphColoring* for everything else.
+*/
 void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& allRegisters){
     for (auto& instr : func.instructions){
         std::vector<HWRegister> unusedRegisters = allRegisters;
@@ -146,6 +151,58 @@ void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& al
                 unusedRegisters.erase(unusedRegisters.begin());
             }
         }
+    }
+}
+
+void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const& allRegisters){
+    Graph<void> interferenceGraph;
+    using Vertex = Vertex<void>;
+    using NList = Vertex::NeighbourList;
+
+    std::map<std::shared_ptr<RSI::Reference>, std::shared_ptr<Vertex>> referenceToVertex;
+    std::map<std::shared_ptr<Vertex>, std::shared_ptr<RSI::Reference>> vertexToReference;
+
+    const auto addVertexToGraph = [&](auto& operand){
+        if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(operand)){
+            std::shared_ptr<Vertex> vert = std::make_shared<Vertex>();
+            auto ref = std::get<std::shared_ptr<RSI::Reference>>(operand);
+            if (referenceToVertex.count(ref) == 0){
+                referenceToVertex.insert_or_assign(ref, vert);
+                vertexToReference.insert_or_assign(vert, ref);
+                interferenceGraph.addVertex(vert);
+            }
+        }
+    };
+
+    for (auto& instr : func.instructions){
+        addVertexToGraph(instr.result);
+        addVertexToGraph(instr.op1);
+        addVertexToGraph(instr.op2);
+
+        for (auto liveVar1 : instr.meta.liveVariablesBefore){
+            for (auto liveVar2 : instr.meta.liveVariablesBefore){
+                if (liveVar1 == liveVar2) continue;
+
+                interferenceGraph.addEdge(
+                    referenceToVertex.at(liveVar1),
+                    referenceToVertex.at(liveVar2)
+                );
+            }
+        }
+    }
+
+    auto allAvailableColors = VertexColor::getNColors(allRegisters.size());
+    std::map<VertexColor, RSI::HWRegister> colorToHWRegister;
+    for (int i=0; i<allRegisters.size(); i++){
+        colorToHWRegister.insert({allAvailableColors.at(i), allRegisters.at(i)});
+    }
+
+    if (!interferenceGraph.colorIn(allAvailableColors)){
+        Fatal("Unable to color graph with the given colors.");
+    }
+
+    for (auto vertex : interferenceGraph){
+        vertexToReference.at(vertex)->assignedRegister = colorToHWRegister.at(vertex->color.value());
     }
 }
 
