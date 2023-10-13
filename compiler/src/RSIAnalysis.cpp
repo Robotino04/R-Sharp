@@ -1,6 +1,7 @@
 #include "R-Sharp/RSIAnalysis.hpp"
 #include "R-Sharp/RSIGenerator.hpp"
 #include "R-Sharp/Graph.hpp"
+#include "R-Sharp/Architecture.hpp"
 
 #include "R-Sharp/Utils/LambdaOverload.hpp"
 #include "R-Sharp/Utils/ScopeGuard.hpp"
@@ -303,7 +304,7 @@ void moveConstantsToReferences(Function& func){
     }
 }
 
-void nasm_seperateDivReferences(Function& func, RSI::HWRegister rax){
+void nasm_seperateDivReferences(Function& func){
     int i = -1;
     while (i+1 < func.instructions.size()){
         i++;
@@ -330,8 +331,8 @@ void nasm_seperateDivReferences(Function& func, RSI::HWRegister rax){
         func.instructions.at(i).op2 = move2.result;
         func.instructions.at(i).result = moveRes.op1;
 
-        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).op1)->assignedRegister = rax;
-        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).result)->assignedRegister = rax;
+        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).op1)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
+        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).result)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
 
         func.instructions.insert(func.instructions.begin()+i, move2); i++;
         func.instructions.insert(func.instructions.begin()+i, move1); i++;
