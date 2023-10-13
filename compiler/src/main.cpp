@@ -22,6 +22,8 @@
 #include "R-Sharp/RSIAnalysis.hpp"
 #include "R-Sharp/RSIToAssembly.hpp"
 #include "R-Sharp/Architecture.hpp"
+#include "R-Sharp/RSIPass.hpp"
+#include "R-Sharp/RSITools.hpp"
 
 enum class ReturnValue{
     NormalExit = 0,
@@ -241,65 +243,67 @@ int main(int argc, const char** argv) {
             auto const& registerTranslation = outputArchitecture == OutputArchitecture::x86_64 ? x86_64RegisterTranslation : aarch64RegistersRegisterTranslation;
             auto const& allRegisters = outputArchitecture == OutputArchitecture::x86_64 ? x86_64Registers : aarch64Registers;
 
-            Print("--------------| Raw RSI |--------------");
-            for (auto& func : ir){
-                Print("; Function \"", func.name, "\"");
-                Print(RSI::stringify_function(func, registerTranslation));
-            }
+            std::vector<RSIPass> passes = {
+                RSIPass{
+                    .humanHeader = "Raw RSI",
+                    .architectures = allArchitectures,
+                    .positiveInstructionTypes = {RSI::InstructionType::NOP},
+                    .perInstructionFunction = [](auto&, auto&, auto&){},
+                },
+                RSIPass{
+                    .humanHeader = "Seperate divisions",
+                    .architectures = {OutputArchitecture::x86_64},
+                    .positiveInstructionTypes = {RSI::InstructionType::DIVIDE},
+                    .perInstructionFunction = RSI::seperateDivReferences,
+                },
+                RSIPass{
+                    .humanHeader = "Constants to references",
+                    .architectures = allArchitectures,
+                    .negativeInstructionTypes = {RSI::InstructionType::MOVE},
+                    .perInstructionFunction = RSI::moveConstantsToReferences,
+                },
+                RSIPass{
+                    .humanHeader = "Two Operand Compatibility",
+                    .architectures = {OutputArchitecture::x86_64},
+                    .negativeInstructionTypes = {RSI::InstructionType::JUMP, RSI::InstructionType::JUMP_IF_ZERO, RSI::InstructionType::DEFINE_LABEL},
+                    .prefilter = RSI::makeTwoOperandCompatible_prefilter,
+                    .perInstructionFunction = RSI::makeTwoOperandCompatible,
+                },
+                RSIPass{
+                    .humanHeader = "Replace modulo with div, mul, sub",
+                    .architectures = {OutputArchitecture::AArch64},
+                    .positiveInstructionTypes = {RSI::InstructionType::MODULO},
+                    .perInstructionFunction = RSI::replaceModWithDivMulSub,
+                },
+                RSIPass{
+                    .humanHeader = "Liveness analysis",
+                    .architectures = allArchitectures,
+                    .positiveInstructionTypes = {},
+                    .isFunctionWide = true,
+                    .perFunctionFunction = RSI::analyzeLiveVariables,
+                },
+                RSIPass{
+                    .humanHeader = "",
+                    .architectures = allArchitectures,
+                    .positiveInstructionTypes = {},
+                    .isFunctionWide = true,
+                    .perFunctionFunction = [](auto& func, auto){
+                        if (func.instructions.at(0).meta.liveVariablesBefore.size() != 0){
+                            Fatal("Function \"", func.name, "\" requires live variables before main code. This probably means some transformation is incorrect.");
+                        }
+                    },
+                },
+                RSIPass{
+                    .humanHeader = "Graph coloring register assignment",
+                    .architectures = allArchitectures,
+                    .positiveInstructionTypes = {},
+                    .isFunctionWide = true,
+                    .perFunctionFunction = RSI::assignRegistersGraphColoring,
+                },
+            };
 
-            if (outputArchitecture == OutputArchitecture::x86_64){
-                Print("--------------| Seperate divisions |--------------");
-                for (auto& func : ir){
-                    Print("; Function \"", func.name, "\"");
-                    RSI::nasm_seperateDivReferences(func);
-                    Print(RSI::stringify_function(func, registerTranslation));
-                }
-            }
-            Print("--------------| Constants to references |--------------");
-            for (auto& func : ir){
-                Print("; Function \"", func.name, "\"");
-                RSI::moveConstantsToReferences(func);
-                Print(RSI::stringify_function(func, registerTranslation));
-            }
-            if (outputArchitecture == OutputArchitecture::x86_64){
-                Print("--------------| Two Operand Compatibility |--------------");
-                for (auto& func : ir){
-                    Print("; Function \"", func.name, "\"");
-                    RSI::makeTwoOperandCompatible(func);
-                    Print(RSI::stringify_function(func, registerTranslation));
-                }
-            }
-            if (outputArchitecture == OutputArchitecture::AArch64){
-                Print("--------------| Replace modulo with div, mul, sub |--------------");
-                for (auto& func : ir){
-                    Print("; Function \"", func.name, "\"");
-                    RSI::replaceModWithDivMulSub(func);
-                    Print(RSI::stringify_function(func, registerTranslation));
-                }
-            }
-            Print("--------------| Liveness analysis |--------------");
-            for (auto& func : ir){
-                RSI::analyzeLiveVariables(func);
-                Print("; Function \"", func.name, "\"");
-                Print(RSI::stringify_function(func, registerTranslation));
-            }
-            {
-                bool hasError = false;
-                for (auto const& func : ir){
-                    if (func.instructions.at(0).meta.liveVariablesBefore.size() != 0){
-                        Error("Function \"", func.name, "\" requires live variables before main code. This probably means some transformation is incorrect.");
-                        hasError = true;
-                    }
-                }
-                if (hasError){
-                    return static_cast<int>(ReturnValue::UnknownError);
-                }
-            }
-            Print("--------------| Graph coloring register assignment |--------------");
-            for (auto& func : ir){
-                Print("; Function \"", func.name, "\"");
-                RSI::assignRegistersGraphColoring(ir.at(0), allRegisters);
-                Print(RSI::stringify_function(func, registerTranslation));
+            for (auto& pass : passes){
+                pass(ir, outputArchitecture);
             }
             Print("--------------| RSI to assembly |--------------");
             if (outputArchitecture == OutputArchitecture::x86_64){

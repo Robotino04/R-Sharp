@@ -7,7 +7,7 @@
 std::string translateOperand(RSI::Operand const& op, std::map<RSI::HWRegister, std::string> registerTranslation, std::string constantPrefix){
     return std::visit(lambda_overload{
         [&](RSI::Constant const& x) { return constantPrefix + std::to_string(x.value); },
-        [&](std::shared_ptr<RSI::Reference> x){ return registerTranslation.at(x->assignedRegister.value()); },
+        [&](std::shared_ptr<RSI::Reference> x){ return x->assignedRegister.has_value() ? registerTranslation.at(x->assignedRegister.value()) : "(none)"; },
         [](std::shared_ptr<RSI::Label> x){ return x->name; },
         [](std::monostate const&){ Fatal("Empty RSI operand used!"); return std::string();},
     }, op);

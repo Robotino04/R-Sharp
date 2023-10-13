@@ -3,77 +3,12 @@
 #include "R-Sharp/Graph.hpp"
 #include "R-Sharp/Architecture.hpp"
 
-#include "R-Sharp/Utils/LambdaOverload.hpp"
 #include "R-Sharp/Utils/ScopeGuard.hpp"
 
 
 namespace RSI{
 
-std::string stringify_operand(Operand const& op, std::map<HWRegister, std::string> const& registerTranslation){
-    return std::visit(lambda_overload{
-        [](Constant const& x) { return std::to_string(x.value); },
-        [&](std::shared_ptr<RSI::Reference> x){ return x->name + "(" + (x->assignedRegister.has_value() ? registerTranslation.at(x->assignedRegister.value()) : "None") + ")"; },
-        [](std::shared_ptr<RSI::Label> x){ return x->name; },
-        [](std::monostate const&){ Fatal("Empty RSI operand used!"); return std::string();},
-    }, op);
-}
-
-std::string stringify_function(RSI::Function const& function, std::map<HWRegister, std::string> const& registerTranslation){
-    const uint maxLiveVariableStringSize = 55;
-    std::string result = "";
-    for (auto instr : function.instructions){
-        std::string prefix;
-        prefix += "[";
-        bool isFirst = true;
-        for (auto liveVar : instr.meta.liveVariablesBefore){
-            if (!isFirst){
-                prefix += ", ";
-            }
-            isFirst = false;
-            prefix += stringify_operand(liveVar, registerTranslation);
-        }
-        prefix += "]  ";
-        while (prefix.length() < maxLiveVariableStringSize) prefix += " ";
-        result += prefix;
-
-        result += mnemonics.at(instr.type);
-        
-        if (instr.type == RSI::InstructionType::RETURN){
-            result += " " + stringify_operand(instr.op1, registerTranslation) + "\n";
-            continue;
-        }
-        else if (instr.type == RSI::InstructionType::DEFINE_LABEL){
-            result += " " + stringify_operand(instr.op1, registerTranslation) + "\n";
-            continue;
-        }
-        else if (instr.type == RSI::InstructionType::JUMP){
-            result += " -> " + stringify_operand(instr.op1, registerTranslation) + "\n";
-            continue;
-        }
-        else if (instr.type == RSI::InstructionType::JUMP_IF_ZERO){
-            result += " " + stringify_operand(instr.op1, registerTranslation) + " -> " + stringify_operand(instr.op2, registerTranslation) + "\n";
-            continue;
-        }
-        
-        switch(numArgumentsUsed.at(instr.type)){
-            case 0:
-                result += "\n";
-                break;
-            case 1:
-                result += " " + stringify_operand(instr.result, registerTranslation) + ", " + stringify_operand(instr.op1, registerTranslation) + "\n";
-                break;
-            case 2:
-                result += " " + stringify_operand(instr.result, registerTranslation) + ", " + stringify_operand(instr.op1, registerTranslation) + ", " + stringify_operand(instr.op2, registerTranslation) + "\n";
-                break;
-            default:
-                Fatal("Unimplemented number of arguments used in RSI.");
-                break;
-        }
-    }
-    return result;
-}
-
-void analyzeLiveVariables(RSI::Function& function){
+void analyzeLiveVariables(RSI::Function& function, OutputArchitecture){
     bool hasModifiedTheIR = true;
 
     const auto setSizeWatchGuard = [&hasModifiedTheIR](auto const& setToWatch){
@@ -136,7 +71,9 @@ void analyzeLiveVariables(RSI::Function& function){
 /*
 Only works for strictly linear programs without any jumps. Use *assignRegistersGraphColoring* for everything else.
 */
-void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& allRegisters){
+void assignRegistersLinearScan(Function& func, OutputArchitecture arch){
+    std::vector<HWRegister> const& allRegisters = arch == OutputArchitecture::x86_64 ? x86_64Registers : aarch64Registers;
+    
     for (auto& instr : func.instructions){
         std::vector<HWRegister> unusedRegisters = allRegisters;
         for (auto& var : instr.meta.liveVariablesBefore){
@@ -154,7 +91,9 @@ void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& al
     }
 }
 
-void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const& allRegisters){
+void assignRegistersGraphColoring(Function& func, OutputArchitecture arch){
+    std::vector<HWRegister> const& allRegisters = arch == OutputArchitecture::x86_64 ? x86_64Registers : aarch64Registers;
+
     Graph<void> interferenceGraph;
     using Vertex = Vertex<void>;
     using NList = Vertex::NeighbourList;
@@ -219,125 +158,99 @@ void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const&
         vertexToReference.at(vertex)->assignedRegister = colorToHWRegister.at(vertex->color.value());
     }
 }
+bool makeTwoOperandCompatible_prefilter(RSI::Instruction const& instr){
+    if (instr.type == InstructionType::NEGATE)
+        return true;
+    
+    if (!std::holds_alternative<std::shared_ptr<Reference>>(instr.result) || !std::holds_alternative<std::shared_ptr<Reference>>(instr.op1) || std::holds_alternative<std::monostate>(instr.op2))
+        return false;
+    
+    return instr.result != instr.op1;
+}
 
-void makeTwoOperandCompatible(Function& func){
-    for (int i=0; i<func.instructions.size(); i++){
-        auto& instr = func.instructions.at(i);
-        if (instr.type == InstructionType::JUMP || instr.type == InstructionType::JUMP_IF_ZERO || instr.type == InstructionType::DEFINE_LABEL){
-            continue;
-        }
+void makeTwoOperandCompatible(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    Instruction move{
+        .type = InstructionType::MOVE,
+        .result = instr.result,
+        .op1 = instr.op1,
+    };
+    instr.op1 = instr.result;
+    beforeInstructions.push_back(move);
+}
 
-        if (
-            (std::holds_alternative<std::shared_ptr<Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<Reference>>(instr.op1) && !std::holds_alternative<std::monostate>(instr.op2))
-            || (instr.type == InstructionType::NEGATE)){
-            if (instr.result != instr.op1){
-                Instruction move{
-                    .type = InstructionType::MOVE,
-                    .result = instr.result,
-                    .op1 = instr.op1,
-                };
-                instr.op1 = instr.result;
-                func.instructions.insert(func.instructions.begin()+i, move);
-            }
-        }
+void replaceModWithDivMulSub(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    instr.type = InstructionType::DIVIDE;
+
+    auto finalResult = instr.result;
+    instr.result = std::make_shared<Reference>(Reference{.name = RSIGenerator::makeStringUnique("tmp")});
+
+    Instruction mult{
+        .type = InstructionType::MULTIPLY,
+        .result = std::make_shared<Reference>(Reference{.name = RSIGenerator::makeStringUnique("tmp")}),
+        .op1 = instr.result,
+        .op2 = instr.op2,
+    };
+    Instruction sub{
+        .type = InstructionType::SUBTRACT,
+        .result = finalResult,
+        .op1 = instr.op1,
+        .op2 = mult.result,
+    };
+    
+    
+    afterInstructions.push_back(mult);
+    afterInstructions.push_back(sub);
+}
+void moveConstantsToReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    if (std::holds_alternative<RSI::Constant>(instr.op1)){
+        RSI::Instruction move{
+            .type = RSI::InstructionType::MOVE,
+            .result = RSIGenerator::getNewReference("constant"),
+            .op1 = instr.op1,
+        };
+        instr.op1 = move.result;
+
+        beforeInstructions.push_back(move);
+    }
+
+    if (std::holds_alternative<RSI::Constant>(instr.op2)){
+        RSI::Instruction move{
+            .type = RSI::InstructionType::MOVE,
+            .result = RSIGenerator::getNewReference("constant"),
+            .op1 = instr.op2,
+        };
+        instr.op2 = move.result;
+
+        beforeInstructions.push_back(move);
     }
 }
 
-void replaceModWithDivMulSub(Function& func){
-    for (int i=0; i<func.instructions.size(); i++){
-        auto& instr = func.instructions.at(i);
-        if (instr.type == InstructionType::MODULO){
-            instr.type = InstructionType::DIVIDE;
+void seperateDivReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    RSI::Instruction move1{
+        .type = RSI::InstructionType::MOVE,
+        .result = RSIGenerator::getNewReference("divtmp"),
+        .op1 = instr.op1,
+    };
+    RSI::Instruction move2{
+        .type = RSI::InstructionType::MOVE,
+        .result = RSIGenerator::getNewReference("divtmp"),
+        .op1 = instr.op2,
+    };
+    RSI::Instruction moveRes{
+        .type = RSI::InstructionType::MOVE,
+        .result = instr.result,
+        .op1 = RSIGenerator::getNewReference("divresult"),
+    };
+    instr.op1 = move1.result;
+    instr.op2 = move2.result;
+    instr.result = moveRes.op1;
 
-            auto finalResult = instr.result;
-            instr.result = std::make_shared<Reference>(Reference{.name = RSIGenerator::makeStringUnique("tmp")});
+    std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
+    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
 
-            Instruction mult{
-                .type = InstructionType::MULTIPLY,
-                .result = std::make_shared<Reference>(Reference{.name = RSIGenerator::makeStringUnique("tmp")}),
-                .op1 = instr.result,
-                .op2 = instr.op2,
-            };
-            Instruction sub{
-                .type = InstructionType::SUBTRACT,
-                .result = finalResult,
-                .op1 = instr.op1,
-                .op2 = mult.result,
-            };
-            
-            
-            func.instructions.insert(func.instructions.begin()+i+1, mult);
-            func.instructions.insert(func.instructions.begin()+i+2, sub);
-        }
-    }
-}
-void moveConstantsToReferences(Function& func){
-    for (int i=0; i<func.instructions.size(); i++){
-        int trackedI = i;
-        if (func.instructions.at(trackedI).type == RSI::InstructionType::MOVE){
-            continue;
-        }
-
-        if (std::holds_alternative<RSI::Constant>(func.instructions.at(trackedI).op1)){
-            RSI::Instruction move{
-                .type = RSI::InstructionType::MOVE,
-                .result = RSIGenerator::getNewReference("constant"),
-                .op1 = func.instructions.at(trackedI).op1,
-            };
-            func.instructions.at(trackedI).op1 = move.result;
-
-            func.instructions.insert(func.instructions.begin()+trackedI, move);
-            trackedI++;
-        }
-
-        if (std::holds_alternative<RSI::Constant>(func.instructions.at(trackedI).op2)){
-            RSI::Instruction move{
-                .type = RSI::InstructionType::MOVE,
-                .result = RSIGenerator::getNewReference("constant"),
-                .op1 = func.instructions.at(trackedI).op2,
-            };
-            func.instructions.at(trackedI).op2 = move.result;
-
-            func.instructions.insert(func.instructions.begin()+trackedI, move);
-            trackedI++;
-        }
-    }
-}
-
-void nasm_seperateDivReferences(Function& func){
-    int i = -1;
-    while (i+1 < func.instructions.size()){
-        i++;
-        if (func.instructions.at(i).type != RSI::InstructionType::DIVIDE){
-            continue;
-        }
-
-        RSI::Instruction move1{
-            .type = RSI::InstructionType::MOVE,
-            .result = RSIGenerator::getNewReference("divtmp"),
-            .op1 = func.instructions.at(i).op1,
-        };
-        RSI::Instruction move2{
-            .type = RSI::InstructionType::MOVE,
-            .result = RSIGenerator::getNewReference("divtmp"),
-            .op1 = func.instructions.at(i).op2,
-        };
-        RSI::Instruction moveRes{
-            .type = RSI::InstructionType::MOVE,
-            .result = func.instructions.at(i).result,
-            .op1 = RSIGenerator::getNewReference("divresult"),
-        };
-        func.instructions.at(i).op1 = move1.result;
-        func.instructions.at(i).op2 = move2.result;
-        func.instructions.at(i).result = moveRes.op1;
-
-        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).op1)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
-        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).result)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
-
-        func.instructions.insert(func.instructions.begin()+i, move2); i++;
-        func.instructions.insert(func.instructions.begin()+i, move1); i++;
-        func.instructions.insert(func.instructions.begin()+i+1, moveRes);
-    }
+    beforeInstructions.push_back(move1);
+    beforeInstructions.push_back(move2);
+    afterInstructions.push_back(moveRes);
 }
 
 }

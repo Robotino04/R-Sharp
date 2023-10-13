@@ -1,24 +1,22 @@
 #pragma once
 
-#include <string>
-#include <map>
+#include <vector>
 
-#include "R-Sharp/RSI.hpp"
+#include "R-Sharp/RSI_FWD.hpp"
+#include "Architecture.hpp"
 
 namespace RSI{
 
-std::string stringify_operand(Operand const& op, std::map<HWRegister, std::string> const& registerTranslation);
+void analyzeLiveVariables(Function& function, OutputArchitecture arch);
 
-std::string stringify_function(Function const& function, std::map<HWRegister, std::string> const& registerTranslation);
+void assignRegistersLinearScan(Function& func, OutputArchitecture arch);
+void assignRegistersGraphColoring(Function& func, OutputArchitecture arch);
 
-void analyzeLiveVariables(Function& function);
+void replaceModWithDivMulSub(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
+void makeTwoOperandCompatible(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
+void moveConstantsToReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
+void seperateDivReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 
-void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& allRegisters);
-void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const& allRegisters);
-
-void makeTwoOperandCompatible(Function& func);
-void replaceModWithDivMulSub(Function& func);
-void moveConstantsToReferences(Function& func);
-void nasm_seperateDivReferences(Function& func);
+bool makeTwoOperandCompatible_prefilter(RSI::Instruction const& instr);
 
 }
