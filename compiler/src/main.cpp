@@ -440,22 +440,18 @@ std::string rsiToNasm(RSI::Function const& function){
                 break;
             case RSI::InstructionType::DIVIDE:
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
-                
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
-                    result += "push rax\n";
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
-                    result += "push rdx\n";
 
-                result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+                if (!isRegister(instr.result, NasmRegisters::RAX)){
+                    Fatal("The result of a division is not in RAX. Divisions may not have been isolated correctly.");
+                }
+                if (!isRegister(instr.op1, NasmRegisters::RAX)){
+                    Fatal("The first operand of a division is not in RAX. Divisions may not have been isolated correctly.");
+                }
+
+                result += "push rdx\n";
                 result += "cqo\n";
                 result += "idiv " + translateOperandNasm(instr.op2) + "\n";
-                result += "mov " + translateOperandNasm(instr.result) + ", rax\n";
-
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
-                    result += "pop rdx\n";
-
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
-                    result += "pop rax\n";
+                result += "pop rdx\n";
 
                 break;
             case RSI::InstructionType::MODULO:
@@ -740,6 +736,14 @@ int main(int argc, const char** argv) {
             for (auto& func : ir){
                 Print("; Function \"", func.name, "\"");
                 Print(RSI::stringify_function(func, registerTranslation));
+            }
+            if (outputFormat == OutputFormat::RSI_NASM){
+                Print("--------------| Seperate divisions |--------------");
+                for (auto& func : ir){
+                    Print("; Function \"", func.name, "\"");
+                    RSI::nasm_seperateDivReferences(func, nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)));
+                    Print(RSI::stringify_function(func, registerTranslation));
+                }
             }
             Print("--------------| Constants to references |--------------");
             for (auto& func : ir){

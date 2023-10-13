@@ -19,5 +19,6 @@ void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const&
 void makeTwoOperandCompatible(Function& func);
 void replaceModWithDivMulSub(Function& func);
 void moveConstantsToReferences(Function& func);
+void nasm_seperateDivReferences(Function& func, RSI::HWRegister rax);
 
 }

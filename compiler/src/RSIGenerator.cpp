@@ -280,41 +280,58 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     });
 }
 void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node){
-    std::string start_label = "." + makeStringUnique("start");
-    std::string end_label = "." + makeStringUnique("end");
+    auto const start_label = getNewLabel(".start");
+    auto const end_label = getNewLabel(".end");
 
     node->loop->skipLabel = start_label;
     node->loop->breakLabel = end_label;
 
-    Fatal("Not implemented!");
-    // emitIndented("// While loop\n");
-    // emitIndented(start_label + ":\n");
-    // indent();
-    // node->condition->accept(this);
-    // emitIndented("cbz x0, " + end_label + "\n");
-    // emitIndented("// Body\n");
-    // node->body->accept(this);
-    // emitIndented("b " + start_label + "\n");
-    // dedent();
-    // emitIndented(end_label + ":\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = start_label,
+    });
+    node->condition->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP_IF_ZERO,
+        .op1 = lastResult,
+        .op2 = end_label,
+    });
+    node->body->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = start_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = end_label,
+    });
 }
 void RSIGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
-    std::string start_label = "." + makeStringUnique("start");
-    std::string end_label = "." + makeStringUnique("end");
+    auto const start_label = getNewLabel(".start");
+    auto const end_label = getNewLabel(".end");
 
     node->loop->skipLabel = start_label;
     node->loop->breakLabel = end_label;
 
-    Fatal("Not implemented!");
-    // emitIndented("// Do loop\n");
-    // emitIndented(start_label + ":\n");
-    // indent();
-    // emitIndented("// Body\n");
-    // node->body->accept(this);
-    // node->condition->accept(this);
-    // emitIndented("cbnz x0, " + start_label + "\n");
-    // dedent();
-    // emitIndented(end_label + ":\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = start_label,
+    });
+    node->body->accept(this);
+    node->condition->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP_IF_ZERO,
+        .op1 = lastResult,
+        .op2 = end_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = start_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = end_label,
+    });
 
 }
 void RSIGenerator::visit(std::shared_ptr<AstBreak> node){

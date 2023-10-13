@@ -303,4 +303,40 @@ void moveConstantsToReferences(Function& func){
     }
 }
 
+void nasm_seperateDivReferences(Function& func, RSI::HWRegister rax){
+    int i = -1;
+    while (i+1 < func.instructions.size()){
+        i++;
+        if (func.instructions.at(i).type != RSI::InstructionType::DIVIDE){
+            continue;
+        }
+
+        RSI::Instruction move1{
+            .type = RSI::InstructionType::MOVE,
+            .result = RSIGenerator::getNewReference("divtmp"),
+            .op1 = func.instructions.at(i).op1,
+        };
+        RSI::Instruction move2{
+            .type = RSI::InstructionType::MOVE,
+            .result = RSIGenerator::getNewReference("divtmp"),
+            .op1 = func.instructions.at(i).op2,
+        };
+        RSI::Instruction moveRes{
+            .type = RSI::InstructionType::MOVE,
+            .result = func.instructions.at(i).result,
+            .op1 = RSIGenerator::getNewReference("divresult"),
+        };
+        func.instructions.at(i).op1 = move1.result;
+        func.instructions.at(i).op2 = move2.result;
+        func.instructions.at(i).result = moveRes.op1;
+
+        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).op1)->assignedRegister = rax;
+        std::get<std::shared_ptr<RSI::Reference>>(func.instructions.at(i).result)->assignedRegister = rax;
+
+        func.instructions.insert(func.instructions.begin()+i, move2); i++;
+        func.instructions.insert(func.instructions.begin()+i, move1); i++;
+        func.instructions.insert(func.instructions.begin()+i+1, moveRes);
+    }
+}
+
 }
