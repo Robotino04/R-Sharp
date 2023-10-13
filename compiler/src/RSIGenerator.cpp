@@ -243,37 +243,41 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     // resetStackPointer(node->initializationContext);
 }
 void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
-    std::string start_label = "." + makeStringUnique("start");
-    std::string end_label = "." + makeStringUnique("end");
-    std::string increment_label = "." + makeStringUnique("increment");
+    auto const start_label = getNewLabel(".start");
+    auto const end_label = getNewLabel(".end");
+    auto const increment_label = getNewLabel(".increment");
 
     node->loop->skipLabel = increment_label;
     node->loop->breakLabel = end_label;
 
-    Fatal("Not implemented!");
-    // emitIndented("// For loop\n");
-    // emitIndented("// For loop initialization\n");
-    // node->variable->accept(this);
+    node->variable->accept(this);
 
-    // emitIndented("// For loop\n");
-    // emitIndented(start_label + ":\n");
-    // indent();
-    // emitIndented("// For loop condition\n");
-    // node->condition->accept(this);
-    // emitIndented("cbz x0, " + end_label + "\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = start_label,
+    });
 
-    // emitIndented("// For loop body\n");
-    // node->body->accept(this);
-    // dedent();
-    // emitIndented("// For loop increment\n");
-    // emitIndented(increment_label + ":\n");
-    // indent();
-    // node->increment->accept(this);
-    // emitIndented("b " + start_label + "\n");
-
-    // dedent();
-    // emitIndented(end_label + ":\n");
-    // emitIndented("// For loop end\n");
+    node->condition->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP_IF_ZERO,
+        .op1 = lastResult,
+        .op2 = end_label,
+    });
+    node->body->accept(this);
+    
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = increment_label,
+    });
+    node->increment->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = start_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = end_label,
+    });
 }
 void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     std::string start_label = "." + makeStringUnique("start");
@@ -405,17 +409,11 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         });
         node->right->accept(this);
         auto rightValue = lastResult;
-        auto zero_constant = getNewReference("constant");
-        emit(RSI::Instruction{
-            .type = RSI::InstructionType::MOVE,
-            .result = zero_constant,
-            .op1 = RSI::Constant{.value = 0},
-        });
         emit(RSI::Instruction{
             .type = RSI::InstructionType::NOT_EQUAL,
             .result = result,
             .op1 = rightValue,
-            .op2 = zero_constant,
+            .op2 = RSI::Constant{.value = 0},
         });
 
         emit(RSI::Instruction{
@@ -430,19 +428,13 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         auto end_label = getNewLabel(".logical_and_end");
         auto right_label = getNewLabel(".logical_and_right");
         auto result = getNewReference();
-        
-        auto zero_constant = getNewReference("constant");
-        emit(RSI::Instruction{
-            .type = RSI::InstructionType::MOVE,
-            .result = zero_constant,
-            .op1 = RSI::Constant{.value = 0},
-        });
+    
         auto isZeroRef = getNewReference();
         emit(RSI::Instruction{
             .type = RSI::InstructionType::EQUAL,
             .result = isZeroRef,
             .op1 = leftValue,
-            .op2 = zero_constant,
+            .op2 = RSI::Constant{.value = 0},
         });
         emit(RSI::Instruction{
             .type = RSI::InstructionType::JUMP_IF_ZERO,
@@ -453,7 +445,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         emit(RSI::Instruction{
             .type = RSI::InstructionType::MOVE,
             .result = result,
-            .op1 = zero_constant,
+            .op1 = RSI::Constant{.value = 0},
         });
         emit(RSI::Instruction{
             .type = RSI::InstructionType::JUMP,
@@ -467,17 +459,11 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         });
         node->right->accept(this);
         auto rightValue = lastResult;
-        zero_constant = getNewReference("constant");
-        emit(RSI::Instruction{
-            .type = RSI::InstructionType::MOVE,
-            .result = zero_constant,
-            .op1 = RSI::Constant{.value = 0},
-        });
         emit(RSI::Instruction{
             .type = RSI::InstructionType::NOT_EQUAL,
             .result = result,
             .op1 = rightValue,
-            .op2 = zero_constant,
+            .op2 = RSI::Constant{.value = 0},
         });
 
         emit(RSI::Instruction{
@@ -619,11 +605,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
 void RSIGenerator::visit(std::shared_ptr<AstInteger> node){
     expectValueType(ValueType::Value);
 
-    emit(RSI::Instruction{
-        .type = RSI::InstructionType::MOVE,
-        .result = getNewReference("constant"),
-        .op1 = RSI::Constant{.value = static_cast<uint64_t>(node->value)},
-    });
+    lastResult = RSI::Constant{.value = static_cast<uint64_t>(node->value)};
 }
 void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
     auto size = sizeFromSemanticalType(node->semanticType);

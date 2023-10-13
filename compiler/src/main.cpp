@@ -387,6 +387,9 @@ std::string rsiToAarch64(RSI::Function const& function){
     return result;
 }
 
+bool isRegister(RSI::Operand const& op, NasmRegisters reg){
+    return std::get<std::shared_ptr<RSI::Reference>>(op)->assignedRegister == nasmRegisters.at(static_cast<int>(reg));
+}   
 
 std::string rsiToNasm(RSI::Function const& function){
     std::string result = "";
@@ -414,16 +417,22 @@ std::string rsiToNasm(RSI::Function const& function){
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 result += "push rax\n";
                 result += "push rdx\n";
-                result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
-                result += "imul " + translateOperandNasm(instr.op2) + "\n";
+                if (isRegister(instr.op2, NasmRegisters::RAX)){
+                    result += "imul " + translateOperandNasm(instr.op1) + "\n";
+                }
+                else{
+                    result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+                    result += "imul " + translateOperandNasm(instr.op2) + "\n";
+                }
+
                 result += "mov " + translateOperandNasm(instr.result) + ", rax\n";
 
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RDX)))
+                if (!isRegister(instr.result, NasmRegisters::RDX))
                     result += "pop rdx\n";
                 else
                     result += "add rsp, 8\n";
 
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != nasmRegisters.at(static_cast<int>(NasmRegisters::RAX)))
+                if (!isRegister(instr.result, NasmRegisters::RAX))
                     result += "pop rax\n";
                 else
                     result += "add rsp, 8\n";
@@ -730,6 +739,12 @@ int main(int argc, const char** argv) {
             Print("--------------| Raw RSI |--------------");
             for (auto& func : ir){
                 Print("; Function \"", func.name, "\"");
+                Print(RSI::stringify_function(func, registerTranslation));
+            }
+            Print("--------------| Constants to references |--------------");
+            for (auto& func : ir){
+                Print("; Function \"", func.name, "\"");
+                RSI::moveConstantsToReferences(func);
                 Print(RSI::stringify_function(func, registerTranslation));
             }
             if (outputFormat == OutputFormat::RSI_NASM){

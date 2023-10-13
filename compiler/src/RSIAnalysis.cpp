@@ -84,12 +84,11 @@ void analyzeLiveVariables(RSI::Function& function){
         });
     };
 
+    auto virtualEndInstruction = std::make_unique<Instruction>(Instruction{
+        .type = InstructionType::NOP,
+    });
     while (hasModifiedTheIR){
         hasModifiedTheIR = false;
-
-        auto virtualEndInstruction = std::make_unique<Instruction>(Instruction{
-            .type = InstructionType::NOP,
-        });
 
         Instruction* lastInstruction = virtualEndInstruction.get();
         for (auto it = function.instructions.rbegin(); it != function.instructions.rend(); it++){
@@ -174,10 +173,22 @@ void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const&
         }
     };
 
+    std::optional<std::reference_wrapper<RSI::Instruction>> lastInstruction;
     for (auto& instr : func.instructions){
         addVertexToGraph(instr.result);
         addVertexToGraph(instr.op1);
         addVertexToGraph(instr.op2);
+
+        if (lastInstruction.has_value() && std::holds_alternative<std::shared_ptr<RSI::Reference>>(lastInstruction.value().get().result)){
+            for (auto liveVar : instr.meta.liveVariablesBefore){
+                if (liveVar == std::get<std::shared_ptr<RSI::Reference>>(lastInstruction.value().get().result)) continue;
+
+                interferenceGraph.addEdge(
+                    referenceToVertex.at(liveVar),
+                    referenceToVertex.at(std::get<std::shared_ptr<RSI::Reference>>(lastInstruction.value().get().result))
+                );
+            }
+        }
 
         for (auto liveVar1 : instr.meta.liveVariablesBefore){
             for (auto liveVar2 : instr.meta.liveVariablesBefore){
@@ -189,6 +200,8 @@ void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const&
                 );
             }
         }
+
+        lastInstruction = instr;
     }
 
     auto allAvailableColors = VertexColor::getNColors(allRegisters.size());
@@ -254,6 +267,38 @@ void replaceModWithDivMulSub(Function& func){
             
             func.instructions.insert(func.instructions.begin()+i+1, mult);
             func.instructions.insert(func.instructions.begin()+i+2, sub);
+        }
+    }
+}
+void moveConstantsToReferences(Function& func){
+    for (int i=0; i<func.instructions.size(); i++){
+        int trackedI = i;
+        if (func.instructions.at(trackedI).type == RSI::InstructionType::MOVE){
+            continue;
+        }
+
+        if (std::holds_alternative<RSI::Constant>(func.instructions.at(trackedI).op1)){
+            RSI::Instruction move{
+                .type = RSI::InstructionType::MOVE,
+                .result = RSIGenerator::getNewReference("constant"),
+                .op1 = func.instructions.at(trackedI).op1,
+            };
+            func.instructions.at(trackedI).op1 = move.result;
+
+            func.instructions.insert(func.instructions.begin()+trackedI, move);
+            trackedI++;
+        }
+
+        if (std::holds_alternative<RSI::Constant>(func.instructions.at(trackedI).op2)){
+            RSI::Instruction move{
+                .type = RSI::InstructionType::MOVE,
+                .result = RSIGenerator::getNewReference("constant"),
+                .op1 = func.instructions.at(trackedI).op2,
+            };
+            func.instructions.at(trackedI).op2 = move.result;
+
+            func.instructions.insert(func.instructions.begin()+trackedI, move);
+            trackedI++;
         }
     }
 }

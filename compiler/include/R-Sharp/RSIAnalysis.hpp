@@ -17,6 +17,7 @@ void assignRegistersLinearScan(Function& func, std::vector<HWRegister> const& al
 void assignRegistersGraphColoring(Function& func, std::vector<HWRegister> const& allRegisters);
 
 void makeTwoOperandCompatible(Function& func);
-
 void replaceModWithDivMulSub(Function& func);
+void moveConstantsToReferences(Function& func);
+
 }
