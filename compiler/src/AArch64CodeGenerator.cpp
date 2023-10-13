@@ -299,8 +299,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
 
-    node->loop->skipAccessString = increment_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = increment_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("// For loop\n");
     emitIndented("// For loop initialization\n");
@@ -333,8 +333,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = "." + getUniqueLabel("increment");
 
-    node->loop->skipAccessString = increment_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = increment_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("// For loop\n");
     emitIndented("// For loop initialization\n");
@@ -364,8 +364,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
-    node->loop->skipAccessString = start_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = start_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("// While loop\n");
     emitIndented(start_label + ":\n");
@@ -382,8 +382,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
-    node->loop->skipAccessString = start_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = start_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("// Do loop\n");
     emitIndented(start_label + ":\n");
@@ -407,7 +407,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBreak> node){
     }
 
     emitIndented("// Break\n");
-    emitIndented("b " + node->loop->breakAccessString + "\n");
+    emitIndented("b " + std::get<std::string>(node->loop->breakLabel) + "\n");
 }
 void AArch64CodeGenerator::visit(std::shared_ptr<AstSkip> node){
     for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
@@ -420,7 +420,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstSkip> node){
     }
 
     emitIndented("// Skip\n");
-    emitIndented("b " + node->loop->skipAccessString + "\n");
+    emitIndented("b " + std::get<std::string>(node->loop->skipLabel) + "\n");
 }
 
 

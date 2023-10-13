@@ -59,12 +59,15 @@ std::vector<RSI::Function> RSIGenerator::generate(){
     return functions;
 }
 
-std::string RSIGenerator::getUniqueLabel(std::string const& prefix){
+std::string RSIGenerator::makeStringUnique(std::string const& prefix){
     static uint64_t labelCounter = 0;
     return prefix + "_" + std::to_string(labelCounter++);
 }
 std::shared_ptr<RSI::Reference> RSIGenerator::getNewReference(std::string const& name){
-    return std::make_shared<RSI::Reference>(RSI::Reference{.name = getUniqueLabel(name)});
+    return std::make_shared<RSI::Reference>(RSI::Reference{.name = makeStringUnique(name)});
+}
+std::shared_ptr<RSI::Label> RSIGenerator::getNewLabel(std::string const& name){
+    return std::make_shared<RSI::Label>(RSI::Label{.name = makeStringUnique(name)});
 }
 
 void RSIGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
@@ -85,7 +88,7 @@ void RSIGenerator::visit(std::shared_ptr<AstProgram> node){
     node->globalScope->accept(this);
     
     for (auto var : node->globalScope->variables){
-        var->accessor = getUniqueLabel(var->name);
+        var->accessor = makeStringUnique(var->name);
     }
 
     for (auto const& child : node->getChildren()){
@@ -173,65 +176,79 @@ void RSIGenerator::visit(std::shared_ptr<AstReturn> node){
     });
 }
 void RSIGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
-    std::string else_label = "." + getUniqueLabel("else");
-    std::string end_label = "." + getUniqueLabel("end");
+    const auto else_label = getNewLabel(".else");
+    const auto end_label = getNewLabel(".end");
 
-    Fatal("Not implemented!");
-    // node->condition->accept(this);
+    node->condition->accept(this);
     // emitIndented("// If statement\n");
-    // emitIndented("cbz x0, " + else_label + "\n");
-    // indent();
-    // node->trueStatement->accept(this);
-    // emitIndented("b " + end_label + "\n");
-    // dedent();
-    // emitIndented(else_label + ":\n");
-    // indent();
-    // if (node->falseStatement) node->falseStatement->accept(this);
-    // dedent();
-    // emitIndented(end_label + ":\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP_IF_ZERO,
+        .op1 = lastResult,
+        .op2 = else_label,
+    });
+    node->trueStatement->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = end_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = else_label,
+    });
+    if (node->falseStatement) node->falseStatement->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = end_label,
+    });
 }
 void RSIGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
-    std::string start_label = "." + getUniqueLabel("start");
-    std::string end_label = "." + getUniqueLabel("end");
-    std::string increment_label = getUniqueLabel("increment");
+    auto const start_label = getNewLabel(".start");
+    auto const end_label = getNewLabel(".end");
+    auto const increment_label = getNewLabel(".increment");
 
-    node->loop->skipAccessString = increment_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = increment_label;
+    node->loop->breakLabel = end_label;
 
-    Fatal("Not implemented!");
-    // emitIndented("// For loop\n");
-    // emitIndented("// For loop initialization\n");
     // setupLocalVariables(node->initializationContext);
-    // node->initialization->accept(this);
+    node->initialization->accept(this);
 
-    // emitIndented("// For loop\n");
-    // emitIndented(start_label + ":\n");
-    // indent();
-    // emitIndented("// For loop condition\n");
-    // node->condition->accept(this);
-    // emitIndented("cbz x0, " + end_label + "\n");
-    // emitIndented("// For loop body\n");
-    // node->body->accept(this);
-    // dedent();
-    // emitIndented("// For loop increment\n");
-    // emitIndented(increment_label + ":\n");
-    // indent();
-    // node->increment->accept(this);
-    // emitIndented("b " + start_label + "\n");
-    // dedent();
-    // emitIndented(end_label + ":\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = start_label,
+    });
+
+    node->condition->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP_IF_ZERO,
+        .op1 = lastResult,
+        .op2 = end_label,
+    });
+    node->body->accept(this);
+    
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = increment_label,
+    });
+    node->increment->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = start_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = end_label,
+    });
 
     // // manually restore the stack pointer
     // resetStackPointer(node->initializationContext);
-    // emitIndented("// For loop end\n");
 }
 void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
-    std::string start_label = "." + getUniqueLabel("start");
-    std::string end_label = "." + getUniqueLabel("end");
-    std::string increment_label = "." + getUniqueLabel("increment");
+    std::string start_label = "." + makeStringUnique("start");
+    std::string end_label = "." + makeStringUnique("end");
+    std::string increment_label = "." + makeStringUnique("increment");
 
-    node->loop->skipAccessString = increment_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = increment_label;
+    node->loop->breakLabel = end_label;
 
     Fatal("Not implemented!");
     // emitIndented("// For loop\n");
@@ -259,11 +276,11 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     // emitIndented("// For loop end\n");
 }
 void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node){
-    std::string start_label = "." + getUniqueLabel("start");
-    std::string end_label = "." + getUniqueLabel("end");
+    std::string start_label = "." + makeStringUnique("start");
+    std::string end_label = "." + makeStringUnique("end");
 
-    node->loop->skipAccessString = start_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = start_label;
+    node->loop->breakLabel = end_label;
 
     Fatal("Not implemented!");
     // emitIndented("// While loop\n");
@@ -278,11 +295,11 @@ void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     // emitIndented(end_label + ":\n");
 }
 void RSIGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
-    std::string start_label = "." + getUniqueLabel("start");
-    std::string end_label = "." + getUniqueLabel("end");
+    std::string start_label = "." + makeStringUnique("start");
+    std::string end_label = "." + makeStringUnique("end");
 
-    node->loop->skipAccessString = start_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = start_label;
+    node->loop->breakLabel = end_label;
 
     Fatal("Not implemented!");
     // emitIndented("// Do loop\n");
@@ -306,9 +323,10 @@ void RSIGenerator::visit(std::shared_ptr<AstBreak> node){
         }
     }
 
-    Fatal("Not implemented!");
-    // emitIndented("// Break\n");
-    // emitIndented("b " + node->loop->breakAccessString + "\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = std::get<std::shared_ptr<RSI::Label>>(node->loop->breakLabel),
+    });
 }
 void RSIGenerator::visit(std::shared_ptr<AstSkip> node){
     for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
@@ -320,9 +338,10 @@ void RSIGenerator::visit(std::shared_ptr<AstSkip> node){
         }
     }
 
-    Fatal("Not implemented!");
-    // emitIndented("// Skip\n");
-    // emitIndented("b " + node->loop->skipAccessString + "\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = std::get<std::shared_ptr<RSI::Label>>(node->loop->skipLabel),
+    });
 }
 
 
@@ -360,8 +379,8 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
     if (node->type == AstBinaryType::LogicalOr){
-        auto end_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_end")});
-        auto right_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_right")});
+        auto end_label = getNewLabel(".logical_or_end");
+        auto right_label = getNewLabel(".logical_or_right");
         auto result = getNewReference("result");
         
         emit(RSI::Instruction{
@@ -408,8 +427,8 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         return;
     }
     else if (node->type == AstBinaryType::LogicalAnd){
-        auto end_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_end")});
-        auto right_label = std::make_shared<RSI::Label>(RSI::Label{.name = getUniqueLabel("logical_or_right")});
+        auto end_label = getNewLabel(".logical_and_end");
+        auto right_label = getNewLabel(".logical_and_right");
         auto result = getNewReference();
         
         auto zero_constant = getNewReference("constant");
@@ -655,26 +674,47 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
 }
 void RSIGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     expectValueType(ValueType::Value);
-    Fatal("Not implemented!");
-    // std::string true_clause = "." + getUniqueLabel("true_expression");
-    // std::string false_clause = "." + getUniqueLabel("false_expression");
-    // std::string end = "." + getUniqueLabel("end");
-    // node->condition->accept(this);
-    // emitIndented("// Conditional Expression\n");
-    // emitIndented("cbz x0, " + false_clause + "\n");
-    // emitIndented(true_clause + ":\n"); indent();
-    // node->trueExpression->accept(this);
-    // emitIndented("b " + end + "\n");
-    // dedent();
-    // emitIndented(false_clause + ":\n"); indent();
-    // node->falseExpression->accept(this);
-    // dedent();
-    // emitIndented(end + ":\n");
+    const auto false_clause = getNewLabel(".false_expression");
+    const auto end_label = getNewLabel(".end");
+
+    const auto result = getNewReference();
+    
+    node->condition->accept(this);
+    // emitIndented("// If statement\n");
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP_IF_ZERO,
+        .op1 = lastResult,
+        .op2 = false_clause,
+    });
+    node->trueExpression->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::MOVE,
+        .result = result,
+        .op1 = lastResult,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::JUMP,
+        .op1 = end_label,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = false_clause,
+    });
+    node->falseExpression->accept(this);
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::MOVE,
+        .result = result,
+        .op1 = lastResult,
+    });
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::DEFINE_LABEL,
+        .op1 = end_label,
+    });
+
+    lastResult = result;
 }
 void RSIGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
     expectValueType(ValueType::Value);
-    // emitIndented("// Empty Expression\n");
-    // emitIndented("mov x0, 1\n");
     lastResult = RSI::Constant{.value = 1};
 }
 void RSIGenerator::visit(std::shared_ptr<AstExpressionStatement> node){

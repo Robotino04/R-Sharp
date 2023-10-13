@@ -375,8 +375,7 @@ std::string rsiToAarch64(RSI::Function const& function){
                 result += "b " + std::get<std::shared_ptr<RSI::Label>>(instr.op1)->name + "\n";
                 break;
             case RSI::InstructionType::JUMP_IF_ZERO:
-                result += "cmp " + translateOperandAarch64(instr.op1) + ", 0\n";
-                result += "beq " + std::get<std::shared_ptr<RSI::Label>>(instr.op2)->name + "\n";
+                result += "cbz " + translateOperandAarch64(instr.op1) + ", " + std::get<std::shared_ptr<RSI::Label>>(instr.op2)->name + "\n";
                 break;
 
             default:

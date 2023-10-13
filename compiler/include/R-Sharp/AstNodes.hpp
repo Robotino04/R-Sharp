@@ -83,8 +83,8 @@ struct SemanticVariableData{
 };
 
 struct SemanticLoopData{
-    std::string breakAccessString;
-    std::string skipAccessString;
+    std::variant<std::string, std::shared_ptr<RSI::Label>> breakLabel;
+    std::variant<std::string, std::shared_ptr<RSI::Label>> skipLabel;
     bool hasAdditionalCleanup = false;
 };
 

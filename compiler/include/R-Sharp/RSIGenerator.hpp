@@ -51,8 +51,9 @@ class RSIGenerator : public AstVisitor {
 
         static int sizeFromSemanticalType(std::shared_ptr<AstType> type);
 
-        static std::string getUniqueLabel(std::string const& prefix);
+        static std::string makeStringUnique(std::string const& prefix);
         static std::shared_ptr<RSI::Reference> getNewReference(std::string const& name = "tmp");
+        static std::shared_ptr<RSI::Label> getNewLabel(std::string const& name = "label");
 
     private:
         void emit(RSI::Instruction instr){

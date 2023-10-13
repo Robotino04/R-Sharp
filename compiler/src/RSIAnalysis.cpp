@@ -213,7 +213,9 @@ void makeTwoOperandCompatible(Function& func){
             continue;
         }
 
-        if (std::holds_alternative<std::shared_ptr<Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<Reference>>(instr.op1) && !std::holds_alternative<std::monostate>(instr.op2)){
+        if (
+            (std::holds_alternative<std::shared_ptr<Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<Reference>>(instr.op1) && !std::holds_alternative<std::monostate>(instr.op2))
+            || (instr.type == InstructionType::NEGATE)){
             if (instr.result != instr.op1){
                 Instruction move{
                     .type = InstructionType::MOVE,
@@ -234,11 +236,11 @@ void replaceModWithDivMulSub(Function& func){
             instr.type = InstructionType::DIVIDE;
 
             auto finalResult = instr.result;
-            instr.result = std::make_shared<Reference>(Reference{.name = RSIGenerator::getUniqueLabel("tmp")});
+            instr.result = std::make_shared<Reference>(Reference{.name = RSIGenerator::makeStringUnique("tmp")});
 
             Instruction mult{
                 .type = InstructionType::MULTIPLY,
-                .result = std::make_shared<Reference>(Reference{.name = RSIGenerator::getUniqueLabel("tmp")}),
+                .result = std::make_shared<Reference>(Reference{.name = RSIGenerator::makeStringUnique("tmp")}),
                 .op1 = instr.result,
                 .op2 = instr.op2,
             };

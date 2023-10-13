@@ -448,8 +448,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = "." + getUniqueLabel("increment");
 
-    node->loop->skipAccessString = increment_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = increment_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("; For loop\n");
     emitIndented("; For loop initialization\n");
@@ -483,8 +483,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = "." + getUniqueLabel("increment");
 
-    node->loop->skipAccessString = increment_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = increment_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("; For loop\n");
     emitIndented("; For loop initialization\n");
@@ -515,8 +515,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
-    node->loop->skipAccessString = start_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = start_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("; While loop\n");
     emitIndented(start_label + ":\n");
@@ -534,8 +534,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
-    node->loop->skipAccessString = start_label;
-    node->loop->breakAccessString = end_label;
+    node->loop->skipLabel = start_label;
+    node->loop->breakLabel = end_label;
 
     emitIndented("; Do loop\n");
     emitIndented(start_label + ":\n");
@@ -560,7 +560,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBreak> node){
     }
 
     emitIndented("; Break\n");
-    emitIndented("jmp " + node->loop->breakAccessString + "\n");
+    emitIndented("jmp " + std::get<std::string>(node->loop->breakLabel) + "\n");
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
     for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
@@ -573,7 +573,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
     }
 
     emitIndented("; Skip\n");
-    emitIndented("jmp " + node->loop->skipAccessString + "\n");
+    emitIndented("jmp " + std::get<std::string>(node->loop->skipLabel) + "\n");
 }
 
 
