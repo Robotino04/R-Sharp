@@ -19,7 +19,7 @@ struct RSIPass{
     std::function<void(RSI::Instruction&, std::vector<RSI::Instruction>&, std::vector<RSI::Instruction>&)> perInstructionFunction;
     
     bool isFunctionWide = false;
-    std::function<void(RSI::Function&, OutputArchitecture)> perFunctionFunction;
+    std::function<void(RSI::Function&, Architecture const&)> perFunctionFunction;
 
     void operator() (RSI::Function& function, OutputArchitecture arch) const;
     void operator() (std::vector<RSI::Function>& functions, OutputArchitecture arch) const;

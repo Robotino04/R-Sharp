@@ -1,6 +1,6 @@
 #pragma once
 
-#include "R-Sharp/RSI_FWD.hpp"
+#include "R-Sharp/RSI.hpp"
 
 #include <map>
 #include <set>
@@ -8,12 +8,27 @@
 #include <string>
 #include <vector>
 
+struct Architecture{
+    std::vector<RSI::HWRegister> allRegisters;
+    std::vector<RSI::HWRegister> generalPurposeRegisters;
+    std::vector<RSI::HWRegister> parameterRegisters;
+    std::vector<RSI::HWRegister> calleeSavedRegisters;
+    RSI::HWRegister returnValueRegister;
+
+    std::map<RSI::HWRegister, std::string> registerTranslation;
+
+    void validate();
+};
+
 enum class OutputArchitecture{
     x86_64,
     AArch64,
 };
 
-inline const std::set<OutputArchitecture> allArchitectures = {OutputArchitecture::x86_64, OutputArchitecture::AArch64};
+inline const std::set<OutputArchitecture> allArchitectureTypes = {OutputArchitecture::x86_64, OutputArchitecture::AArch64};
+
+extern const Architecture x86_64;
+extern const Architecture aarch64;
 
 enum class NasmRegisters{
     RAX,
@@ -22,6 +37,8 @@ enum class NasmRegisters{
     RDX,
     RSI,
     RDI,
+    RBP,
+    RSP,
     R8,
     R9,
     R10,
@@ -33,12 +50,5 @@ enum class NasmRegisters{
 
     COUNT,
 };
-
-inline const std::vector<RSI::HWRegister> x86_64Registers(static_cast<int>(NasmRegisters::COUNT));
-extern const std::map<RSI::HWRegister, std::string> x86_64RegisterTranslation;
-
 extern const std::map<std::pair<std::string, int>, std::string> nasmRegisterSize;
 
-
-inline const std::vector<RSI::HWRegister> aarch64Registers(26);
-extern const std::map<RSI::HWRegister, std::string> aarch64RegistersRegisterTranslation;

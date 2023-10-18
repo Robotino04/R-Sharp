@@ -1,22 +1,155 @@
 #include "R-Sharp/Architecture.hpp"
 #include "R-Sharp/RSI.hpp"
 
-const std::map<RSI::HWRegister, std::string> x86_64RegisterTranslation = {
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::RAX)), "rax"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::RBX)), "rbx"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::RCX)), "rcx"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::RDX)), "rdx"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::RSI)), "rsi"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::RDI)), "rdi"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R8)), "r8"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R9)), "r9"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R10)), "r10"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R11)), "r11"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R12)), "r12"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R13)), "r13"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R14)), "r14"},
-    {x86_64Registers.at(static_cast<int>(NasmRegisters::R15)), "r15"},
-};
+#include <numeric>
+
+template<typename T>
+bool contains(std::vector<T> const& vec, T const& element){
+    return std::find(vec.begin(), vec.end(), element) != vec.end();
+}
+
+void Architecture::validate(){
+    if (registerTranslation.size() != allRegisters.size()){
+        Fatal("Not all registers have a translation");
+    }
+
+    for (auto const& reg : calleeSavedRegisters){
+        if (!contains(allRegisters, reg)){
+            Fatal("Callee saved registers contain unknown registers");
+        }
+    }
+
+    for (auto const& reg : generalPurposeRegisters){
+        if (!contains(allRegisters, reg)){
+            Fatal("General purpose registers contain unknown registers");
+        }
+    }
+
+    for (auto const& reg : parameterRegisters){
+        if (!contains(allRegisters, reg)){
+            Fatal("Parameter registers contain unknown registers");
+        }
+    }
+
+    if (!contains(allRegisters, returnValueRegister)){
+        Fatal("Return value register is an unknown register");
+    }
+}
+
+const Architecture x86_64 = [](){
+    Architecture arch;
+    arch.allRegisters = std::vector<RSI::HWRegister>(static_cast<int>(NasmRegisters::COUNT));
+    
+    #define REG(NAME) arch.allRegisters.at(static_cast<int>(NasmRegisters::NAME))
+
+    arch.calleeSavedRegisters = {
+        REG(RBX),
+        REG(RBP),
+        REG(RSP),
+        REG(R12),
+        REG(R13),
+        REG(R14),
+        REG(R15),
+    };
+    arch.generalPurposeRegisters = {
+        REG(RAX),
+        REG(RBX),
+        REG(RCX),
+        REG(RDX),
+        REG(RSI),
+        REG(RDI),
+        REG(R8),
+        REG(R9),
+        REG(R10),
+        REG(R11),
+        REG(R12),
+        REG(R13),
+        REG(R14),
+        REG(R15),
+    };
+    arch.parameterRegisters = {
+        REG(RDI),
+        REG(RSI),
+        REG(RDX),
+        REG(RCX),
+        REG(R8),
+        REG(R9),
+    };
+    arch.registerTranslation = {
+        {REG(RAX), "rax"},
+        {REG(RBX), "rbx"},
+        {REG(RCX), "rcx"},
+        {REG(RDX), "rdx"},
+        {REG(RSI), "rsi"},
+        {REG(RDI), "rdi"},
+        {REG(RBP), "rbp"},
+        {REG(RSP), "rsp"},
+        {REG(R8), "r8"},
+        {REG(R9), "r9"},
+        {REG(R10), "r10"},
+        {REG(R11), "r11"},
+        {REG(R12), "r12"},
+        {REG(R13), "r13"},
+        {REG(R14), "r14"},
+        {REG(R15), "r15"},
+    };
+    arch.returnValueRegister = REG(RAX);
+
+    #undef REG
+
+    arch.validate();
+
+    return arch;
+}();
+
+
+
+const Architecture aarch64 = [](){
+    Architecture arch;
+    arch.allRegisters = std::vector<RSI::HWRegister>(31);
+    
+    const auto registerRange = [&arch](int start, int end){
+        std::vector<RSI::HWRegister> regs;
+        for (int i=start; i<=end; i++){
+            regs.push_back(arch.allRegisters.at(i));
+        }
+        return regs;
+    };
+    const auto combineRanges = [](std::vector<std::vector<RSI::HWRegister>> const& ranges){
+        std::vector<RSI::HWRegister> result;
+        result.reserve(
+            std::accumulate(
+                ranges.begin(), ranges.end(),
+                0,
+                [](int sizeUntilNow, auto const& range){
+                    return range.size() + sizeUntilNow;
+                }
+            )
+        );
+
+        for (auto const& range : ranges){
+            result.insert(result.end(), range.begin(), range.end());
+        }
+
+        return result;
+    };
+
+    arch.calleeSavedRegisters = registerRange(19, 30);
+    arch.generalPurposeRegisters = combineRanges({
+        registerRange(0, 17),
+        registerRange(19, 28)
+    });
+    arch.parameterRegisters = registerRange(0, 7);
+    arch.returnValueRegister = arch.allRegisters.at(0);
+
+    for (int i=0; i<arch.allRegisters.size(); i++){
+        arch.registerTranslation.insert({arch.allRegisters.at(i), "x" + std::to_string(i)});
+    }
+
+    arch.validate();
+
+    return arch;
+}();
 
 const std::map<std::pair<std::string, int>, std::string> nasmRegisterSize = {
     {{"rax", 1}, "al"},
@@ -153,34 +286,4 @@ const std::map<std::pair<std::string, int>, std::string> nasmRegisterSize = {
     {{"r15", 2}, "r15w"},
     {{"r15", 4}, "r15d"},
     {{"r15", 8}, "r15"},
-};
-
-const std::map<RSI::HWRegister, std::string> aarch64RegistersRegisterTranslation = {
-    {aarch64Registers.at(0), "x0"},
-    {aarch64Registers.at(1), "x1"},
-    {aarch64Registers.at(2), "x2"},
-    {aarch64Registers.at(3), "x3"},
-    {aarch64Registers.at(4), "x4"},
-    {aarch64Registers.at(5), "x5"},
-    {aarch64Registers.at(6), "x6"},
-    {aarch64Registers.at(7), "x7"},
-    {aarch64Registers.at(8), "x8"},
-    {aarch64Registers.at(9), "x9"},
-    {aarch64Registers.at(10), "x10"},
-    {aarch64Registers.at(11), "x11"},
-    {aarch64Registers.at(12), "x12"},
-    {aarch64Registers.at(13), "x13"},
-    {aarch64Registers.at(14), "x14"},
-    {aarch64Registers.at(15), "x15"},
-    {aarch64Registers.at(16), "x16"},
-    {aarch64Registers.at(17), "x17"},
-
-    {aarch64Registers.at(18), "x21"},
-    {aarch64Registers.at(19), "x22"},
-    {aarch64Registers.at(20), "x23"},
-    {aarch64Registers.at(21), "x24"},
-    {aarch64Registers.at(22), "x25"},
-    {aarch64Registers.at(23), "x26"},
-    {aarch64Registers.at(24), "x27"},
-    {aarch64Registers.at(25), "x28"},
 };

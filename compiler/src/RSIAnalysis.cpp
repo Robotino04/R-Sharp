@@ -8,7 +8,7 @@
 
 namespace RSI{
 
-void analyzeLiveVariables(RSI::Function& function, OutputArchitecture){
+void analyzeLiveVariables(RSI::Function& function, Architecture const&){
     bool hasModifiedTheIR = true;
 
     const auto setSizeWatchGuard = [&hasModifiedTheIR](auto const& setToWatch){
@@ -20,13 +20,13 @@ void analyzeLiveVariables(RSI::Function& function, OutputArchitecture){
         });
     };
 
-    auto virtualEndInstruction = std::make_unique<Instruction>(Instruction{
+    Instruction virtualEndInstruction{
         .type = InstructionType::NOP,
-    });
+    };
     while (hasModifiedTheIR){
         hasModifiedTheIR = false;
 
-        Instruction* lastInstruction = virtualEndInstruction.get();
+        Instruction* lastInstruction = &virtualEndInstruction;
         for (auto it = function.instructions.rbegin(); it != function.instructions.rend(); it++){
             auto& instr = *it;
             const auto liveVariableBeforeThisPass = instr.meta.liveVariablesBefore;
@@ -68,32 +68,7 @@ void analyzeLiveVariables(RSI::Function& function, OutputArchitecture){
     }
 }
 
-/*
-Only works for strictly linear programs without any jumps. Use *assignRegistersGraphColoring* for everything else.
-*/
-void assignRegistersLinearScan(Function& func, OutputArchitecture arch){
-    std::vector<HWRegister> const& allRegisters = arch == OutputArchitecture::x86_64 ? x86_64Registers : aarch64Registers;
-    
-    for (auto& instr : func.instructions){
-        std::vector<HWRegister> unusedRegisters = allRegisters;
-        for (auto& var : instr.meta.liveVariablesBefore){
-            if (var->assignedRegister.has_value()){
-                unusedRegisters.erase(std::remove(unusedRegisters.begin(), unusedRegisters.end(), var->assignedRegister.value()), unusedRegisters.end());
-            }
-        }
-
-        for (auto& var : instr.meta.liveVariablesBefore){
-            if (!var->assignedRegister.has_value()){
-                var->assignedRegister = unusedRegisters.front();
-                unusedRegisters.erase(unusedRegisters.begin());
-            }
-        }
-    }
-}
-
-void assignRegistersGraphColoring(Function& func, OutputArchitecture arch){
-    std::vector<HWRegister> const& allRegisters = arch == OutputArchitecture::x86_64 ? x86_64Registers : aarch64Registers;
-
+void assignRegistersGraphColoring(Function& func, Architecture const& arch){
     Graph<void> interferenceGraph;
     using Vertex = Vertex<void>;
     using NList = Vertex::NeighbourList;
@@ -144,10 +119,10 @@ void assignRegistersGraphColoring(Function& func, OutputArchitecture arch){
         lastInstruction = instr;
     }
 
-    auto allAvailableColors = VertexColor::getNColors(allRegisters.size());
+    auto allAvailableColors = VertexColor::getNColors(arch.generalPurposeRegisters.size());
     std::map<VertexColor, RSI::HWRegister> colorToHWRegister;
-    for (int i=0; i<allRegisters.size(); i++){
-        colorToHWRegister.insert({allAvailableColors.at(i), allRegisters.at(i)});
+    for (int i=0; i<arch.generalPurposeRegisters.size(); i++){
+        colorToHWRegister.insert({allAvailableColors.at(i), arch.generalPurposeRegisters.at(i)});
     }
 
     if (!interferenceGraph.colorIn(allAvailableColors)){
@@ -245,8 +220,8 @@ void seperateDivReferences(RSI::Instruction& instr, std::vector<RSI::Instruction
     instr.op2 = move2.result;
     instr.result = moveRes.op1;
 
-    std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
-    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister = x86_64Registers.at(static_cast<int>(NasmRegisters::RAX));
+    std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->assignedRegister = x86_64.allRegisters.at(static_cast<int>(NasmRegisters::RAX));
+    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister = x86_64.allRegisters.at(static_cast<int>(NasmRegisters::RAX));
 
     beforeInstructions.push_back(move1);
     beforeInstructions.push_back(move2);

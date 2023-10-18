@@ -7,10 +7,9 @@
 
 namespace RSI{
 
-void analyzeLiveVariables(Function& function, OutputArchitecture arch);
+void analyzeLiveVariables(Function& function, Architecture const& architecture);
 
-void assignRegistersLinearScan(Function& func, OutputArchitecture arch);
-void assignRegistersGraphColoring(Function& func, OutputArchitecture arch);
+void assignRegistersGraphColoring(Function& func, Architecture const& architecture);
 
 void replaceModWithDivMulSub(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 void makeTwoOperandCompatible(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);

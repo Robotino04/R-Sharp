@@ -16,7 +16,7 @@ std::string translateOperand(RSI::Operand const& op, std::map<RSI::HWRegister, s
 std::string rsiToAarch64(RSI::Function const& function){
     std::string result = "";
 
-    const auto translateOperandAarch64 = [&](RSI::Operand const& op){return translateOperand(op, aarch64RegistersRegisterTranslation, "#");};
+    const auto translateOperandAarch64 = [&](RSI::Operand const& op){return translateOperand(op, aarch64.registerTranslation, "#");};
 
     for (auto const& instr : function.instructions){
         switch(instr.type){
@@ -128,13 +128,13 @@ std::string rsiToAarch64(RSI::Function const& function){
 }
 
 bool isRegister(RSI::Operand const& op, NasmRegisters reg){
-    return std::get<std::shared_ptr<RSI::Reference>>(op)->assignedRegister == x86_64Registers.at(static_cast<int>(reg));
+    return std::get<std::shared_ptr<RSI::Reference>>(op)->assignedRegister == x86_64.allRegisters.at(static_cast<int>(reg));
 }   
 
 std::string rsiToNasm(RSI::Function const& function){
     std::string result = "";
 
-    const auto translateOperandNasm = [&](RSI::Operand const& op){return translateOperand(op, x86_64RegisterTranslation, "");};
+    const auto translateOperandNasm = [&](RSI::Operand const& op){return translateOperand(op, x86_64.registerTranslation, "");};
 
     for (auto const& instr : function.instructions){
         try{
@@ -197,9 +197,9 @@ std::string rsiToNasm(RSI::Function const& function){
             case RSI::InstructionType::MODULO:
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != x86_64Registers.at(static_cast<int>(NasmRegisters::RAX)))
+                if (!isRegister(instr.result, NasmRegisters::RAX))
                     result += "push rax\n";
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != x86_64Registers.at(static_cast<int>(NasmRegisters::RDX)))
+                if (!isRegister(instr.result, NasmRegisters::RDX))
                     result += "push rdx\n";
 
                 result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
@@ -207,10 +207,10 @@ std::string rsiToNasm(RSI::Function const& function){
                 result += "idiv " + translateOperandNasm(instr.op2) + "\n";
                 result += "mov " + translateOperandNasm(instr.result) + ", rdx\n";
 
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != x86_64Registers.at(static_cast<int>(NasmRegisters::RDX)))
+                if (!isRegister(instr.result, NasmRegisters::RDX))
                     result += "pop rdx\n";
 
-                if (std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister != x86_64Registers.at(static_cast<int>(NasmRegisters::RAX)))
+                if (!isRegister(instr.result, NasmRegisters::RAX))
                     result += "pop rax\n";
 
                 break;
@@ -287,7 +287,7 @@ std::string rsiToNasm(RSI::Function const& function){
                 break;
 
             default:
-                Fatal("Unimplemented RSI instrution for nasm.");
+                Fatal("Unimplemented RSI instruction for nasm.");
                 break;
         }
     }

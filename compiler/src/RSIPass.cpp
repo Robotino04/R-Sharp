@@ -3,10 +3,12 @@
 #include "R-Sharp/RSITools.hpp"
 
 void RSIPass::operator() (RSI::Function& function, OutputArchitecture arch) const{
+    auto& fullArch = arch == OutputArchitecture::AArch64 ? aarch64 : x86_64;
+
     if (architectures.count(arch) == 0)
         return;
     if (isFunctionWide){
-        perFunctionFunction(function, arch);
+        perFunctionFunction(function, fullArch);
         return;
     }
 
@@ -36,7 +38,7 @@ void RSIPass::operator() (RSI::Function& function, OutputArchitecture arch) cons
     }
 }
 void RSIPass::operator() (std::vector<RSI::Function>& functions, OutputArchitecture arch) const{
-    auto const& registerTranslation = arch == OutputArchitecture::x86_64 ? x86_64RegisterTranslation : aarch64RegistersRegisterTranslation;
+    auto const& registerTranslation = arch == OutputArchitecture::x86_64 ? x86_64.registerTranslation : aarch64.registerTranslation;
 
     if (architectures.count(arch) == 0)
         return;
