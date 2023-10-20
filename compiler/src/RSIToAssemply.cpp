@@ -19,7 +19,13 @@ std::string rsiToAarch64(RSI::Function const& function){
 
     const auto translateOperandAarch64 = [&](RSI::Operand const& op){return translateOperand(op, aarch64.registerTranslation, "#");};
 
-    for (auto const& instr : function.instructions){
+    for (auto instr_it = function.instructions.begin(); instr_it != function.instructions.end(); instr_it++){
+        RSI::Instruction const& instr = *instr_it;
+        std::optional<std::reference_wrapper<const RSI::Instruction>> next_instr;
+        if (instr_it+1 != function.instructions.end()){
+            next_instr = *(instr_it+1);
+        }
+
         switch(instr.type){
             case RSI::InstructionType::ADD:
                 if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
@@ -99,6 +105,14 @@ std::string rsiToAarch64(RSI::Function const& function){
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov x0, " + translateOperandAarch64(instr.op1) + "\n";
+                
+                // restore callee saved regs
+                for (auto reg_it = function.meta.allRegisters.rbegin(); reg_it != function.meta.allRegisters.rend(); reg_it++){
+                    if (ContainerTools::contains(aarch64.calleeSavedRegisters, *reg_it)){
+                        result += "pop " + aarch64.registerTranslation.at(*reg_it) + "\n";
+                    }
+                }
+
                 result += "ret\n";
                 break;
             case RSI::InstructionType::LOGICAL_NOT:
@@ -117,6 +131,83 @@ std::string rsiToAarch64(RSI::Function const& function){
                 break;
             case RSI::InstructionType::JUMP_IF_ZERO:
                 result += "cbz " + translateOperandAarch64(instr.op1) + ", " + std::get<std::shared_ptr<RSI::Label>>(instr.op2)->name + "\n";
+                break;
+            case RSI::InstructionType::STORE_PARAMETER:
+                result += "push " + translateOperandAarch64(instr.op1) + "\n";
+                break;
+            case RSI::InstructionType::LOAD_PARAMETER:
+                break;
+            case RSI::InstructionType::CALL:{
+                if (!std::holds_alternative<RSI::Constant>(instr.op2))
+                    Fatal("call instruction has non constant number of arguments.");
+
+                auto regsToPreserve = next_instr.has_value() ? next_instr.value().get().meta.liveVariablesBefore : std::set<std::shared_ptr<RSI::Reference>>();
+                regsToPreserve.erase(std::get<std::shared_ptr<RSI::Reference>>(instr.result));
+
+                // don't save callee saved registers
+                for (auto reg_it = regsToPreserve.begin(); reg_it != regsToPreserve.end();){
+                    if ((*reg_it)->assignedRegister.has_value() && ContainerTools::contains(aarch64.calleeSavedRegisters, (*reg_it)->assignedRegister.value())){
+                        reg_it = regsToPreserve.erase(reg_it);
+                    }
+                    else if ((*reg_it)->assignedRegister.has_value() && (*reg_it)->assignedRegister.value() == aarch64.returnValueRegister){
+                        reg_it = regsToPreserve.erase(reg_it);
+                    }
+                    else{
+                        reg_it++;
+                    }
+                }
+
+                // save registers
+                for (auto reg : regsToPreserve){
+                    if (reg->assignedRegister.has_value()){
+                        result += "push " + aarch64.registerTranslation.at(reg->assignedRegister.value()) + "\n";
+                    }
+                }
+                
+                const std::vector<RSI::HWRegister> usedParameterRegs(aarch64.parameterRegisters.begin(), aarch64.parameterRegisters.begin() + std::get<RSI::Constant>(instr.op2).value);
+
+                constexpr int pushSize = 16;
+
+                std::string tmpReg;
+                if (usedParameterRegs.size()){
+                    tmpReg = aarch64.registerTranslation.at(aarch64.returnValueRegister);
+                    // the return register gets changed anyways, so might as well use it here
+                    // yes, it is also parameter register 1 on AArch64, but the registers get loaded in reverse, so it isn't overwritten
+
+                    int stackOffset = regsToPreserve.size() * pushSize;
+                    for (auto it = usedParameterRegs.rbegin(); it != usedParameterRegs.rend(); it++){
+                        std::string currentParameterRegister = aarch64.registerTranslation.at(*it);
+                        result += "ldr " + tmpReg + ", [sp, " + std::to_string(stackOffset) + "]\n";
+                        if (currentParameterRegister != tmpReg)
+                            result += "mov " + currentParameterRegister + ", " + tmpReg + "\n";
+                        stackOffset += pushSize;
+                    }
+                }
+                result += "stp fp, lr, [sp, -16]!\n";
+                result += "mov fp, sp\n";
+                result += "bl " + std::get<std::shared_ptr<RSI::Label>>(instr.op1)->name + "\n";
+                result += "ldp fp, lr, [sp], 16\n";
+
+                // restore registers
+                for (auto reg_it = regsToPreserve.rbegin(); reg_it != regsToPreserve.rend(); reg_it++){
+                    auto reg = *reg_it;
+                    if (reg->assignedRegister.has_value()){
+                        result += "pop " + aarch64.registerTranslation.at(reg->assignedRegister.value()) + "\n";
+                    }
+                }
+
+                // reclaim parameters
+                result += "add sp, sp, " + std::to_string(usedParameterRegs.size()*pushSize) + "\n";
+
+                break;
+            }
+            case RSI::InstructionType::FUNCTION_BEGIN:
+                // save callee saved regs
+                for (auto reg : function.meta.allRegisters){
+                    if (ContainerTools::contains(aarch64.calleeSavedRegisters, reg)){
+                        result += "push " + aarch64.registerTranslation.at(reg) + "\n";
+                    }
+                }
                 break;
 
             default:
@@ -331,25 +422,24 @@ std::string rsiToNasm(RSI::Function const& function){
                 
                 const std::vector<RSI::HWRegister> usedParameterRegs(x86_64.parameterRegisters.begin(), x86_64.parameterRegisters.begin() + std::get<RSI::Constant>(instr.op2).value);
 
+                constexpr int pushSize = 8;
 
                 std::string tmpReg;
                 if (usedParameterRegs.size()){
-                    tmpReg = x86_64.registerTranslation.at(usedParameterRegs.front());
-                    result += "push " + tmpReg + "\n";
-                    int stackOffset = 8 + regsToPreserve.size() * 8;
+                    tmpReg = x86_64.registerTranslation.at(x86_64.returnValueRegister);
+                    // the return register gets changed anyways, so might as well use it here
+
+                    int stackOffset = regsToPreserve.size() * pushSize;
                     for (auto it = usedParameterRegs.rbegin(); it != usedParameterRegs.rend(); it++){
-                        std::string resReg = x86_64.registerTranslation.at(*it);
+                        std::string currentParameterRegister = x86_64.registerTranslation.at(*it);
                         result += "mov " + tmpReg + ", [rsp+" + std::to_string(stackOffset) + "]\n";
-                        result += "mov [rsp+" + std::to_string(stackOffset) + "], " + resReg + "\n";
-                        if (resReg != tmpReg)
-                            result += "mov " + resReg + ", " + tmpReg + "\n";
-                        stackOffset += 8;
+                        if (currentParameterRegister != tmpReg)
+                            result += "mov " + currentParameterRegister + ", " + tmpReg + "\n";
+                        stackOffset += pushSize;
                     }
                 }
                 result += "call " + std::get<std::shared_ptr<RSI::Label>>(instr.op1)->name + "\n";
-                if (usedParameterRegs.size()){
-                    result += "pop " + tmpReg + "\n";
-                }
+
 
                 // restore registers
                 for (auto reg_it = regsToPreserve.rbegin(); reg_it != regsToPreserve.rend(); reg_it++){
@@ -360,7 +450,7 @@ std::string rsiToNasm(RSI::Function const& function){
                 }
 
                 // reclaim parameters
-                result += "add rsp, " + std::to_string(usedParameterRegs.size()*8) + "\n";
+                result += "add rsp, " + std::to_string(usedParameterRegs.size()*pushSize) + "\n";
 
                 break;
             }
