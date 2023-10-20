@@ -50,7 +50,7 @@ struct Vertex{
         Vertex(){}
 
         uint64_t getTriviallyColorableNumber() const{
-            uint64_t isColored = this->color.has_value() ? uint64_t(0) << 63 : 0;
+            uint64_t isColored = this->color.has_value() ? 1 : 0;
 
             uint64_t coloredNeighbours=0, uncoloredNeighbours=0;
 
@@ -63,7 +63,7 @@ struct Vertex{
                 }
             }
 
-            return isColored | ((-coloredNeighbours) & 0xEFFFFFFF) << 32 | uncoloredNeighbours;
+            return (isColored << 63) | (((-coloredNeighbours) & 0xEFFFFFFF) << 32) | uncoloredNeighbours;
         }
 
 

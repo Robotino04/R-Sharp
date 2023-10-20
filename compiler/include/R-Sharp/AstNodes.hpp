@@ -92,6 +92,7 @@ struct SemanticFunctionData{
     std::string name;
     std::shared_ptr<AstParameterList> parameters;
     std::shared_ptr<AstType> returnType;
+    std::shared_ptr<RSI::Label> rsiLabel;
 };
 
 // The actual AST nodes

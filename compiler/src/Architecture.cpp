@@ -1,12 +1,9 @@
 #include "R-Sharp/Architecture.hpp"
 #include "R-Sharp/RSI.hpp"
 
-#include <numeric>
+#include "R-Sharp/Utils/ContainerTools.hpp"
 
-template<typename T>
-bool contains(std::vector<T> const& vec, T const& element){
-    return std::find(vec.begin(), vec.end(), element) != vec.end();
-}
+#include <numeric>
 
 void Architecture::validate(){
     if (registerTranslation.size() != allRegisters.size()){
@@ -14,24 +11,24 @@ void Architecture::validate(){
     }
 
     for (auto const& reg : calleeSavedRegisters){
-        if (!contains(allRegisters, reg)){
+        if (!ContainerTools::contains(allRegisters, reg)){
             Fatal("Callee saved registers contain unknown registers");
         }
     }
 
     for (auto const& reg : generalPurposeRegisters){
-        if (!contains(allRegisters, reg)){
+        if (!ContainerTools::contains(allRegisters, reg)){
             Fatal("General purpose registers contain unknown registers");
         }
     }
 
     for (auto const& reg : parameterRegisters){
-        if (!contains(allRegisters, reg)){
+        if (!ContainerTools::contains(allRegisters, reg)){
             Fatal("Parameter registers contain unknown registers");
         }
     }
 
-    if (!contains(allRegisters, returnValueRegister)){
+    if (!ContainerTools::contains(allRegisters, returnValueRegister)){
         Fatal("Return value register is an unknown register");
     }
 }
@@ -115,27 +112,9 @@ const Architecture aarch64 = [](){
         }
         return regs;
     };
-    const auto combineRanges = [](std::vector<std::vector<RSI::HWRegister>> const& ranges){
-        std::vector<RSI::HWRegister> result;
-        result.reserve(
-            std::accumulate(
-                ranges.begin(), ranges.end(),
-                0,
-                [](int sizeUntilNow, auto const& range){
-                    return range.size() + sizeUntilNow;
-                }
-            )
-        );
-
-        for (auto const& range : ranges){
-            result.insert(result.end(), range.begin(), range.end());
-        }
-
-        return result;
-    };
 
     arch.calleeSavedRegisters = registerRange(19, 30);
-    arch.generalPurposeRegisters = combineRanges({
+    arch.generalPurposeRegisters = ContainerTools::flatten<RSI::HWRegister>({
         registerRange(0, 17),
         registerRange(19, 28)
     });

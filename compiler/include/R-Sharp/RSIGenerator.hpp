@@ -14,7 +14,7 @@ class RSIGenerator : public AstVisitor {
     public:
         RSIGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource);
 
-        std::vector<RSI::Function> generate();
+        RSI::TranslationUnit generate();
 
         void visit(std::shared_ptr<AstProgram> node) override;
         void visit(std::shared_ptr<AstParameterList> node) override;
@@ -57,7 +57,7 @@ class RSIGenerator : public AstVisitor {
 
     private:
         void emit(RSI::Instruction instr){
-            functions.back().instructions.push_back(instr);
+            generatedTU.functions.back().instructions.push_back(instr);
             lastResult = instr.result;
         }
         
@@ -78,8 +78,7 @@ class RSIGenerator : public AstVisitor {
         }
 
     private:
-        std::vector<RSI::Function> functions;
-        std::set<std::string> externalLabels;
+        RSI::TranslationUnit generatedTU;
 
         int stackPassedValueSize = 0;
         int arrayAccessFinalSize = 0;

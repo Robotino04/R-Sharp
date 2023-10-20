@@ -4,6 +4,7 @@
 #include "R-Sharp/Utils.hpp"
 #include "R-Sharp/VariableSizeInserter.hpp"
 #include "R-Sharp/Utils/ScopeGuard.hpp"
+#include "R-Sharp/Utils/ContainerTools.hpp"
 
 #include <sstream>
 #include <map>
@@ -43,20 +44,18 @@ int RSIGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
     }
 }
 
-std::vector<RSI::Function> RSIGenerator::generate(){
+RSI::TranslationUnit RSIGenerator::generate(){
     arrayAccessFinalSize = 0;
     stackPassedValueSize = 0;
 
     expectedValueType = ValueType::Value;
-
-    externalLabels = {"memset", "memcpy"};
 
     VariableSizeInserter sizeInserter(root);
     sizeInserter.insert(RSIGenerator::sizeFromSemanticalType);
 
     root->accept(this);
 
-    return functions;
+    return generatedTU;
 }
 
 std::string RSIGenerator::makeStringUnique(std::string const& prefix){
@@ -91,6 +90,26 @@ void RSIGenerator::visit(std::shared_ptr<AstProgram> node){
         var->accessor = makeStringUnique(var->name);
     }
 
+
+    // generate function labels
+    for (auto const& child : node->getChildren()){
+        if (!child) continue;
+        if (child->getType() == AstNodeType::AstFunctionDefinition){
+            auto function_def = std::dynamic_pointer_cast<AstFunctionDefinition>(child);
+            if (ContainerTools::contains(function_def->tags->tags, AstTags::Value::Extern)){
+                function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(RSI::Label{.name = function_def->functionData->name});
+            }
+            else{
+                function_def->functionData->rsiLabel = getNewLabel(function_def->functionData->name);
+            }
+
+            // main is implicitly extern
+            if (function_def->functionData->name == "main"){
+                function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(RSI::Label{.name = function_def->functionData->name});
+            }
+        }
+    }
+
     for (auto const& child : node->getChildren()){
         if (!child) continue;
         if (child->getType() == AstNodeType::AstFunctionDefinition){
@@ -116,21 +135,37 @@ void RSIGenerator::visit(std::shared_ptr<AstParameterList> node){
     // generate access strings
     node->parameterBlock->accept(this);
 
+    uint parameterIndex = 0;
     for (auto const& child : node->parameters){
-        child->accept(this);
+        child->variable->rsiReference = getNewReference(child->variable->name);
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::LOAD_PARAMETER,
+            .result = child->variable->rsiReference,
+            .op1 = RSI::Constant{.value = parameterIndex},
+        });
+        child->variable->rsiReference->variable = child->variable;
+        
+        parameterIndex++;
     }
 }
 
 // definitions
 void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
-    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
-        auto& func = functions.emplace_back();
+    if(!ContainerTools::contains(node->tags->tags, AstTags::Value::Extern)){
+        auto& func = generatedTU.functions.emplace_back();
         func.name = node->functionData->name;
         func.function = node->functionData;
 
+        if (!node->functionData->rsiLabel){
+            Fatal("Function \"", node->name, "\" didn't get an RSI label.");
+        }
+
         emit(RSI::Instruction{
             .type = RSI::InstructionType::DEFINE_LABEL,
-            .op1 = std::make_shared<RSI::Label>(RSI::Label{.name = func.name}),
+            .op1 = func.function->rsiLabel,
+        });
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::FUNCTION_BEGIN,
         });
 
         node->parameters->accept(this);
@@ -142,7 +177,7 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         });
     }
     else{
-        externalLabels.insert(node->functionData->name);
+        generatedTU.externLabels.push_back(node->functionData->rsiLabel);
     }
 }
 
@@ -729,30 +764,27 @@ void RSIGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
 
 void RSIGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     expectValueType(ValueType::Value);
-    Fatal("Not implemented!");
-    // // evaluate arguments
-    // for (auto arg : node->arguments){
-    //     expectedValueType = ValueType::Value;
-    //     arg->accept(this);
-    //     emitIndented("push x0\n");
-    // }
-    // if (node->arguments.size() > 8){
-    //     Error("RSI Generator: More than 8 function arguments aren't yet supported!");
-    //     printErrorToken(node->arguments.at(8)->token, R_SharpSource);
-    //     exit(1);
-    // }
-    // // move arguments to registers
-    // for (int i=node->arguments.size()-1; i>=0; i--){
-    //     emitIndented("pop x" + std::to_string(i) + "\n");
-    // }
 
-    // emitIndented("// Prepare for function call (" + node->name + ")\n");
-    // functionCallPrologue();
-    // emitIndented("// Function Call (" + node->name + ")\n");
-    // emitIndented("bl " + node->function->name + "\n");
+    // evaluate arguments
+    for (auto arg : node->arguments){
+        expectedValueType = ValueType::Value;
+        arg->accept(this);
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::STORE_PARAMETER,
+            .op1 = lastResult,
+        });
+    }
 
-    // emitIndented("// Restore after function call (" + node->name + ")\n");
-    // functionCallEpilogue();
+    if (!node->function->rsiLabel){
+        Fatal("Function \"", node->name, "\" didn't get an RSI label.");
+    }
+
+    emit(RSI::Instruction{
+        .type = RSI::InstructionType::CALL,
+        .result = getNewReference(),
+        .op1 = node->function->rsiLabel,
+        .op2 = RSI::Constant{.value = node->arguments.size()},
+    });
 }
 void RSIGenerator::visit(std::shared_ptr<AstAddressOf> node){
     expectValueType(ValueType::Value);

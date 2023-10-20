@@ -50,6 +50,14 @@ std::string stringify_function(RSI::Function const& function, std::map<HWRegiste
             result += " " + stringify_operand(instr.op1, registerTranslation) + " -> " + stringify_operand(instr.op2, registerTranslation) + "\n";
             continue;
         }
+        else if (instr.type == RSI::InstructionType::CALL){
+            result += " " + stringify_operand(instr.op1, registerTranslation) + " -> " + stringify_operand(instr.result, registerTranslation) + ", " + stringify_operand(instr.op2, registerTranslation) + " args\n";
+            continue;
+        }
+        else if (instr.type == RSI::InstructionType::STORE_PARAMETER){
+            result += " " + stringify_operand(instr.op1, registerTranslation) + "\n";
+            continue;
+        }
         
         switch(numArgumentsUsed.at(instr.type)){
             case 0:

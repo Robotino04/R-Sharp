@@ -39,6 +39,12 @@ enum class InstructionType{
     JUMP,
     JUMP_IF_ZERO,
     DEFINE_LABEL,
+
+    STORE_PARAMETER,
+    LOAD_PARAMETER,
+    CALL,
+
+    FUNCTION_BEGIN,
 };
 
 extern const std::map<InstructionType, uint> numArgumentsUsed;
@@ -54,6 +60,8 @@ using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference
 
 struct Instruction;
 struct Function;
+
+struct TranslationUnit;
 
 }
 

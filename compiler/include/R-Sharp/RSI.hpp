@@ -45,6 +45,12 @@ inline const std::map<InstructionType, uint> numArgumentsUsed = {
     {InstructionType::JUMP, 1},
     {InstructionType::JUMP_IF_ZERO, 2},
     {InstructionType::DEFINE_LABEL, 1},
+
+    {InstructionType::STORE_PARAMETER, 1},
+    {InstructionType::LOAD_PARAMETER, 1},
+    {InstructionType::CALL, 2},
+
+    {InstructionType::FUNCTION_BEGIN, 0},
 };
 
 inline const std::map<InstructionType, std::string> mnemonics = {
@@ -78,24 +84,30 @@ inline const std::map<InstructionType, std::string> mnemonics = {
     {InstructionType::JUMP, "jmp"},
     {InstructionType::JUMP_IF_ZERO, "jmpz"},
     {InstructionType::DEFINE_LABEL, "defl"},
+  
+    {InstructionType::STORE_PARAMETER, "spar"},
+    {InstructionType::LOAD_PARAMETER, "lpar"},
+    {InstructionType::CALL, "call"},
+
+    {InstructionType::FUNCTION_BEGIN, "fbeg"},
 };
 
 struct HWRegister{
     HWRegister(): id(highestID++){
     }
 
-    bool operator==(HWRegister const& other) const{
+    constexpr bool operator==(HWRegister const& other) const{
         return this->getID() == other.getID();
     }
-    bool operator!=(HWRegister const& other) const{
+    constexpr bool operator!=(HWRegister const& other) const{
         return !(*this == other);
     }
 
-    bool operator <(HWRegister const& other) const{
+    constexpr bool operator <(HWRegister const& other) const{
         return this->getID() < other.getID();
     }
 
-    inline uint64_t getID() const{
+    constexpr inline uint64_t getID() const{
         return id;
     }
 
@@ -164,6 +176,16 @@ struct Function{
     std::string name;
     std::shared_ptr<SemanticFunctionData> function;
     std::vector<Instruction> instructions;
+
+    struct Metadata{
+        std::set<std::shared_ptr<Reference>> allReferences = {};
+        std::set<HWRegister> allRegisters = {};
+    } meta;
+};
+
+struct TranslationUnit{
+    std::vector<RSI::Function> functions;
+    std::vector<std::shared_ptr<RSI::Label>> externLabels;
 };
 
 }

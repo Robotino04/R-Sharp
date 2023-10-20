@@ -2,6 +2,7 @@
 #include "R-Sharp/RSI.hpp"
 #include "R-Sharp/Architecture.hpp"
 
+#include "R-Sharp/Utils/ContainerTools.hpp"
 #include "R-Sharp/Utils/LambdaOverload.hpp"
 
 std::string translateOperand(RSI::Operand const& op, std::map<RSI::HWRegister, std::string> registerTranslation, std::string constantPrefix){
@@ -136,7 +137,13 @@ std::string rsiToNasm(RSI::Function const& function){
 
     const auto translateOperandNasm = [&](RSI::Operand const& op){return translateOperand(op, x86_64.registerTranslation, "");};
 
-    for (auto const& instr : function.instructions){
+    for (auto instr_it = function.instructions.begin(); instr_it != function.instructions.end(); instr_it++){
+        RSI::Instruction const& instr = *instr_it;
+        std::optional<std::reference_wrapper<const RSI::Instruction>> next_instr;
+        if (instr_it+1 != function.instructions.end()){
+            next_instr = *(instr_it+1);
+        }
+
         try{
             if (!std::holds_alternative<std::monostate>(instr.op2) && std::get<std::shared_ptr<RSI::Reference>>(instr.result) != std::get<std::shared_ptr<RSI::Reference>>(instr.op1)){
                 Fatal("RSI instruction is not nasm compatible. (result and op1 are different)");
@@ -265,6 +272,14 @@ std::string rsiToNasm(RSI::Function const& function){
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
+
+                // restore callee saved regs
+                for (auto reg_it = function.meta.allRegisters.rbegin(); reg_it != function.meta.allRegisters.rend(); reg_it++){
+                    if (ContainerTools::contains(x86_64.calleeSavedRegisters, *reg_it)){
+                        result += "pop " + x86_64.registerTranslation.at(*reg_it) + "\n";
+                    }
+                }
+
                 result += "ret\n";
                 break;
             case RSI::InstructionType::LOGICAL_NOT:
@@ -284,6 +299,78 @@ std::string rsiToNasm(RSI::Function const& function){
             case RSI::InstructionType::JUMP_IF_ZERO:
                 result += "cmp " + translateOperandNasm(instr.op1) + ", 0\n";
                 result += "je " + std::get<std::shared_ptr<RSI::Label>>(instr.op2)->name + "\n";
+                break;
+            case RSI::InstructionType::STORE_PARAMETER:
+                result += "push " + translateOperandNasm(instr.op1) + "\n";
+                break;
+            case RSI::InstructionType::LOAD_PARAMETER:
+                break;
+            case RSI::InstructionType::CALL:{
+                if (!std::holds_alternative<RSI::Constant>(instr.op2))
+                    Fatal("call instruction has non constant number of arguments.");
+
+                auto regsToPreserve = next_instr.has_value() ? next_instr.value().get().meta.liveVariablesBefore : std::set<std::shared_ptr<RSI::Reference>>();
+                regsToPreserve.erase(std::get<std::shared_ptr<RSI::Reference>>(instr.result));
+
+                // don't save callee saved registers
+                for (auto reg_it = regsToPreserve.begin(); reg_it != regsToPreserve.end();){
+                    if ((*reg_it)->assignedRegister.has_value() && ContainerTools::contains(x86_64.calleeSavedRegisters, (*reg_it)->assignedRegister.value())){
+                        reg_it = regsToPreserve.erase(reg_it);
+                    }
+                    else{
+                        reg_it++;
+                    }
+                }
+
+                // save registers
+                for (auto reg : regsToPreserve){
+                    if (reg->assignedRegister.has_value()){
+                        result += "push " + x86_64.registerTranslation.at(reg->assignedRegister.value()) + "\n";
+                    }
+                }
+                
+                const std::vector<RSI::HWRegister> usedParameterRegs(x86_64.parameterRegisters.begin(), x86_64.parameterRegisters.begin() + std::get<RSI::Constant>(instr.op2).value);
+
+
+                std::string tmpReg;
+                if (usedParameterRegs.size()){
+                    tmpReg = x86_64.registerTranslation.at(usedParameterRegs.front());
+                    result += "push " + tmpReg + "\n";
+                    int stackOffset = 8 + regsToPreserve.size() * 8;
+                    for (auto it = usedParameterRegs.rbegin(); it != usedParameterRegs.rend(); it++){
+                        std::string resReg = x86_64.registerTranslation.at(*it);
+                        result += "mov " + tmpReg + ", [rsp+" + std::to_string(stackOffset) + "]\n";
+                        result += "mov [rsp+" + std::to_string(stackOffset) + "], " + resReg + "\n";
+                        if (resReg != tmpReg)
+                            result += "mov " + resReg + ", " + tmpReg + "\n";
+                        stackOffset += 8;
+                    }
+                }
+                result += "call " + std::get<std::shared_ptr<RSI::Label>>(instr.op1)->name + "\n";
+                if (usedParameterRegs.size()){
+                    result += "pop " + tmpReg + "\n";
+                }
+
+                // restore registers
+                for (auto reg_it = regsToPreserve.rbegin(); reg_it != regsToPreserve.rend(); reg_it++){
+                    auto reg = *reg_it;
+                    if (reg->assignedRegister.has_value()){
+                        result += "pop " + x86_64.registerTranslation.at(reg->assignedRegister.value()) + "\n";
+                    }
+                }
+
+                // reclaim parameters
+                result += "add rsp, " + std::to_string(usedParameterRegs.size()*8) + "\n";
+
+                break;
+            }
+            case RSI::InstructionType::FUNCTION_BEGIN:
+                // save callee saved regs
+                for (auto reg : function.meta.allRegisters){
+                    if (ContainerTools::contains(x86_64.calleeSavedRegisters, reg)){
+                        result += "push " + x86_64.registerTranslation.at(reg) + "\n";
+                    }
+                }
                 break;
 
             default:

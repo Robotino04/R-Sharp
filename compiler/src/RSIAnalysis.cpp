@@ -71,7 +71,14 @@ void analyzeLiveVariables(RSI::Function& function, Architecture const&){
 void assignRegistersGraphColoring(Function& func, Architecture const& arch){
     Graph<void> interferenceGraph;
     using Vertex = Vertex<void>;
-    using NList = Vertex::NeighbourList;
+
+    auto allAvailableColors = VertexColor::getNColors(arch.generalPurposeRegisters.size());
+    std::map<VertexColor, RSI::HWRegister> colorToHWRegister;
+    std::map<RSI::HWRegister, VertexColor> HWRegisterToColor;
+    for (int i=0; i<arch.generalPurposeRegisters.size(); i++){
+        colorToHWRegister.insert({allAvailableColors.at(i), arch.generalPurposeRegisters.at(i)});
+        HWRegisterToColor.insert({arch.generalPurposeRegisters.at(i), allAvailableColors.at(i)});
+    }
 
     std::map<std::shared_ptr<RSI::Reference>, std::shared_ptr<Vertex>> referenceToVertex;
     std::map<std::shared_ptr<Vertex>, std::shared_ptr<RSI::Reference>> vertexToReference;
@@ -80,6 +87,11 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch){
         if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(operand)){
             std::shared_ptr<Vertex> vert = std::make_shared<Vertex>();
             auto ref = std::get<std::shared_ptr<RSI::Reference>>(operand);
+
+            // keep the color/register
+            if (ref->assignedRegister.has_value()){
+                vert->color = HWRegisterToColor.at(ref->assignedRegister.value());
+            }
             if (referenceToVertex.count(ref) == 0){
                 referenceToVertex.insert_or_assign(ref, vert);
                 vertexToReference.insert_or_assign(vert, ref);
@@ -119,12 +131,6 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch){
         lastInstruction = instr;
     }
 
-    auto allAvailableColors = VertexColor::getNColors(arch.generalPurposeRegisters.size());
-    std::map<VertexColor, RSI::HWRegister> colorToHWRegister;
-    for (int i=0; i<arch.generalPurposeRegisters.size(); i++){
-        colorToHWRegister.insert({allAvailableColors.at(i), arch.generalPurposeRegisters.at(i)});
-    }
-
     if (!interferenceGraph.colorIn(allAvailableColors)){
         Fatal("Unable to color graph with the given colors.");
     }
@@ -133,6 +139,28 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch){
         vertexToReference.at(vertex)->assignedRegister = colorToHWRegister.at(vertex->color.value());
     }
 }
+
+void enumerateRegisters(Function& func, Architecture const& architecture){
+    func.meta.allRegisters = {};
+    func.meta.allReferences = {};
+    for (auto instr : func.instructions){
+        if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result))
+            func.meta.allReferences.insert(std::get<std::shared_ptr<RSI::Reference>>(instr.result));
+        
+        if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op1))
+            func.meta.allReferences.insert(std::get<std::shared_ptr<RSI::Reference>>(instr.op1));
+        
+        if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op2))
+            func.meta.allReferences.insert(std::get<std::shared_ptr<RSI::Reference>>(instr.op2));
+    }
+
+    for (auto ref : func.meta.allReferences){
+        if (ref->assignedRegister.has_value())
+            func.meta.allRegisters.insert(ref->assignedRegister.value());
+    }
+}
+
+
 bool makeTwoOperandCompatible_prefilter(RSI::Instruction const& instr){
     if (instr.type == InstructionType::NEGATE)
         return true;
@@ -226,6 +254,37 @@ void seperateDivReferences(RSI::Instruction& instr, std::vector<RSI::Instruction
     beforeInstructions.push_back(move1);
     beforeInstructions.push_back(move2);
     afterInstructions.push_back(moveRes);
+}
+
+void seperateCallResults(Architecture const& architecture, RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    RSI::Instruction moveRes{
+        .type = RSI::InstructionType::MOVE,
+        .result = instr.result,
+        .op1 = RSIGenerator::getNewReference("callresult"),
+    };
+    instr.result = moveRes.op1;
+
+    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister = architecture.returnValueRegister;
+
+    afterInstructions.push_back(moveRes);
+}
+
+void seperateLoadParameters(Architecture const& architecture, RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    uint parameterIndex = std::get<RSI::Constant>(instr.op1).value;
+    if (parameterIndex >= architecture.parameterRegisters.size())
+        Fatal("Function uses more parameters than are supported on this platform");
+
+    const auto param = RSIGenerator::getNewReference("param");
+    param->assignedRegister = architecture.parameterRegisters.at(parameterIndex);
+
+    RSI::Instruction move{
+        .type = RSI::InstructionType::MOVE,
+        .result = instr.result,
+        .op1 = param,
+    };
+
+    instr.result = param;
+    afterInstructions.push_back(move);
 }
 
 }

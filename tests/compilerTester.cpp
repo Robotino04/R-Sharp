@@ -246,7 +246,8 @@ CommandResult execute(std::string const& cmd, std::optional<std::chrono::seconds
 
     int childPid = 0;
 
-    std::unique_ptr<FILE, decltype(&fclose)> pipe(popen2(cmd + " 2>&1", Popen2Type::Reading, childPid), fclose);
+    const auto closer = [](FILE* fp){fclose(fp);};
+    std::unique_ptr<FILE, decltype(closer)> pipe(popen2(cmd + " 2>&1", Popen2Type::Reading, childPid), closer);
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
