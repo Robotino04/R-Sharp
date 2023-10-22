@@ -9,6 +9,7 @@ std::string stringify_operand(Operand const& op, std::map<HWRegister, std::strin
     return std::visit(lambda_overload{
         [](Constant const& x) { return std::to_string(x.value); },
         [&](std::shared_ptr<RSI::Reference> x){ return x->name + "(" + (x->assignedRegister.has_value() ? registerTranslation.at(x->assignedRegister.value()) : "None") + ")"; },
+        [](std::shared_ptr<RSI::GlobalReference> x){ return x->name + "(global)"; },
         [](std::shared_ptr<RSI::Label> x){ return x->name; },
         [](std::monostate const&){ return std::string("[none]");},
     }, op);

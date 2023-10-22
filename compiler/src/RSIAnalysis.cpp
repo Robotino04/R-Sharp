@@ -287,4 +287,33 @@ void seperateLoadParameters(Architecture const& architecture, RSI::Instruction& 
     afterInstructions.push_back(move);
 }
 
+void seperateGlobalReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result)){
+        RSI::Instruction move{
+            .type = RSI::InstructionType::MOVE,
+            .result = instr.result,
+            .op1 = RSIGenerator::getNewReference() 
+        };
+        instr.result = move.op1;
+        afterInstructions.push_back(move);
+    } 
+    if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)){
+        RSI::Instruction move{
+            .type = RSI::InstructionType::MOVE,
+            .result = RSIGenerator::getNewReference(),
+            .op1 = instr.op1 
+        };
+        instr.op1 = move.result;
+        beforeInstructions.push_back(move);
+    } 
+    if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op2)){
+        RSI::Instruction move{
+            .type = RSI::InstructionType::MOVE,
+            .result = RSIGenerator::getNewReference(),
+            .op1 = instr.op2 
+        };
+        instr.op2 = move.result;
+        beforeInstructions.push_back(move);
+    } 
+}
 }

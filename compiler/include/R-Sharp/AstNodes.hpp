@@ -72,10 +72,8 @@ struct SemanticVariableData{
     std::string name;
     int sizeInBytes = 0;
 
-    std::shared_ptr<RSI::Reference> rsiReference;
-
     // either a global label or the stack offset
-    std::variant<std::string, int> accessor = "Invailid global label. Most likely didn't visit this node.";
+    std::variant<std::string, int, RSI::Operand> accessor = "Invalid global label. Most likely didn't visit this node.";
 
     bool operator ==(SemanticVariableData other) const{
         return isGlobal == other.isGlobal && type.lock() == other.type.lock();

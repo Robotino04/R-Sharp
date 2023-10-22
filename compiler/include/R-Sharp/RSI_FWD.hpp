@@ -51,11 +51,22 @@ extern const std::map<InstructionType, uint> numArgumentsUsed;
 extern const std::map<InstructionType, std::string> mnemonics;
 
 struct HWRegister;
-struct Constant;
 struct Reference;
 struct Label;
+struct GlobalReference;
 
-using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>, std::shared_ptr<Label>>;
+struct Constant{
+    uint64_t value;
+
+    bool operator== (Constant const& other) const{
+        return this->value == other.value;
+    }
+    bool operator != (Constant const& other) const{
+        return !(*this == other);
+    }
+};
+
+using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>, std::shared_ptr<Label>, std::shared_ptr<GlobalReference>>;
 
 
 struct Instruction;

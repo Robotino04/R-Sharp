@@ -17,6 +17,7 @@ void moveConstantsToReferences(RSI::Instruction& instr, std::vector<RSI::Instruc
 void seperateDivReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 void seperateCallResults(Architecture const& architecture, RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 void seperateLoadParameters(Architecture const& architecture, RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
+void seperateGlobalReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 
 
 bool makeTwoOperandCompatible_prefilter(RSI::Instruction const& instr);

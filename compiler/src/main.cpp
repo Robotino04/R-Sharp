@@ -248,6 +248,11 @@ int main(int argc, const char** argv) {
                     .perInstructionFunction = [](auto&, auto&, auto&){},
                 },
                 RSIPass{
+                    .humanHeader = "Separeate global references",
+                    .architectures = allArchitectureTypes,
+                    .perInstructionFunction = RSI::seperateGlobalReferences,
+                },
+                RSIPass{
                     .humanHeader = "Seperate divisions",
                     .architectures = {OutputArchitecture::x86_64},
                     .positiveInstructionTypes = {RSI::InstructionType::DIVIDE},
@@ -350,6 +355,14 @@ int main(int argc, const char** argv) {
                     outputSource += "global " + func.name + "\n";
                     outputSource += rsiToNasm(func) + "\n";
                 }
+                outputSource += "section .data\n";
+                for (auto [ref, value] : translationUnit.initializedGlobalVariables){
+                    outputSource += ref->name + ": dq " + std::to_string(value.value) + "\n";
+                }
+                outputSource += "section .bss\n";
+                for (auto ref : translationUnit.uninitializedGlobalVariables){
+                    outputSource += ref->name + ": resb 8\n";
+                }
                 outputFormat = OutputFormat::NASM;
             }
             else{
@@ -372,6 +385,14 @@ int main(int argc, const char** argv) {
                 for (auto& func : translationUnit.functions){
                     outputSource += ".global " + func.name + "\n";
                     outputSource += rsiToAarch64(func) + "\n";
+                }
+                outputSource += ".data\n";
+                for (auto [ref, value] : translationUnit.initializedGlobalVariables){
+                    outputSource += ref->name + ": .8byte " + std::to_string(value.value) + "\n";
+                }
+                outputSource += ".bss\n";
+                for (auto ref : translationUnit.uninitializedGlobalVariables){
+                    outputSource += ref->name + ": .space 8\n";
                 }
                 outputFormat = OutputFormat::AArch64;
             }

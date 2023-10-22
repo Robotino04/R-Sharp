@@ -118,16 +118,6 @@ struct HWRegister{
         static inline std::atomic<uint64_t> highestID = 0;
 };
 
-struct Constant{
-    uint64_t value;
-
-    bool operator== (Constant const& other) const{
-        return this->value == other.value;
-    }
-    bool operator != (Constant const& other) const{
-        return !(*this == other);
-    }
-};
 
 struct Reference{
     std::string name;
@@ -142,6 +132,21 @@ struct Reference{
         return name == other.name;
     }
     bool operator != (Reference const& other) const{
+        return !(*this == other);
+    }
+};
+struct GlobalReference{
+    std::string name;
+    std::optional<std::shared_ptr<SemanticVariableData>> variable;
+
+    bool operator < (GlobalReference const& other) const{
+        return name < other.name;
+    }
+
+    bool operator == (GlobalReference const& other) const{
+        return name == other.name;
+    }
+    bool operator != (GlobalReference const& other) const{
         return !(*this == other);
     }
 };
@@ -186,6 +191,8 @@ struct Function{
 struct TranslationUnit{
     std::vector<RSI::Function> functions;
     std::vector<std::shared_ptr<RSI::Label>> externLabels;
+    std::vector<std::pair<std::shared_ptr<RSI::GlobalReference>, RSI::Constant>> initializedGlobalVariables;
+    std::vector<std::shared_ptr<RSI::GlobalReference>> uninitializedGlobalVariables;
 };
 
 }

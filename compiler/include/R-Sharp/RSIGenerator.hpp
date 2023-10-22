@@ -64,7 +64,7 @@ class RSIGenerator : public AstVisitor {
         void resetStackPointer(std::shared_ptr<AstBlock> scope){};
         void setupLocalVariables(std::shared_ptr<AstBlock> scope);
 
-        void defineGlobalData(std::shared_ptr<AstExpression> node);
+        std::shared_ptr<RSI::GlobalReference> defineGlobalData(std::shared_ptr<AstExpression> node, std::shared_ptr<SemanticVariableData> var);
 
         enum ValueType {
             Value,

@@ -91,7 +91,7 @@ void RSIGenerator::visit(std::shared_ptr<AstProgram> node){
     }
 
 
-    // generate function labels
+    // generate labels
     for (auto const& child : node->getChildren()){
         if (!child) continue;
         if (child->getType() == AstNodeType::AstFunctionDefinition){
@@ -108,6 +108,9 @@ void RSIGenerator::visit(std::shared_ptr<AstProgram> node){
                 function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(RSI::Label{.name = function_def->functionData->name});
             }
         }
+        else if (child->getType() == AstNodeType::AstVariableDeclaration){
+            child->accept(this);
+        }
     }
 
     for (auto const& child : node->getChildren()){
@@ -116,18 +119,10 @@ void RSIGenerator::visit(std::shared_ptr<AstProgram> node){
             child->accept(this);
         }
         else if (child->getType() == AstNodeType::AstVariableDeclaration){
-            child->accept(this);
+            
         }
         else{
             Fatal("Invalid node type in program");
-        }
-    }
-
-
-    // uninitialized global variables
-    for (auto var : root->uninitializedGlobalVariables){
-        if (!var->isDefined){
-            Fatal("Not implemented!");
         }
     }
 }
@@ -137,13 +132,14 @@ void RSIGenerator::visit(std::shared_ptr<AstParameterList> node){
 
     uint parameterIndex = 0;
     for (auto const& child : node->parameters){
-        child->variable->rsiReference = getNewReference(child->variable->name);
+        auto ref = getNewReference(child->variable->name);
+        child->variable->accessor = ref;
         emit(RSI::Instruction{
             .type = RSI::InstructionType::LOAD_PARAMETER,
-            .result = child->variable->rsiReference,
+            .result = ref,
             .op1 = RSI::Constant{.value = parameterIndex},
         });
-        child->variable->rsiReference->variable = child->variable;
+        ref->variable = child->variable;
         
         parameterIndex++;
     }
@@ -676,7 +672,7 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
         // functionCallEpilogue();
     }
     else{
-        lastResult = node->variable->rsiReference;
+        lastResult = std::get<RSI::Operand>(node->variable->accessor);
     }
 }
 void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
@@ -830,16 +826,17 @@ void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node){
 void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     expectedValueType = ValueType::Value;
     if (node->variable->isGlobal){
-        if (!node->value){
-            return;
+        if (node->value){
+            node->variable->accessor = defineGlobalData(node->value, node->variable);
         }
-        Fatal("Not implemented!");
-        // emitIndented("// Global Variable (" + node->name + ")\n", BinarySection::Data);
-        // emitIndented(".global " + std::get<std::string>(node->variable->accessor) + "\n", BinarySection::Data);
-        // emitIndented(std::get<std::string>(node->variable->accessor) + ":\n", BinarySection::Data);
-        // indent(BinarySection::Data);
-        // defineGlobalData(node->value);
-        // dedent(BinarySection::Data);
+        else{
+            auto ref = std::make_shared<RSI::GlobalReference>(RSI::GlobalReference{
+                .name = makeStringUnique(node->variable->name),
+                .variable = node->variable
+            });
+            node->variable->accessor = ref;
+            generatedTU.uninitializedGlobalVariables.push_back(ref);
+        }
     }
     else{
         if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType){
@@ -879,11 +876,12 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
                     .value = 0,
                 };
             }
-            node->variable->rsiReference = getNewReference(node->variable->name);
-            node->variable->rsiReference->variable = node->variable;
+            auto ref = getNewReference(node->variable->name);
+            node->variable->accessor = ref;
+            ref->variable = node->variable;
             emit(RSI::Instruction{
                 .type = RSI::InstructionType::MOVE,
-                .result = node->variable->rsiReference,
+                .result = std::get<RSI::Operand>(node->variable->accessor),
                 .op1 = lastResult,
             });
         }
@@ -1005,22 +1003,17 @@ void RSIGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     // stackPassedValueSize = sizeFromSemanticalType(node->semanticType);
 }
 
-void RSIGenerator::defineGlobalData(std::shared_ptr<AstExpression> node){
-    Fatal("Not implemented!");
-    // if (node->getType() == AstNodeType::AstInteger){
-    //     auto intNode = std::dynamic_pointer_cast<AstInteger>(node);
-    //     switch(sizeFromSemanticalType(node->semanticType)){
-    //         case 1: emitIndented(".byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-    //         case 2: emitIndented(".2byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-    //         case 4: emitIndented(".4byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-    //         case 8: emitIndented(".8byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-    //         default:
-    //             Error("RSI Generator: Global variable size not supported!");
-    //             printErrorToken(node->token, R_SharpSource);
-    //             exit(1);
-    //             break;
-    //     }
-    // }
+std::shared_ptr<RSI::GlobalReference> RSIGenerator::defineGlobalData(std::shared_ptr<AstExpression> node, std::shared_ptr<SemanticVariableData> var){
+    if (node->getType() == AstNodeType::AstInteger){
+        auto intNode = std::dynamic_pointer_cast<AstInteger>(node);
+        RSI::Constant value{.value = static_cast<uint64_t>(intNode->value)};
+        auto ref = std::make_shared<RSI::GlobalReference>(RSI::GlobalReference{
+            .name = makeStringUnique(var->name),
+            .variable = var            
+        });
+        generatedTU.initializedGlobalVariables.emplace_back(ref, value);
+        return ref;
+    }
     // else if (node->getType() == AstNodeType::AstArrayLiteral){
     //     auto arrayNode = std::dynamic_pointer_cast<AstArrayLiteral>(node);
     //     for (auto element : arrayNode->elements){
@@ -1035,9 +1028,9 @@ void RSIGenerator::defineGlobalData(std::shared_ptr<AstExpression> node){
     //         }
     //     }
     // }
-    // else{
-    //     Error("RSI Generator: Global variable must be an integer or array. (Found: " + node->toString() + ")");
-    //     printErrorToken(node->token, R_SharpSource);
-    //     exit(1);
-    // }
+    else{
+        Error("RSI Generator: Global variable must be an integer or array. (Found: " + node->toString() + ")");
+        printErrorToken(node->token, R_SharpSource);
+        exit(1);
+    }
 }

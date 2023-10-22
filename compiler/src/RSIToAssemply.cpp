@@ -9,6 +9,7 @@ std::string translateOperand(RSI::Operand const& op, std::map<RSI::HWRegister, s
     return std::visit(lambda_overload{
         [&](RSI::Constant const& x) { return constantPrefix + std::to_string(x.value); },
         [&](std::shared_ptr<RSI::Reference> x){ return x->assignedRegister.has_value() ? registerTranslation.at(x->assignedRegister.value()) : "(none)"; },
+        [](std::shared_ptr<RSI::GlobalReference> x){ return x->name; },
         [](std::shared_ptr<RSI::Label> x){ return x->name; },
         [](std::monostate const&){ Fatal("Empty RSI operand used!"); return std::string();},
     }, op);
@@ -82,7 +83,6 @@ std::string rsiToAarch64(RSI::Function const& function){
                 result += "cset " + translateOperandAarch64(instr.result) + ", ge\n";
                 break;
             case RSI::InstructionType::MOVE:
-                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
                 if (std::holds_alternative<RSI::Constant>(instr.op1)){
                     uint64_t valueCopy = static_cast<uint64_t>(std::get<RSI::Constant>(instr.op1).value);
                     if (valueCopy == 0){
@@ -98,6 +98,14 @@ std::string rsiToAarch64(RSI::Function const& function){
                             }
                         }
                     }
+                }
+                else if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)){
+                    result += "ldr " + translateOperandAarch64(instr.result) + ", =[" + translateOperandAarch64(instr.op1) + "]\n";
+                    result += "ldr " + translateOperandAarch64(instr.result) + ", [" + translateOperandAarch64(instr.result) + "]\n";
+                }
+                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result) && std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op1)){
+                    result += "ldr " + translateOperandAarch64(instr.result) + ", =[" + translateOperandAarch64(instr.result) + "]\n";
+                    result += "str " + translateOperandAarch64(instr.op1) + ", [" + translateOperandAarch64(instr.result) + "]\n";
                 }
                 else{
                     result += "mov " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
@@ -358,8 +366,16 @@ std::string rsiToNasm(RSI::Function const& function){
                 result += "movzx " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", " + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
                 break;
             case RSI::InstructionType::MOVE:
-                if (!std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister.has_value()){ break; }
-                result += "mov " + translateOperandNasm(instr.result) + ", " + translateOperandNasm(instr.op1) + "\n";
+                result += "mov ";
+                if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result)) result += translateOperandNasm(instr.result);
+                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result)) result += "[" + translateOperandNasm(instr.result) + "]";
+                else Fatal("Unknown type of result used for move instruction");
+                result += ", ";
+                if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op1)) result += translateOperandNasm(instr.op1);
+                else if (std::holds_alternative<RSI::Constant>(instr.op1)) result += translateOperandNasm(instr.op1);
+                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)) result += "[" + translateOperandNasm(instr.op1) + "]";
+                else Fatal("Unknown type of operand used for move instruction");
+                result += "\n";
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
