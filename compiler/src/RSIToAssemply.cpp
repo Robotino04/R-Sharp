@@ -176,18 +176,11 @@ std::string rsiToAarch64(RSI::Function const& function){
 
                 constexpr int pushSize = 16;
 
-                std::string tmpReg;
                 if (usedParameterRegs.size()){
-                    tmpReg = aarch64.registerTranslation.at(aarch64.returnValueRegister);
-                    // the return register gets changed anyways, so might as well use it here
-                    // yes, it is also parameter register 1 on AArch64, but the registers get loaded in reverse, so it isn't overwritten
-
                     int stackOffset = regsToPreserve.size() * pushSize;
                     for (auto it = usedParameterRegs.rbegin(); it != usedParameterRegs.rend(); it++){
                         std::string currentParameterRegister = aarch64.registerTranslation.at(*it);
-                        result += "ldr " + tmpReg + ", [sp, " + std::to_string(stackOffset) + "]\n";
-                        if (currentParameterRegister != tmpReg)
-                            result += "mov " + currentParameterRegister + ", " + tmpReg + "\n";
+                        result += "ldr " + currentParameterRegister + ", [sp, " + std::to_string(stackOffset) + "]\n";
                         stackOffset += pushSize;
                     }
                 }
@@ -440,17 +433,13 @@ std::string rsiToNasm(RSI::Function const& function){
 
                 constexpr int pushSize = 8;
 
-                std::string tmpReg;
                 if (usedParameterRegs.size()){
-                    tmpReg = x86_64.registerTranslation.at(x86_64.returnValueRegister);
                     // the return register gets changed anyways, so might as well use it here
 
                     int stackOffset = regsToPreserve.size() * pushSize;
                     for (auto it = usedParameterRegs.rbegin(); it != usedParameterRegs.rend(); it++){
                         std::string currentParameterRegister = x86_64.registerTranslation.at(*it);
-                        result += "mov " + tmpReg + ", [rsp+" + std::to_string(stackOffset) + "]\n";
-                        if (currentParameterRegister != tmpReg)
-                            result += "mov " + currentParameterRegister + ", " + tmpReg + "\n";
+                        result += "mov " + currentParameterRegister + ", [rsp+" + std::to_string(stackOffset) + "]\n";
                         stackOffset += pushSize;
                     }
                 }
