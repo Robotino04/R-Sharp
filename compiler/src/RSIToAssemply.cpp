@@ -100,16 +100,20 @@ std::string rsiToAarch64(RSI::Function const& function){
                     }
                 }
                 else if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)){
-                    result += "ldr " + translateOperandAarch64(instr.result) + ", =[" + translateOperandAarch64(instr.op1) + "]\n";
-                    result += "ldr " + translateOperandAarch64(instr.result) + ", [" + translateOperandAarch64(instr.result) + "]\n";
+                    result += "ldr " + translateOperandAarch64(instr.result) + ", =" + translateOperandAarch64(instr.op1) + "\n";
                 }
                 else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result) && std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op1)){
-                    result += "ldr " + translateOperandAarch64(instr.result) + ", =[" + translateOperandAarch64(instr.result) + "]\n";
-                    result += "str " + translateOperandAarch64(instr.op1) + ", [" + translateOperandAarch64(instr.result) + "]\n";
+                    Fatal("Invalid move instruction. Use STORE_MEMORY to assign to global.");
                 }
                 else{
                     result += "mov " + translateOperandAarch64(instr.result) + ", " + translateOperandAarch64(instr.op1) + "\n";
                 }
+                break;
+            case RSI::InstructionType::STORE_MEMORY:
+                result += "str " + translateOperandAarch64(instr.op2) + ", [" + translateOperandAarch64(instr.op1) + "]\n";
+                break;
+            case RSI::InstructionType::LOAD_MEMORY:
+                result += "ldr " + translateOperandAarch64(instr.result) + ", [" + translateOperandAarch64(instr.op1) + "]\n";
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov x0, " + translateOperandAarch64(instr.op1) + "\n";

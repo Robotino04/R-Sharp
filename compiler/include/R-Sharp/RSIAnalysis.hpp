@@ -18,6 +18,7 @@ void seperateDivReferences(RSI::Instruction& instr, std::vector<RSI::Instruction
 void seperateCallResults(Architecture const& architecture, RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 void seperateLoadParameters(Architecture const& architecture, RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 void seperateGlobalReferences(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
+void globalReferenceToMemoryAccess(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions);
 
 
 bool makeTwoOperandCompatible_prefilter(RSI::Instruction const& instr);

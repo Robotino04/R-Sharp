@@ -253,6 +253,12 @@ int main(int argc, const char** argv) {
                     .perInstructionFunction = RSI::seperateGlobalReferences,
                 },
                 RSIPass{
+                    .humanHeader = "Replace global reference with memory access",
+                    .architectures = {OutputArchitecture::AArch64},
+                    .positiveInstructionTypes = {RSI::InstructionType::MOVE},
+                    .perInstructionFunction = RSI::globalReferenceToMemoryAccess,
+                },
+                RSIPass{
                     .humanHeader = "Seperate divisions",
                     .architectures = {OutputArchitecture::x86_64},
                     .positiveInstructionTypes = {RSI::InstructionType::DIVIDE},

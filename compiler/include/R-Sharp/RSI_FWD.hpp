@@ -45,6 +45,9 @@ enum class InstructionType{
     CALL,
 
     FUNCTION_BEGIN,
+
+    STORE_MEMORY,
+    LOAD_MEMORY,
 };
 
 extern const std::map<InstructionType, uint> numArgumentsUsed;

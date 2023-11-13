@@ -316,4 +316,27 @@ void seperateGlobalReferences(RSI::Instruction& instr, std::vector<RSI::Instruct
         beforeInstructions.push_back(move);
     } 
 }
+void globalReferenceToMemoryAccess(RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions){
+    if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result)){
+        RSI::Instruction smem{
+            .type = RSI::InstructionType::STORE_MEMORY,
+            .op1 = RSIGenerator::getNewReference(),
+            .op2 = instr.op1
+        };
+        instr.op1 = instr.result;
+        instr.result = smem.op1;
+        afterInstructions.push_back(smem);
+    }
+    else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)){
+        RSI::Instruction lmem{
+            .type = RSI::InstructionType::LOAD_MEMORY,
+            .result = instr.result,
+            .op1 = RSIGenerator::getNewReference(),
+        };
+        instr.result = lmem.op1;
+        afterInstructions.push_back(lmem);
+    }
+}
+
+
 }
