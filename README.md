@@ -7,6 +7,27 @@ A general purpose programming language.
 ## Unit Tests
 Some of the tests used for R# are from [this](https://github.com/nlsandler/write_a_c_compiler) repository and rewritten to R#.
 
+## RSI porting progress
+- [ ] arrays
+- [x] binary_operators
+- [x] boolean_operators
+- [x] c_void
+- [x] character_literal
+- [x] conditional_expressions
+- [x] conditional_statements
+- [x] function
+- [x] global_variables
+- [x] import
+- [x] loops
+- [x] numbers
+- [ ] pointers
+- [ ] rest
+- [x] scoping
+- [ ] sized_integers
+- [x] stdlib
+- [ ] strings
+- [x] unary_operators
+- [x] variables
 
 ## Register allocation AArch64
 
