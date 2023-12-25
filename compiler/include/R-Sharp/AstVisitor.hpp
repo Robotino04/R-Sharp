@@ -4,7 +4,10 @@
 
 #include <memory>
 
-#define VISITOR_FN(NAME) virtual void visit(std::shared_ptr<NAME> node) {visit(std::dynamic_pointer_cast<AstNode>(node));}
+#define VISITOR_FN(NAME)                                 \
+    virtual void visit(std::shared_ptr<NAME> node) {     \
+        visit(std::dynamic_pointer_cast<AstNode>(node)); \
+    }
 
 class AstVisitor {
 public:
@@ -17,7 +20,7 @@ public:
     }
 
     VISITOR_FN(AstProgram);
-    
+
     VISITOR_FN(AstErrorStatement);
     VISITOR_FN(AstErrorProgramItem);
     VISITOR_FN(AstErrorExpression);
@@ -51,7 +54,7 @@ public:
     VISITOR_FN(AstTypeConversion);
     VISITOR_FN(AstDereference);
     VISITOR_FN(AstArrayAccess);
-    
+
     VISITOR_FN(AstVariableDeclaration);
     VISITOR_FN(AstPointerType);
     VISITOR_FN(AstArrayType);

@@ -25,7 +25,7 @@
 #include "R-Sharp/RSIPass.hpp"
 #include "R-Sharp/RSITools.hpp"
 
-enum class ReturnValue{
+enum class ReturnValue {
     NormalExit = 0,
     UnknownError = 1,
     SyntaxError = 2,
@@ -36,7 +36,7 @@ enum class ReturnValue{
 void printHelp(const char* programName) {
     std::cout << "Usage: " << programName << " [options] [input file]\n";
     std::cout <<
-R"(Options:
+        R"(Options:
   -h, --help                Print this help message
   -o, --output <file>       Output file
   -f, --format <format>     Output format (c, nasm, aarch64, rsi)
@@ -75,33 +75,35 @@ int main(int argc, const char** argv) {
         return static_cast<int>(ReturnValue::UnknownError);
     }
 
-    for (int i=1; i<argc; i++){
+    for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
             printHelp(argv[0]);
             return static_cast<int>(ReturnValue::NormalExit);
         }
         else if (arg == "-o" || arg == "--output") {
-            if (i+1 < argc) {
-                outputFilename = argv[i+1];
+            if (i + 1 < argc) {
+                outputFilename = argv[i + 1];
                 i++;
-            } else {
+            }
+            else {
                 Error("Missing output file");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
         else if (arg == "--link") {
-            if (i+1 < argc) {
-                additionalyLinkedFiles.push_back(argv[i+1]);
+            if (i + 1 < argc) {
+                additionalyLinkedFiles.push_back(argv[i + 1]);
                 i++;
-            } else {
+            }
+            else {
                 Error("Missing file to link");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
         else if (arg == "-f" || arg == "--format") {
-            if (i+1 < argc) {
-                std::string format = argv[i+1];
+            if (i + 1 < argc) {
+                std::string format = argv[i + 1];
                 if (format == "c") {
                     outputFormat = OutputFormat::C;
                 }
@@ -126,23 +128,26 @@ int main(int argc, const char** argv) {
                     return static_cast<int>(ReturnValue::UnknownError);
                 }
                 i++;
-            } else {
+            }
+            else {
                 Error("Missing output format");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
-        else if (arg == "--compiler"){
-            if (i+1 < argc) {
+        else if (arg == "--compiler") {
+            if (i + 1 < argc) {
                 compiler = argv[++i];
-            } else {
+            }
+            else {
                 Error("Missing compiler path");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
         }
-        else if (arg == "--stdlib"){
-            if (i+1 < argc) {
+        else if (arg == "--stdlib") {
+            if (i + 1 < argc) {
                 stdlibIncludePath = argv[++i];
-            } else {
+            }
+            else {
                 Error("Missing standard library path");
                 return static_cast<int>(ReturnValue::UnknownError);
             }
@@ -151,7 +156,8 @@ int main(int argc, const char** argv) {
             // test if it is a filename
             if (std::filesystem::exists(arg)) {
                 inputFilename = arg;
-            } else {
+            }
+            else {
                 Error("Invalid argument: ", arg);
                 return static_cast<int>(ReturnValue::UnknownError);
             }
@@ -169,7 +175,7 @@ int main(int argc, const char** argv) {
         tokens = tokenizer.tokenize();
         R_Sharp_Source = tokenizer.getSource();
 
-        for (auto const& token : tokens){
+        for (auto const& token : tokens) {
             Print(token.toString());
         }
 
@@ -189,8 +195,8 @@ int main(int argc, const char** argv) {
             Error("Parsing errors.");
             return static_cast<int>(ReturnValue::SyntaxError);
         }
-        else{
-            Print("No errors"); 
+        else {
+            Print("No errors");
         }
     }
     Print("--------------| Raw AST |--------------");
@@ -198,7 +204,7 @@ int main(int argc, const char** argv) {
         AstPrinter printer(ast);
         printer.print();
     }
-    
+
     Print("--------------| Semantic Errors |--------------");
     {
         SemanticValidator validator(ast, inputFilename, R_Sharp_Source);
@@ -208,8 +214,8 @@ int main(int argc, const char** argv) {
             Error("Semantic errors.");
             return static_cast<int>(ReturnValue::SemanticError);
         }
-        else{
-            Print("No errors"); 
+        else {
+            Print("No errors");
         }
     }
     Print("--------------| Typed AST |--------------");
@@ -222,13 +228,9 @@ int main(int argc, const char** argv) {
     RSI::TranslationUnit translationUnit;
     Print("--------------| Generated code |--------------");
     {
-        switch(outputFormat) {
-            case OutputFormat::C:
-                outputSource = CCodeGenerator(ast).generate();
-                break;
-            case OutputFormat::NASM:
-                outputSource = NASMCodeGenerator(ast, R_Sharp_Source).generate();
-                break;
+        switch (outputFormat) {
+            case OutputFormat::C:    outputSource = CCodeGenerator(ast).generate(); break;
+            case OutputFormat::NASM: outputSource = NASMCodeGenerator(ast, R_Sharp_Source).generate(); break;
             case OutputFormat::AArch64:
                 outputSource = AArch64CodeGenerator(ast, R_Sharp_Source).generate();
                 break;
@@ -237,9 +239,9 @@ int main(int argc, const char** argv) {
                 translationUnit = RSIGenerator(ast, R_Sharp_Source).generate();
                 break;
         }
-        if (outputSource.length())
-            Print(outputSource);
-        else{
+        if (outputSource.length()) Print(outputSource);
+        else {
+            // clang-format off
             std::vector<RSIPass> passes = {
                 RSIPass{
                     .humanHeader = "Raw RSI",
@@ -268,25 +270,48 @@ int main(int argc, const char** argv) {
                     .humanHeader = "Seperate calls",
                     .architectures = {OutputArchitecture::x86_64},
                     .positiveInstructionTypes = {RSI::InstructionType::CALL},
-                    .perInstructionFunction = std::bind(RSI::seperateCallResults, x86_64, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                    .perInstructionFunction = std::bind(
+                        RSI::seperateCallResults,
+                        x86_64,
+                        std::placeholders::_1,
+                        std::placeholders::_2,
+                        std::placeholders::_3
+                    ),
                 },
                 RSIPass{
                     .humanHeader = "Seperate calls",
                     .architectures = {OutputArchitecture::AArch64},
                     .positiveInstructionTypes = {RSI::InstructionType::CALL},
-                    .perInstructionFunction = std::bind(RSI::seperateCallResults, aarch64, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                    .perInstructionFunction = std::bind(
+                        RSI::seperateCallResults,
+                        aarch64,
+                        std::placeholders::_1,
+                        std::placeholders::_2,
+                        std::placeholders::_3
+                    ),
                 },
                 RSIPass{
                     .humanHeader = "Seperate parameter loads",
                     .architectures = {OutputArchitecture::x86_64},
                     .positiveInstructionTypes = {RSI::InstructionType::LOAD_PARAMETER},
-                    .perInstructionFunction = std::bind(RSI::seperateLoadParameters, x86_64, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                    .perInstructionFunction = std::bind(
+                        RSI::seperateLoadParameters,
+                        x86_64,
+                        std::placeholders::_1,
+                        std::placeholders::_2,
+                        std::placeholders::_3
+                    ),
                 },
                 RSIPass{
                     .humanHeader = "Seperate parameter loads",
                     .architectures = {OutputArchitecture::AArch64},
                     .positiveInstructionTypes = {RSI::InstructionType::LOAD_PARAMETER},
-                    .perInstructionFunction = std::bind(RSI::seperateLoadParameters, aarch64, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+                    .perInstructionFunction = std::bind(
+                        RSI::seperateLoadParameters,
+                        aarch64, std::placeholders::_1,
+                        std::placeholders::_2,
+                        std::placeholders::_3
+                    ),
                 },
                 RSIPass{
                     .humanHeader = "Constants to references",
@@ -320,7 +345,7 @@ int main(int argc, const char** argv) {
                     .positiveInstructionTypes = {},
                     .isFunctionWide = true,
                     .perFunctionFunction = [](auto& func, auto){
-                        if (func.instructions.at(0).meta.liveVariablesBefore.size() != 0){
+                        if (func.instructions.at(0).meta.liveVariablesBefore.size() != 0) {
                             Fatal("Function \"", func.name, "\" requires live variables before main code. This probably means some transformation is incorrect.");
                         }
                     },
@@ -340,13 +365,13 @@ int main(int argc, const char** argv) {
                     .perFunctionFunction = RSI::enumerateRegisters,
                 },
             };
+            // clang-format on
 
-            for (auto& pass : passes){
+            for (auto& pass : passes) {
                 pass(translationUnit.functions, outputArchitecture);
             }
             Print("--------------| RSI to assembly |--------------");
-            if (outputArchitecture == OutputArchitecture::x86_64){
-                outputSource =  
+            if (outputArchitecture == OutputArchitecture::x86_64) {
                 outputSource =
                     "; NASM code generated by R-Sharp compiler (using RSI)"
                     "\n"
@@ -354,24 +379,24 @@ int main(int argc, const char** argv) {
                     "section .text\n"
                     "\n";
 
-                for (auto label : translationUnit.externLabels){
+                for (auto label : translationUnit.externLabels) {
                     outputSource += "extern " + label->name + "\n";
                 }
-                for (auto& func : translationUnit.functions){
+                for (auto& func : translationUnit.functions) {
                     outputSource += "global " + func.name + "\n";
                     outputSource += rsiToNasm(func) + "\n";
                 }
                 outputSource += "section .data\n";
-                for (auto [ref, value] : translationUnit.initializedGlobalVariables){
+                for (auto [ref, value] : translationUnit.initializedGlobalVariables) {
                     outputSource += ref->name + ": dq " + std::to_string(value.value) + "\n";
                 }
                 outputSource += "section .bss\n";
-                for (auto ref : translationUnit.uninitializedGlobalVariables){
+                for (auto ref : translationUnit.uninitializedGlobalVariables) {
                     outputSource += ref->name + ": resb 8\n";
                 }
                 outputFormat = OutputFormat::NASM;
             }
-            else{
+            else {
                 outputSource =
                     "// Aarch64 code generated by R-Sharp compiler (using RSI)\n"
                     "\n"
@@ -385,19 +410,19 @@ int main(int argc, const char** argv) {
                     ".text\n"
                     "\n";
 
-                for (auto label : translationUnit.externLabels){
+                for (auto label : translationUnit.externLabels) {
                     outputSource += ".extern " + label->name + "\n";
                 }
-                for (auto& func : translationUnit.functions){
+                for (auto& func : translationUnit.functions) {
                     outputSource += ".global " + func.name + "\n";
                     outputSource += rsiToAarch64(func) + "\n";
                 }
                 outputSource += ".data\n";
-                for (auto [ref, value] : translationUnit.initializedGlobalVariables){
+                for (auto [ref, value] : translationUnit.initializedGlobalVariables) {
                     outputSource += ref->name + ": .8byte " + std::to_string(value.value) + "\n";
                 }
                 outputSource += ".bss\n";
-                for (auto ref : translationUnit.uninitializedGlobalVariables){
+                for (auto ref : translationUnit.uninitializedGlobalVariables) {
                     outputSource += ref->name + ": .space 8\n";
                 }
                 outputFormat = OutputFormat::AArch64;
@@ -406,16 +431,10 @@ int main(int argc, const char** argv) {
         }
     }
     std::string temporaryFile = outputFilename;
-    switch(outputFormat) {
-        case OutputFormat::C:
-            temporaryFile += ".c";
-            break;
-        case OutputFormat::NASM:
-            temporaryFile += ".asm";
-            break;
-        case OutputFormat::AArch64:
-            temporaryFile += ".S";
-            break;
+    switch (outputFormat) {
+        case OutputFormat::C:       temporaryFile += ".c"; break;
+        case OutputFormat::NASM:    temporaryFile += ".asm"; break;
+        case OutputFormat::AArch64: temporaryFile += ".S"; break;
         default:
             Error("Unknown output format");
             return static_cast<int>(ReturnValue::UnknownError);
@@ -427,70 +446,73 @@ int main(int argc, const char** argv) {
     if (outputFile.is_open()) {
         outputFile << outputSource;
         outputFile.close();
-    } else {
+    }
+    else {
         Error("Could not open file: ", temporaryFile);
         return static_cast<int>(ReturnValue::UnknownError);
     }
 
     std::string additionalyLinkedFiles_str;
-    for (auto file : additionalyLinkedFiles){
+    for (auto file : additionalyLinkedFiles) {
         additionalyLinkedFiles_str += file + " ";
     }
 
-    const std::string gccArgumentsCompile = "-g -Werror -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-but-set-variable -Wno-unused-function";
+    const std::string gccArgumentsCompile =
+        "-g -Werror -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-but-set-variable "
+        "-Wno-unused-function";
     const std::string gccArgumentsLink = "-g -Werror -Wall -no-pie ";
     const std::string nasmArgumentsCompile = "-g -w+error -w+all";
 
-    switch(outputFormat) {
-        case OutputFormat::C:{
+    switch (outputFormat) {
+        case OutputFormat::C: {
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " " + additionalyLinkedFiles_str + " -o " + outputFilename;
+            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " "
+                                + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
-            if (success)
-                Print("Compilation successful.");
-            else{
+            if (success) Print("Compilation successful.");
+            else {
                 Error("Compilation failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
             }
             break;
         }
-        case OutputFormat::AArch64:{
+        case OutputFormat::AArch64: {
             Print("--------------| Compiling using gcc |--------------");
-            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " " + additionalyLinkedFiles_str + " -o " + outputFilename;
+            std::string command = compiler + " " + gccArgumentsCompile + " " + temporaryFile + " "
+                                + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
-            if (success)
-                Print("Compilation successful.");
-            else{
+            if (success) Print("Compilation successful.");
+            else {
                 Error("Compilation failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
             }
             break;
         }
-        case OutputFormat::NASM:{
+        case OutputFormat::NASM: {
             Print("--------------| Assembling using nasm |--------------");
-            std::string command = "nasm " + nasmArgumentsCompile + " -f elf64 " + temporaryFile + " -o " + outputFilename + ".o";
+            std::string command = "nasm " + nasmArgumentsCompile + " -f elf64 " + temporaryFile + " -o "
+                                + outputFilename + ".o";
             Print("Executing: ", command);
             int success = !system(command.c_str());
-            if (success)
-                Print("Assembling successful.");
-            else{
+            if (success) Print("Assembling successful.");
+            else {
                 Error("Assembling failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
             }
 
             Print("--------------| Linking using gcc |--------------");
-            command = compiler + " " + gccArgumentsLink + " " + outputFilename + ".o " + additionalyLinkedFiles_str + " -o " + outputFilename;
+            command = compiler + " " + gccArgumentsLink + " " + outputFilename + ".o "
+                    + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
-            if (success)
-                Print("Linking successful.");
-            else{
+            if (success) Print("Linking successful.");
+            else {
                 Error("Linking failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
             }
-            
+
             break;
         }
         default:

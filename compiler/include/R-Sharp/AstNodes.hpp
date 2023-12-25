@@ -12,60 +12,64 @@
 #include <variant>
 #include <optional>
 
-template<typename... Args>
-std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args){
+template <typename... Args>
+std::vector<std::shared_ptr<AstNode>> combineChildren(Args... args) {
     std::vector<std::shared_ptr<AstNode>> children;
     (children.push_back(std::dynamic_pointer_cast<AstNode>(args)), ...);
     return children;
 }
 
 // Helper macros to make it easier to define AST nodes
-#define BASE(NAME) \
-    NAME() = default; \
-    NAME(Token const& token) {this->token = token;} \
-    AstNodeType getType() const override { return AstNodeType::NAME; } \
-    void accept(AstVisitor* visitor) override{ visitor->visit(shared_from_this()); }
+#define BASE(NAME)                              \
+    NAME() = default;                           \
+    NAME(Token const& token) {                  \
+        this->token = token;                    \
+    }                                           \
+    AstNodeType getType() const override {      \
+        return AstNodeType::NAME;               \
+    }                                           \
+    void accept(AstVisitor* visitor) override { \
+        visitor->visit(shared_from_this());     \
+    }
 
 #define CHILD_INIT(NAME, TYPE, VARIABLE_NAME) \
-    NAME(std::shared_ptr<TYPE> child) : VARIABLE_NAME(child) {}
+    NAME(std::shared_ptr<TYPE> child): VARIABLE_NAME(child) {}
 
 
-#define SINGLE_CHILD(TYPE, VARIABLE_NAME) \
-    std::shared_ptr<TYPE> VARIABLE_NAME;
+#define SINGLE_CHILD(TYPE, VARIABLE_NAME) std::shared_ptr<TYPE> VARIABLE_NAME;
 
-#define GET_SINGLE_CHILDREN(...) \
-    std::vector<std::shared_ptr<AstNode>> getChildren() const override{ \
-        return combineChildren(semanticType, __VA_ARGS__); \
+#define GET_SINGLE_CHILDREN(...)                                         \
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override { \
+        return combineChildren(semanticType, __VA_ARGS__);               \
     }
 
 #define MULTI_CHILD(TYPE, VARIABLE_NAME) std::vector<std::shared_ptr<TYPE>> VARIABLE_NAME;
 
-#define GET_MULTI_CHILD(VARIABLE_NAME)\
-    std::vector<std::shared_ptr<AstNode>> getChildren() const override{ \
+#define GET_MULTI_CHILD(VARIABLE_NAME)                                                                                \
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override {                                              \
         std::vector<std::shared_ptr<AstNode>> internal_children = {std::dynamic_pointer_cast<AstNode>(semanticType)}; \
-        for(auto& child : VARIABLE_NAME) \
-            internal_children.push_back(std::dynamic_pointer_cast<AstNode>(child)); \
-        return internal_children; \
-    } \
-
-
-#define TO_STRING(NAME) \
-    std::string toString() const override{ \
-        return #NAME; \
+        for (auto& child : VARIABLE_NAME)                                                                             \
+            internal_children.push_back(std::dynamic_pointer_cast<AstNode>(child));                                   \
+        return internal_children;                                                                                     \
     }
 
-#define TO_STRING_NAME(NAME) \
-    NAME(std::string const& name): name(name){} \
-    std::string toString() const override{ \
+
+#define TO_STRING(NAME)                     \
+    std::string toString() const override { \
+        return #NAME;                       \
+    }
+
+#define TO_STRING_NAME(NAME)                     \
+    NAME(std::string const& name): name(name) {} \
+    std::string toString() const override {      \
         return std::string(#NAME) + ": " + name; \
-    }\
+    }                                            \
     std::string name;
 
-#define DESTRUCTOR(NAME)\
-    virtual ~NAME() = default;
+#define DESTRUCTOR(NAME) virtual ~NAME() = default;
 
 
-struct SemanticVariableData{
+struct SemanticVariableData {
     bool isGlobal = false;
     bool isDefined = false;
     std::weak_ptr<AstType> type;
@@ -73,20 +77,21 @@ struct SemanticVariableData{
     int sizeInBytes = 0;
 
     // either a global label or the stack offset
-    std::variant<std::string, int, RSI::Operand> accessor = "Invalid global label. Most likely didn't visit this node.";
+    std::variant<std::string, int, RSI::Operand> accessor =
+        "Invalid global label. Most likely didn't visit this node.";
 
-    bool operator ==(SemanticVariableData other) const{
+    bool operator==(SemanticVariableData other) const {
         return isGlobal == other.isGlobal && type.lock() == other.type.lock();
     }
 };
 
-struct SemanticLoopData{
+struct SemanticLoopData {
     std::variant<std::string, std::shared_ptr<RSI::Label>> breakLabel;
     std::variant<std::string, std::shared_ptr<RSI::Label>> skipLabel;
     bool hasAdditionalCleanup = false;
 };
 
-struct SemanticFunctionData{
+struct SemanticFunctionData {
     std::string name;
     std::shared_ptr<AstParameterList> parameters;
     std::shared_ptr<AstType> returnType;
@@ -120,26 +125,26 @@ struct AstParameterList : public virtual AstNode, public std::enable_shared_from
 
 
 // ----------------------------------| Groups |---------------------------------- //
-struct AstExpression : public virtual AstNode{
+struct AstExpression : public virtual AstNode {
     DESTRUCTOR(AstExpression)
 };
-struct AstBlockItem : public virtual AstNode{
+struct AstBlockItem : public virtual AstNode {
     DESTRUCTOR(AstBlockItem)
 };
-struct AstDeclaration : public AstBlockItem{
+struct AstDeclaration : public AstBlockItem {
     DESTRUCTOR(AstDeclaration)
 };
-struct AstStatement : public AstBlockItem{
+struct AstStatement : public AstBlockItem {
     DESTRUCTOR(AstStatement)
 };
-struct AstErrorNode : public virtual AstNode{
+struct AstErrorNode : public virtual AstNode {
     DESTRUCTOR(AstErrorNode)
     AstErrorNode() = default;
 };
-struct AstProgramItem : public virtual AstNode{
+struct AstProgramItem : public virtual AstNode {
     DESTRUCTOR(AstProgramItem)
 };
-struct AstType : public virtual AstNode{
+struct AstType : public virtual AstNode {
     DESTRUCTOR(AstType)
 
     virtual bool isErrorType() = 0;
@@ -167,7 +172,9 @@ struct AstErrorStatement : public AstStatement, public AstErrorNode, public std:
     BASE(AstErrorStatement)
     TO_STRING_NAME(AstErrorStatement)
 };
-struct AstErrorProgramItem : public AstProgramItem, public AstErrorNode, public std::enable_shared_from_this<AstErrorProgramItem> {
+struct AstErrorProgramItem : public AstProgramItem,
+                             public AstErrorNode,
+                             public std::enable_shared_from_this<AstErrorProgramItem> {
     BASE(AstErrorProgramItem)
     TO_STRING_NAME(AstErrorProgramItem)
 };
@@ -236,7 +243,7 @@ struct AstWhileLoop : public AstStatement, public std::enable_shared_from_this<A
 
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstStatement, body)
-    
+
     std::shared_ptr<SemanticLoopData> loop;
 };
 
@@ -245,7 +252,7 @@ struct AstForLoopDeclaration : public AstStatement, public std::enable_shared_fr
     BASE(AstForLoopDeclaration)
     TO_STRING(AstForLoopDeclaration)
 
-    // body first is important because it contains the initialization 
+    // body first is important because it contains the initialization
     GET_SINGLE_CHILDREN(initialization, condition, increment, body)
 
     SINGLE_CHILD(AstVariableDeclaration, initialization)
@@ -269,7 +276,7 @@ struct AstForLoopExpression : public AstStatement, public std::enable_shared_fro
     SINGLE_CHILD(AstExpression, condition)
     SINGLE_CHILD(AstExpression, increment)
     SINGLE_CHILD(AstStatement, body)
-    
+
     std::shared_ptr<SemanticLoopData> loop;
 };
 
@@ -310,16 +317,16 @@ struct AstSkip : public AstStatement, public std::enable_shared_from_this<AstSki
 
 struct AstInteger : public AstExpression, public std::enable_shared_from_this<AstInteger> {
     BASE(AstInteger)
-    AstInteger(int64_t value): value(value){}
-    
-    std::string toString() const override{
+    AstInteger(int64_t value): value(value) {}
+
+    std::string toString() const override {
         return "AstInteger: " + std::to_string(value);
     }
     int64_t value;
 };
 struct AstArrayLiteral : public AstExpression, public std::enable_shared_from_this<AstArrayLiteral> {
     BASE(AstArrayLiteral)
-    
+
     TO_STRING(AstArrayLiteral)
 
     GET_MULTI_CHILD(elements)
@@ -327,7 +334,7 @@ struct AstArrayLiteral : public AstExpression, public std::enable_shared_from_th
     MULTI_CHILD(AstExpression, elements)
 };
 
-struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAssignment>{
+struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAssignment> {
     BASE(AstAssignment)
 
     GET_SINGLE_CHILDREN(rvalue, lvalue)
@@ -339,14 +346,14 @@ struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAss
 
 struct AstUnary : public AstExpression, public std::enable_shared_from_this<AstUnary> {
     BASE(AstUnary)
-    AstUnary(AstUnaryType op, std::shared_ptr<AstExpression> value): type(op), value(value){}
-    std::string toString() const override{
-        switch (type){
-            case AstUnaryType::BinaryNot: return "AstUnary: BinaryNot";
+    AstUnary(AstUnaryType op, std::shared_ptr<AstExpression> value): type(op), value(value) {}
+    std::string toString() const override {
+        switch (type) {
+            case AstUnaryType::BinaryNot:  return "AstUnary: BinaryNot";
             case AstUnaryType::LogicalNot: return "AstUnary: LogicalNot";
-            case AstUnaryType::Negate: return "AstUnary: Negate";
+            case AstUnaryType::Negate:     return "AstUnary: Negate";
 
-            default: return "AstUnary: Unknown type";
+            default:                       return "AstUnary: Unknown type";
         }
     }
     GET_SINGLE_CHILDREN(value)
@@ -358,10 +365,13 @@ struct AstUnary : public AstExpression, public std::enable_shared_from_this<AstU
 struct AstBinary : public AstExpression, public std::enable_shared_from_this<AstBinary> {
     BASE(AstBinary)
     AstBinary(std::shared_ptr<AstExpression> left, AstBinaryType type, std::shared_ptr<AstExpression> right)
-        : left(left), type(type), right(right){}
-    std::string toString() const override{
-        switch (type){
-            #define CASE(NAME) case AstBinaryType::NAME: return "AstBinary: "#NAME
+        : left(left), type(type), right(right) {}
+
+#define CASE(NAME) \
+    case AstBinaryType::NAME: return "AstBinary: " #NAME
+
+    std::string toString() const override {
+        switch (type) {
             CASE(Add);
             CASE(Subtract);
             CASE(Multiply);
@@ -377,9 +387,10 @@ struct AstBinary : public AstExpression, public std::enable_shared_from_this<Ast
             CASE(Modulo);
 
             default: return "AstBinary: Unknown type";
-            #undef CASE
         }
     }
+
+#undef CASE
 
     GET_SINGLE_CHILDREN(left, right)
 
@@ -415,16 +426,16 @@ struct AstFunctionCall : public AstExpression, public std::enable_shared_from_th
     std::shared_ptr<SemanticFunctionData> function;
 };
 
-struct AstTypeConversion : public AstExpression, public std::enable_shared_from_this<AstTypeConversion>{
+struct AstTypeConversion : public AstExpression, public std::enable_shared_from_this<AstTypeConversion> {
     AstTypeConversion(std::shared_ptr<AstExpression> from, std::shared_ptr<AstType> to): value(from) {
         semanticType = to;
     };
 
     BASE(AstTypeConversion);
-    std::string toString() const override{
+    std::string toString() const override {
         return "(" + value->semanticType->toString() + " --> " + semanticType->toString() + ")";
     }
-    
+
     GET_SINGLE_CHILDREN(value)
     std::shared_ptr<AstExpression> value;
 };
@@ -469,14 +480,16 @@ struct AstArrayAccess : public AstExpression, public std::enable_shared_from_thi
 };
 
 // ----------------------------------| Declarations |---------------------------------- //
-struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem, public std::enable_shared_from_this<AstVariableDeclaration> {
+struct AstVariableDeclaration : public AstDeclaration,
+                                public AstProgramItem,
+                                public std::enable_shared_from_this<AstVariableDeclaration> {
     BASE(AstVariableDeclaration)
     TO_STRING_NAME(AstVariableDeclaration)
 
     GET_SINGLE_CHILDREN(value)
 
     SINGLE_CHILD(AstExpression, value)
-    
+
     std::shared_ptr<SemanticVariableData> variable;
 };
 
@@ -484,16 +497,16 @@ struct AstVariableDeclaration : public AstDeclaration, public AstProgramItem, pu
 RSharpPrimitiveType stringToType(std::string const& str);
 std::string typeToString(RSharpPrimitiveType type);
 
-struct AstPrimitiveType : public AstType, public std::enable_shared_from_this<AstPrimitiveType>{
-    AstPrimitiveType(RSharpPrimitiveType type): type(type) {};
+struct AstPrimitiveType : public AstType, public std::enable_shared_from_this<AstPrimitiveType> {
+    AstPrimitiveType(RSharpPrimitiveType type): type(type){};
 
 
     BASE(AstPrimitiveType);
-    std::string toString() const override{
+    std::string toString() const override {
         return "Primitive Type: " + typeToString(type);
     }
-    
-    bool isErrorType() override{
+
+    bool isErrorType() override {
         return type == RSharpPrimitiveType::ErrorType;
     }
 
@@ -501,36 +514,37 @@ struct AstPrimitiveType : public AstType, public std::enable_shared_from_this<As
 };
 
 
-struct AstPointerType : public AstType, public std::enable_shared_from_this<AstPointerType>{
-    AstPointerType(std::shared_ptr<AstType> subtype): subtype(subtype) {};
+struct AstPointerType : public AstType, public std::enable_shared_from_this<AstPointerType> {
+    AstPointerType(std::shared_ptr<AstType> subtype): subtype(subtype){};
 
 
     BASE(AstPointerType);
-    std::string toString() const override{
+    std::string toString() const override {
         return "Pointer to: " + subtype->toString();
     }
 
-    
-    bool isErrorType() override{
+
+    bool isErrorType() override {
         return subtype->isErrorType();
     }
-    
+
     GET_SINGLE_CHILDREN(subtype)
     std::shared_ptr<AstType> subtype;
 };
 
-struct AstArrayType : public AstType, public std::enable_shared_from_this<AstArrayType>{
-    AstArrayType(std::shared_ptr<AstType> subtype): subtype(subtype) {};
+struct AstArrayType : public AstType, public std::enable_shared_from_this<AstArrayType> {
+    AstArrayType(std::shared_ptr<AstType> subtype): subtype(subtype){};
 
 
     BASE(AstArrayType);
-    std::string toString() const override{
-        if (size.has_value()){
-            if (size.value()->getType() != AstNodeType::AstInteger){
+    std::string toString() const override {
+        if (size.has_value()) {
+            if (size.value()->getType() != AstNodeType::AstInteger) {
                 return "Array of unknown size of: " + subtype->toString();
             }
-            else{
-                return "Array of size " + std::to_string(std::static_pointer_cast<AstInteger>(size.value())->value) + " of: " + subtype->toString();
+            else {
+                return "Array of size " + std::to_string(std::static_pointer_cast<AstInteger>(size.value())->value)
+                     + " of: " + subtype->toString();
             }
         }
         else {
@@ -538,47 +552,44 @@ struct AstArrayType : public AstType, public std::enable_shared_from_this<AstArr
         }
     }
 
-    
-    bool isErrorType() override{
+
+    bool isErrorType() override {
         return subtype->isErrorType() || (size.has_value() && size.value()->getType() != AstNodeType::AstInteger);
     }
-    
-    std::vector<std::shared_ptr<AstNode>> getChildren() const override{
-        if (size.has_value()){
+
+    std::vector<std::shared_ptr<AstNode>> getChildren() const override {
+        if (size.has_value()) {
             return combineChildren(subtype, size.value());
         }
         else
             return combineChildren(subtype);
     }
-    
+
     std::shared_ptr<AstType> subtype;
     std::optional<std::shared_ptr<AstExpression>> size;
 };
 
 
-struct AstTags : public AstNode, public std::enable_shared_from_this<AstTags>{
+struct AstTags : public AstNode, public std::enable_shared_from_this<AstTags> {
     BASE(AstTags);
 
-    std::string toString() const override{
+    std::string toString() const override {
         std::string str = "Tags: ";
-        for (auto tag : tags){
-            switch(tag){
+        for (auto tag : tags) {
+            switch (tag) {
                 case Value::Extern: str += "extern, "; break;
-                default: str += "[unknown tag]"; break;
+                default:            str += "[unknown tag]"; break;
             }
         }
-        return str.substr(0, str.length()-2);
+        return str.substr(0, str.length() - 2);
     }
-    
-    enum class Value{
+
+    enum class Value {
         Extern,
     };
 
     std::vector<Value> tags;
 };
-
-
-
 
 
 #undef BASE

@@ -10,61 +10,62 @@
 #include <tuple>
 #include <math.h>
 
-NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
+NASMCodeGenerator::NASMCodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource) {
     this->root = root;
     this->R_SharpSource = R_SharpSource;
 }
 
-void NASMCodeGenerator::indent(NASMCodeGenerator::BinarySection section){
+void NASMCodeGenerator::indent(NASMCodeGenerator::BinarySection section) {
     indentLevels.at(static_cast<int>(section))++;
 }
-void NASMCodeGenerator::dedent(NASMCodeGenerator::BinarySection section){
-    if (!indentLevels.at(static_cast<int>(section))){
+void NASMCodeGenerator::dedent(NASMCodeGenerator::BinarySection section) {
+    if (!indentLevels.at(static_cast<int>(section))) {
         Fatal("Indentation error in section nr. " + std::to_string(static_cast<int>(section)));
     }
     indentLevels.at(static_cast<int>(section))--;
 }
-void NASMCodeGenerator::emit(std::string const& str, NASMCodeGenerator::BinarySection section){
+void NASMCodeGenerator::emit(std::string const& str, NASMCodeGenerator::BinarySection section) {
     sources.at(static_cast<int>(section)) += str;
 }
-void NASMCodeGenerator::emitIndented(std::string const& str, NASMCodeGenerator::BinarySection section){
-    for (int i=0; i<indentLevels.at(static_cast<int>(section)); i++){
+void NASMCodeGenerator::emitIndented(std::string const& str, NASMCodeGenerator::BinarySection section) {
+    for (int i = 0; i < indentLevels.at(static_cast<int>(section)); i++) {
         sources.at(static_cast<int>(section)) += "    ";
     }
     sources.at(static_cast<int>(section)) += str;
 }
 
-int NASMCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
+int NASMCodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type) {
     static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
         {RSharpPrimitiveType::C_void, 1}, // should only be used for pointer arithmetic
-        {RSharpPrimitiveType::I8, 1},
-        {RSharpPrimitiveType::I16, 2},
-        {RSharpPrimitiveType::I32, 4},
-        {RSharpPrimitiveType::I64, 8},
+        {RSharpPrimitiveType::I8,     1},
+        {RSharpPrimitiveType::I16,    2},
+        {RSharpPrimitiveType::I32,    4},
+        {RSharpPrimitiveType::I64,    8},
     };
 
-    switch(type->getType()){
-        case AstNodeType::AstPrimitiveType:{
+    switch (type->getType()) {
+        case AstNodeType::AstPrimitiveType: {
             return primitive_sizes.at(std::static_pointer_cast<AstPrimitiveType>(type)->type);
         }
-        case AstNodeType::AstPointerType:{
+        case AstNodeType::AstPointerType: {
             return 8;
         }
-        case AstNodeType::AstArrayType:{
+        case AstNodeType::AstArrayType: {
             auto array = std::static_pointer_cast<AstArrayType>(type);
-            if (!array->size.has_value()){
+            if (!array->size.has_value()) {
                 throw std::runtime_error("Array without size during code generation.");
             }
-            if (array->size.value()->getType() != AstNodeType::AstInteger){
+            if (array->size.value()->getType() != AstNodeType::AstInteger) {
                 throw std::runtime_error("Array with non constant size during code generation.");
             }
-            return sizeFromSemanticalType(array->subtype) * std::static_pointer_cast<AstInteger>(array->size.value())->value;
+            return sizeFromSemanticalType(array->subtype)
+                 * std::static_pointer_cast<AstInteger>(array->size.value())->value;
         }
         default: throw std::runtime_error("Unimplemented type used");
     }
 }
 
-std::string NASMCodeGenerator::generate(){
+std::string NASMCodeGenerator::generate() {
     sources.fill("");
     indentLevels.fill(0);
     arrayAccessFinalSize = 0;
@@ -84,7 +85,7 @@ std::string NASMCodeGenerator::generate(){
     output += "\n\nBITS 64\n";
     output += "section .text\n";
 
-    for (std::string const& externalLabel : externalLabels){
+    for (std::string const& externalLabel : externalLabels) {
         output += "extern " + externalLabel + "\n";
     }
 
@@ -95,13 +96,22 @@ std::string NASMCodeGenerator::generate(){
     output += sources.at(static_cast<int>(BinarySection::BSS));
 
 
-
     return output;
 }
 
-void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std::string const& arg2, std::string const& arg3, std::string const& arg4, std::string const& arg5, std::string const& arg6){
+void NASMCodeGenerator::emitSyscall(
+    Syscall callNr,
+    std::string const& arg1,
+    std::string const& arg2,
+    std::string const& arg3,
+    std::string const& arg4,
+    std::string const& arg5,
+    std::string const& arg6
+) {
     // move the arguments to rdi, rsi, rdx, r10, r8, and r9 respectively
-    emitIndented("; Syscall " + syscallToString(callNr) + "(" + std::to_string(static_cast<int>(callNr)) + ")\n");
+    emitIndented(
+        "; Syscall " + syscallToString(callNr) + "(" + std::to_string(static_cast<int>(callNr)) + ")\n"
+    );
     if (arg1 != "") emitIndented("mov rdi, " + arg1 + "\n");
     if (arg2 != "") emitIndented("mov rsi, " + arg2 + "\n");
     if (arg3 != "") emitIndented("mov rdx, " + arg3 + "\n");
@@ -114,11 +124,11 @@ void NASMCodeGenerator::emitSyscall(Syscall callNr, std::string const& arg1, std
     emitIndented("syscall\n");
 }
 
-std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix){
+std::string NASMCodeGenerator::getUniqueLabel(std::string const& prefix) {
     static uint64_t labelCounter = 0;
     return prefix + "_" + std::to_string(labelCounter++);
 }
-void NASMCodeGenerator::generateFunctionProlouge(){
+void NASMCodeGenerator::generateFunctionProlouge() {
     emitIndented("; Create stack frame\n");
 
     // save callee-saved registers
@@ -131,9 +141,9 @@ void NASMCodeGenerator::generateFunctionProlouge(){
     emitIndented("mov rbp, rsp\n");
 }
 
-void NASMCodeGenerator::generateFunctionEpilouge(){
+void NASMCodeGenerator::generateFunctionEpilouge() {
     emitIndented("; Destroy stack frame\n");
-    
+
     // restore callee-saved registers
     emitIndented("pop r15\n");
     emitIndented("pop r14\n");
@@ -142,222 +152,226 @@ void NASMCodeGenerator::generateFunctionEpilouge(){
     emitIndented("pop rbp\n");
     emitIndented("pop rbx\n");
 }
-void NASMCodeGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
+void NASMCodeGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope) {
     emitIndented("; allocate local variables\n");
     emitIndented("sub rsp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
     int max_name_length = 0;
-    for (auto var : scope->variables){
+    for (auto var : scope->variables) {
         max_name_length = std::max<int>(max_name_length, var->name.length());
     }
     max_name_length += 4;
-    for (auto var : scope->variables){
+    for (auto var : scope->variables) {
         emitIndented("; " + var->name);
-        for (int i=0; i<max_name_length - var->name.length(); i++) emit(" ");
+        for (int i = 0; i < max_name_length - var->name.length(); i++)
+            emit(" ");
         emit(std::to_string(std::get<int>(var->accessor)) + "\n");
     }
 }
-void NASMCodeGenerator::resetStackPointer(std::shared_ptr<AstBlock> scope){
+void NASMCodeGenerator::resetStackPointer(std::shared_ptr<AstBlock> scope) {
     emitIndented("; Restore stack pointer to before this scope (" + scope->name + ")\n");
     emitIndented("add rsp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
 }
 
-std::string NASMCodeGenerator::sizeToNASMType(int size){
+std::string NASMCodeGenerator::sizeToNASMType(int size) {
     if (size == 8) return "qword";
-    else if (size == 4) return "dword";
-    else if (size == 2) return "word";
-    else if (size == 1) return "byte";
-    else{
+    else if (size == 4)
+        return "dword";
+    else if (size == 2)
+        return "word";
+    else if (size == 1)
+        return "byte";
+    else {
         Fatal("Invalid size ", size);
     }
 }
 
-std::string NASMCodeGenerator::getRegisterWithSize(std::string reg, int size){
+std::string NASMCodeGenerator::getRegisterWithSize(std::string reg, int size) {
     const std::map<std::pair<std::string, int>, std::string> map = {
-        {{"rax", 1}, "al"},
-        {{"rax", 2}, "ax"},
-        {{"rax", 4}, "eax"},
-        {{"rax", 8}, "rax"},
+        {{"rax", 1}, "al"  },
+        {{"rax", 2}, "ax"  },
+        {{"rax", 4}, "eax" },
+        {{"rax", 8}, "rax" },
 
-        {{"rbx", 1}, "bl"},
-        {{"rbx", 2}, "bx"},
-        {{"rbx", 4}, "ebx"},
-        {{"rbx", 8}, "rbx"},
+        {{"rbx", 1}, "bl"  },
+        {{"rbx", 2}, "bx"  },
+        {{"rbx", 4}, "ebx" },
+        {{"rbx", 8}, "rbx" },
 
-        {{"rcx", 1}, "cl"},
-        {{"rcx", 2}, "cx"},
-        {{"rcx", 4}, "ecx"},
-        {{"rcx", 8}, "rcx"},
+        {{"rcx", 1}, "cl"  },
+        {{"rcx", 2}, "cx"  },
+        {{"rcx", 4}, "ecx" },
+        {{"rcx", 8}, "rcx" },
 
-        {{"rdx", 1}, "dl"},
-        {{"rdx", 2}, "dx"},
-        {{"rdx", 4}, "edx"},
-        {{"rdx", 8}, "rdx"},
+        {{"rdx", 1}, "dl"  },
+        {{"rdx", 2}, "dx"  },
+        {{"rdx", 4}, "edx" },
+        {{"rdx", 8}, "rdx" },
 
-        {{"rsi", 1}, "sil"},
-        {{"rsi", 2}, "si"},
-        {{"rsi", 4}, "esi"},
-        {{"rsi", 8}, "rsi"},
+        {{"rsi", 1}, "sil" },
+        {{"rsi", 2}, "si"  },
+        {{"rsi", 4}, "esi" },
+        {{"rsi", 8}, "rsi" },
 
-        {{"rdi", 1}, "dil"},
-        {{"rdi", 2}, "di"},
-        {{"rdi", 4}, "edi"},
-        {{"rdi", 8}, "rdi"},
+        {{"rdi", 1}, "dil" },
+        {{"rdi", 2}, "di"  },
+        {{"rdi", 4}, "edi" },
+        {{"rdi", 8}, "rdi" },
 
-        {{"rsp", 1}, "spl"},
-        {{"rsp", 2}, "sp"},
-        {{"rsp", 4}, "esp"},
-        {{"rsp", 8}, "rsp"},
+        {{"rsp", 1}, "spl" },
+        {{"rsp", 2}, "sp"  },
+        {{"rsp", 4}, "esp" },
+        {{"rsp", 8}, "rsp" },
 
-        {{"rbp", 1}, "bpl"},
-        {{"rbp", 2}, "bp"},
-        {{"rbp", 4}, "ebp"},
-        {{"rbp", 8}, "rbp"},
+        {{"rbp", 1}, "bpl" },
+        {{"rbp", 2}, "bp"  },
+        {{"rbp", 4}, "ebp" },
+        {{"rbp", 8}, "rbp" },
 
-        {{"r0", 1}, "r0b"},
-        {{"r0", 2}, "r0w"},
-        {{"r0", 4}, "r0d"},
-        {{"r0", 8}, "r0"},
-
-
-        {{"r1", 1}, "r1b"},
-        {{"r1", 2}, "r1w"},
-        {{"r1", 4}, "r1d"},
-        {{"r1", 8}, "r1"},
+        {{"r0", 1},  "r0b" },
+        {{"r0", 2},  "r0w" },
+        {{"r0", 4},  "r0d" },
+        {{"r0", 8},  "r0"  },
 
 
-        {{"r2", 1}, "r2b"},
-        {{"r2", 2}, "r2w"},
-        {{"r2", 4}, "r2d"},
-        {{"r2", 8}, "r2"},
+        {{"r1", 1},  "r1b" },
+        {{"r1", 2},  "r1w" },
+        {{"r1", 4},  "r1d" },
+        {{"r1", 8},  "r1"  },
 
 
-        {{"r3", 1}, "r3b"},
-        {{"r3", 2}, "r3w"},
-        {{"r3", 4}, "r3d"},
-        {{"r3", 8}, "r3"},
+        {{"r2", 1},  "r2b" },
+        {{"r2", 2},  "r2w" },
+        {{"r2", 4},  "r2d" },
+        {{"r2", 8},  "r2"  },
 
 
-        {{"r4", 1}, "r4b"},
-        {{"r4", 2}, "r4w"},
-        {{"r4", 4}, "r4d"},
-        {{"r4", 8}, "r4"},
+        {{"r3", 1},  "r3b" },
+        {{"r3", 2},  "r3w" },
+        {{"r3", 4},  "r3d" },
+        {{"r3", 8},  "r3"  },
 
 
-        {{"r5", 1}, "r5b"},
-        {{"r5", 2}, "r5w"},
-        {{"r5", 4}, "r5d"},
-        {{"r5", 8}, "r5"},
+        {{"r4", 1},  "r4b" },
+        {{"r4", 2},  "r4w" },
+        {{"r4", 4},  "r4d" },
+        {{"r4", 8},  "r4"  },
 
 
-        {{"r6", 1}, "r6b"},
-        {{"r6", 2}, "r6w"},
-        {{"r6", 4}, "r6d"},
-        {{"r6", 8}, "r6"},
+        {{"r5", 1},  "r5b" },
+        {{"r5", 2},  "r5w" },
+        {{"r5", 4},  "r5d" },
+        {{"r5", 8},  "r5"  },
 
 
-        {{"r7", 1}, "r7b"},
-        {{"r7", 2}, "r7w"},
-        {{"r7", 4}, "r7d"},
-        {{"r7", 8}, "r7"},
+        {{"r6", 1},  "r6b" },
+        {{"r6", 2},  "r6w" },
+        {{"r6", 4},  "r6d" },
+        {{"r6", 8},  "r6"  },
 
 
-        {{"r8", 1}, "r8b"},
-        {{"r8", 2}, "r8w"},
-        {{"r8", 4}, "r8d"},
-        {{"r8", 8}, "r8"},
+        {{"r7", 1},  "r7b" },
+        {{"r7", 2},  "r7w" },
+        {{"r7", 4},  "r7d" },
+        {{"r7", 8},  "r7"  },
 
 
-        {{"r9", 1}, "r9b"},
-        {{"r9", 2}, "r9w"},
-        {{"r9", 4}, "r9d"},
-        {{"r9", 8}, "r9"},
+        {{"r8", 1},  "r8b" },
+        {{"r8", 2},  "r8w" },
+        {{"r8", 4},  "r8d" },
+        {{"r8", 8},  "r8"  },
+
+
+        {{"r9", 1},  "r9b" },
+        {{"r9", 2},  "r9w" },
+        {{"r9", 4},  "r9d" },
+        {{"r9", 8},  "r9"  },
 
 
         {{"r10", 1}, "r10b"},
         {{"r10", 2}, "r10w"},
         {{"r10", 4}, "r10d"},
-        {{"r10", 8}, "r10"},
+        {{"r10", 8}, "r10" },
 
 
         {{"r11", 1}, "r11b"},
         {{"r11", 2}, "r11w"},
         {{"r11", 4}, "r11d"},
-        {{"r11", 8}, "r11"},
+        {{"r11", 8}, "r11" },
 
 
         {{"r12", 1}, "r12b"},
         {{"r12", 2}, "r12w"},
         {{"r12", 4}, "r12d"},
-        {{"r12", 8}, "r12"},
+        {{"r12", 8}, "r12" },
 
 
         {{"r13", 1}, "r13b"},
         {{"r13", 2}, "r13w"},
         {{"r13", 4}, "r13d"},
-        {{"r13", 8}, "r13"},
+        {{"r13", 8}, "r13" },
 
 
         {{"r14", 1}, "r14b"},
         {{"r14", 2}, "r14w"},
         {{"r14", 4}, "r14d"},
-        {{"r14", 8}, "r14"},
+        {{"r14", 8}, "r14" },
 
 
         {{"r15", 1}, "r15b"},
         {{"r15", 2}, "r15w"},
         {{"r15", 4}, "r15d"},
-        {{"r15", 8}, "r15"},
+        {{"r15", 8}, "r15" },
     };
-    try{
+    try {
         return map.at({reg, size});
     }
-    catch(std::out_of_range){
+    catch (std::out_of_range) {
         Fatal("Register '", reg, "' of size ", size, " requested. This doesn't exist.\n");
     }
 }
 
 // program
-void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstProgram> node) {
     node->globalScope->accept(this);
-    
-    for (auto var : node->globalScope->variables){
+
+    for (auto var : node->globalScope->variables) {
         var->accessor = getUniqueLabel(var->name);
     }
 
-    for (auto const& child : node->getChildren()){
+    for (auto const& child : node->getChildren()) {
         if (!child) continue;
-        if (child->getType() == AstNodeType::AstFunctionDefinition){
+        if (child->getType() == AstNodeType::AstFunctionDefinition) {
             child->accept(this);
         }
-        else if (child->getType() == AstNodeType::AstVariableDeclaration){
+        else if (child->getType() == AstNodeType::AstVariableDeclaration) {
             child->accept(this);
         }
-        else{
+        else {
             Fatal("Invalid node type in program");
         }
     }
 
     // uninitialized global variables
-    for (auto var : node->uninitializedGlobalVariables){
+    for (auto var : node->uninitializedGlobalVariables) {
         emitIndented(std::get<std::string>(var->accessor) + ":\n", BinarySection::BSS);
         indent(BinarySection::BSS);
         emitIndented("resb " + std::to_string(var->sizeInBytes) + "\n", BinarySection::BSS);
         dedent(BinarySection::BSS);
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node) {
     // generate access strings
     node->parameterBlock->accept(this);
 
     int argumentNumber = 0;
-    for (auto  child : node->parameters){
+    for (auto child : node->parameters) {
         child->accept(this);
 
         emitIndented("; Load argument " + std::to_string(argumentNumber) + "\n");
 
         std::string reg;
 
-        switch(argumentNumber){
+        switch (argumentNumber) {
             case 0: reg = "rdi"; break;
             case 1: reg = "rsi"; break;
             case 2: reg = "rdx"; break;
@@ -365,16 +379,22 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstParameterList> node){
             case 4: reg = "r8"; break;
             case 5: reg = "r9"; break;
         }
-        emitIndented("mov " + sizeToNASMType(child->variable->sizeInBytes) + " [rbp -" + std::to_string(std::get<int>(child->variable->accessor)) + "], " + getRegisterWithSize(reg, child->variable->sizeInBytes) + "\n");
-    
+        emitIndented(
+            "mov " + sizeToNASMType(child->variable->sizeInBytes) + " [rbp -"
+            + std::to_string(std::get<int>(child->variable->accessor)) + "], "
+            + getRegisterWithSize(reg, child->variable->sizeInBytes) + "\n"
+        );
+
 
         argumentNumber++;
     }
 }
 
 // definitions
-void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
-    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
+void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node) {
+    // TODO: use ContainerTools::contains
+    if (std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern)
+        == node->tags->tags.end()) {
         emitIndented("; Function " + node->name + "\n\n");
         emitIndented("global " + node->functionData->name + "\n");
         emitIndented(node->functionData->name + ":\n");
@@ -390,19 +410,19 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         emitIndented("ret\n");
         dedent();
     }
-    else{
+    else {
         externalLabels.insert(node->functionData->name);
     }
 }
 
 // statements
-void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node) {
     emitIndented("; Block begin (" + node->name + ")\n");
     indent();
 
     if (!node->isMerged) setupLocalVariables(node);
 
-    for (auto child : node->getChildren()){
+    for (auto child : node->getChildren()) {
         if (child) child->accept(this);
     }
 
@@ -411,21 +431,21 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBlock> node){
     dedent();
     emitIndented("; Block end (" + node->name + ")\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstReturn> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstReturn> node) {
     expectedValueType = ValueType::Value;
     node->value->accept(this);
-    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope){
-        if (scope->expired()){
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
+        else {
             resetStackPointer(scope->lock());
         }
     }
     generateFunctionEpilouge();
     emitIndented("ret\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node) {
     std::string else_label = "." + getUniqueLabel("else");
     std::string end_label = "." + getUniqueLabel("end");
 
@@ -443,7 +463,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     dedent();
     emitIndented(end_label + ":\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = "." + getUniqueLabel("increment");
@@ -478,7 +498,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     resetStackPointer(node->initializationContext);
     emitIndented("; For loop end\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = "." + getUniqueLabel("increment");
@@ -511,7 +531,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     emitIndented(end_label + ":\n");
     emitIndented("; For loop end\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
@@ -530,7 +550,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     dedent();
     emitIndented(end_label + ":\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
@@ -547,28 +567,27 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     emitIndented("jne " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
-
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstBreak> node){
-    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
-        if (varScope->expired()){
+void NASMCodeGenerator::visit(std::shared_ptr<AstBreak> node) {
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
-            resetStackPointer(varScope->lock());
+        else {
+            resetStackPointer(scope->lock());
         }
     }
 
     emitIndented("; Break\n");
     emitIndented("jmp " + std::get<std::string>(node->loop->breakLabel) + "\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
-    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
-        if (varScope->expired()){
+void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node) {
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
-            resetStackPointer(varScope->lock());
+        else {
+            resetStackPointer(scope->lock());
         }
     }
 
@@ -578,16 +597,12 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstSkip> node){
 
 
 // expressions
-void NASMCodeGenerator::visit(std::shared_ptr<AstUnary> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstUnary> node) {
     expectValueType(ValueType::Value);
     node->value->accept(this);
-    switch (node->type){
-        case AstUnaryType::Negate:
-            emitIndented("neg rax\n");
-            break;
-        case AstUnaryType::BinaryNot:
-            emitIndented("not rax\n");
-            break;
+    switch (node->type) {
+        case AstUnaryType::Negate:    emitIndented("neg rax\n"); break;
+        case AstUnaryType::BinaryNot: emitIndented("not rax\n"); break;
         case AstUnaryType::LogicalNot:
             emitIndented("cmp rax, 0\n");
             emitIndented("mov rax, 0\n");
@@ -600,28 +615,40 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstUnary> node){
             break;
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node) {
     node->left->accept(this);
 
     int leftSize = sizeFromSemanticalType(node->left->semanticType);
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
-    if (!(node->type == AstBinaryType::LogicalAnd || node->type == AstBinaryType::LogicalOr)){
+    if (!(node->type == AstBinaryType::LogicalAnd || node->type == AstBinaryType::LogicalOr)) {
         emitIndented("push rax\n");
         node->right->accept(this);
         emitIndented("mov rbx, rax\n");
         emitIndented("pop rax\n");
     }
-    switch (node->type){
-        case AstBinaryType::Add:{
+    switch (node->type) {
+        case AstBinaryType::Add: {
             emitIndented("; Add\n");
-            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype)) + "\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "imul rbx, rbx, "
+                    + std::to_string(sizeFromSemanticalType(
+                        std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype
+                    ))
+                    + "\n"
+                );
             }
-            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("imul rax, rax, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype)) + "\n");
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "imul rax, rax, "
+                    + std::to_string(sizeFromSemanticalType(
+                        std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype
+                    ))
+                    + "\n"
+                );
             }
-            else{
+            else {
                 expectValueType(ValueType::Value);
             }
             emitIndented("add rax, rbx\n");
@@ -629,13 +656,18 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
         }
         case AstBinaryType::Subtract:
             emitIndented("; Subtract\n");
-            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "imul rbx, rbx, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n"
+                );
             }
-            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("imul rax, rax, " + std::to_string(sizeFromSemanticalType(node->right->semanticType)) + "\n");
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "imul rax, rax, " + std::to_string(sizeFromSemanticalType(node->right->semanticType))
+                    + "\n"
+                );
             }
-            else{
+            else {
                 expectValueType(ValueType::Value);
             }
             emitIndented("sub rax, rbx\n");
@@ -657,7 +689,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             if (sizeFromSemanticalType(node->left->semanticType) == 8)
                 emitIndented("cqo    ; sign extend from 64-bit to 128-bit\n");
 
-            emitIndented("idiv " + getRegisterWithSize("rbx", sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            emitIndented(
+                "idiv " + getRegisterWithSize("rbx", sizeFromSemanticalType(node->left->semanticType)) + "\n"
+            );
             break;
         case AstBinaryType::Modulo:
             expectValueType(ValueType::Value);
@@ -671,54 +705,74 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             if (sizeFromSemanticalType(node->left->semanticType) == 8)
                 emitIndented("cqo    ; sign extend from 64-bit to 128-bit\n");
 
-            emitIndented("idiv " + getRegisterWithSize("rbx", sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            emitIndented(
+                "idiv " + getRegisterWithSize("rbx", sizeFromSemanticalType(node->left->semanticType)) + "\n"
+            );
             emitIndented("mov rax, rdx\n");
             break;
 
         case AstBinaryType::Equal:
             expectValueType(ValueType::Value);
             emitIndented("; Equal\n");
-            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
+            emitIndented(
+                "cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize)
+                + "\n"
+            );
             emitIndented("sete al\n");
             emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::NotEqual:
             expectValueType(ValueType::Value);
             emitIndented("; Not Equal\n");
-            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
+            emitIndented(
+                "cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize)
+                + "\n"
+            );
             emitIndented("setne al\n");
             emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::LessThan:
             expectValueType(ValueType::Value);
             emitIndented("; Less Than\n");
-            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
+            emitIndented(
+                "cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize)
+                + "\n"
+            );
             emitIndented("setl al\n");
             emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::LessThanOrEqual:
             expectValueType(ValueType::Value);
             emitIndented("; Less Than Or Equal\n");
-            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
+            emitIndented(
+                "cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize)
+                + "\n"
+            );
             emitIndented("setle al\n");
             emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::GreaterThan:
             expectValueType(ValueType::Value);
             emitIndented("; Greater Than\n");
-            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
+            emitIndented(
+                "cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize)
+                + "\n"
+            );
             emitIndented("setg al\n");
             emitIndented("movzx eax, al\n");
             break;
         case AstBinaryType::GreaterThanOrEqual:
             expectValueType(ValueType::Value);
             emitIndented("; Greater Than Or Equal\n");
-            emitIndented("cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize) + "\n");
+            emitIndented(
+                "cmp " + getRegisterWithSize("rax", leftSize) + ", " + getRegisterWithSize("rbx", leftSize)
+                + "\n"
+            );
             emitIndented("setge al\n");
             emitIndented("movzx eax, al\n");
             break;
 
-        case AstBinaryType::LogicalAnd:{
+        case AstBinaryType::LogicalAnd: {
             expectValueType(ValueType::Value);
             emitIndented("; Logical And\n");
             std::string clause2 = "." + getUniqueLabel("second_expression");
@@ -726,7 +780,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             emitIndented("cmp rax, 0\n");
             emitIndented("jne " + clause2 + "\n");
             emitIndented("jmp " + end + "\n");
-            emitIndented(clause2 + ":\n"); indent();
+            emitIndented(clause2 + ":\n");
+            indent();
 
             // evaluate right side
             node->right->accept(this);
@@ -738,7 +793,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         }
 
-        case AstBinaryType::LogicalOr:{
+        case AstBinaryType::LogicalOr: {
             expectValueType(ValueType::Value);
             emitIndented("; Logical Or\n");
             std::string clause2 = "." + getUniqueLabel("second_expression");
@@ -747,7 +802,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             emitIndented("je " + clause2 + "\n");
             emitIndented("mov rax, 1\n");
             emitIndented("jmp " + end + "\n");
-            emitIndented(clause2 + ":\n"); indent();
+            emitIndented(clause2 + ":\n");
+            indent();
 
             // evaluate right side
             node->right->accept(this);
@@ -765,12 +821,12 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstInteger> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstInteger> node) {
     expectValueType(ValueType::Value);
     emitIndented("; Integer " + std::to_string(node->value) + "\n");
     emitIndented("mov rax, " + std::to_string(node->value) + "\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node) {
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Value;
     node->rvalue->accept(this);
@@ -779,8 +835,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     node->lvalue->accept(this);
     expectedValueType = ValueType::Value;
     emitIndented("pop rbx\n");
-    
-    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType){
+
+    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType) {
         emitIndented("mov rdi, rax\n");
         emitIndented("mov rsi, rsp\n");
         emitIndented("mov rdx, " + std::to_string(stackPassedValueSize) + "\n");
@@ -794,7 +850,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAssignment> node){
         emitIndented("mov rax, rbx\n");
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node) {
     expectValueType(ValueType::Value);
     std::string true_clause = "." + getUniqueLabel("true_expression");
     std::string false_clause = "." + getUniqueLabel("false_expression");
@@ -803,48 +859,50 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
     emitIndented("; Conditional Expression\n");
     emitIndented("cmp rax, 0\n");
     emitIndented("je " + false_clause + "\n");
-    emitIndented(true_clause + ":\n"); indent();
+    emitIndented(true_clause + ":\n");
+    indent();
     node->trueExpression->accept(this);
     emitIndented("jmp " + end + "\n");
     dedent();
-    emitIndented(false_clause + ":\n"); indent();
+    emitIndented(false_clause + ":\n");
+    indent();
     node->falseExpression->accept(this);
     dedent();
     emitIndented(end + ":\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node) {
     expectValueType(ValueType::Value);
     emitIndented("; Empty Expression\n");
     emitIndented("mov rax, 1\n");
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node) {
     stackPassedValueSize = 0;
     expectedValueType = ValueType::Value;
     node->expression->accept(this);
-    if (node->expression->semanticType->getType() == AstNodeType::AstArrayType){
+    if (node->expression->semanticType->getType() == AstNodeType::AstArrayType) {
         emitIndented("; Cleanup after array expression\n");
         emitIndented("add rsp, " + std::to_string(stackPassedValueSize) + "\n");
     }
 }
 
-void NASMCodeGenerator::functionCallPrologue(){
+void NASMCodeGenerator::functionCallPrologue() {
     emitIndented("; Align to 16 bytes\n");
     emitIndented("mov r12, rsp\n");
     emitIndented("sub rsp, 16\n");
     emitIndented("and rsp, -16\n");
     emitIndented("sub r12, rsp\n");
 }
-void NASMCodeGenerator::functionCallEpilogue(){
+void NASMCodeGenerator::functionCallEpilogue() {
     emitIndented("; Reset stack alignment\n");
     emitIndented("add rsp, r12\n");
 }
 
-void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node) {
     expectValueType(ValueType::Value);
     // rdi, rsi, rdx, rcx, r8, and r9 are used for parameters
     // more than 6 parameters are not supported yet
 
-    if (node->arguments.size() > 6){
+    if (node->arguments.size() > 6) {
         Error("NASM Generator: More than 6 parameters are not supported yet!");
         printErrorToken(node->token, R_SharpSource);
         exit(1);
@@ -852,8 +910,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     // save registers
     emitIndented("; Prepare for function call (" + node->name + ")\n");
     int argCount = node->arguments.size();
-    for (int i = 0; i < argCount; i++){
-        switch(i){
+    for (int i = 0; i < argCount; i++) {
+        switch (i) {
             case 0: emitIndented("push rdi\n"); break;
             case 1: emitIndented("push rsi\n"); break;
             case 2: emitIndented("push rdx\n"); break;
@@ -864,14 +922,14 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     }
 
     // evaluate arguments
-    for (auto arg : node->arguments){
+    for (auto arg : node->arguments) {
         expectedValueType = ValueType::Value;
         arg->accept(this);
         emitIndented("push rax\n");
     }
     // move arguments to registers
-    for (int i = argCount - 1; i >= 0; i--){
-        switch(i){
+    for (int i = argCount - 1; i >= 0; i--) {
+        switch (i) {
             case 0: emitIndented("pop rdi\n"); break;
             case 1: emitIndented("pop rsi\n"); break;
             case 2: emitIndented("pop rdx\n"); break;
@@ -888,8 +946,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
 
     emitIndented("; Restore after function call (" + node->name + ")\n");
     // restore registers
-    for (int i = argCount - 1; i >= 0; i--){
-        switch(i){
+    for (int i = argCount - 1; i >= 0; i--) {
+        switch (i) {
             case 0: emitIndented("pop rdi\n"); break;
             case 1: emitIndented("pop rsi\n"); break;
             case 2: emitIndented("pop rdx\n"); break;
@@ -899,39 +957,49 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
         }
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node) {
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Address;
     node->operand->accept(this);
     expectedValueType = ValueType::Value;
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node) {
     int originSize = sizeFromSemanticalType(node->value->semanticType);
     int targetSize = sizeFromSemanticalType(node->semanticType);
     node->value->accept(this);
-    if (expectedValueType == ValueType::Value){
+    if (expectedValueType == ValueType::Value) {
         // only typecast values, no addresses
-        if (targetSize > originSize){
-            emitIndented("; Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize) + " bytes.\n");
+        if (targetSize > originSize) {
+            emitIndented(
+                "; Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize)
+                + " bytes.\n"
+            );
             emitIndented("movsx ");
             emit(getRegisterWithSize("rax", targetSize) + ", ");
             emit(getRegisterWithSize("rax", originSize) + "\n");
         }
-        else if (targetSize == originSize);
-        else{
-            emitIndented("; explicit and to detect invalid upcasts later (" + std::to_string(originSize) + " Bytes --> " + std::to_string(targetSize) + " Bytes)\n");
-            emitIndented("mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
+        else if (targetSize == originSize)
+            ;
+        else {
+            emitIndented(
+                "; explicit and to detect invalid upcasts later (" + std::to_string(originSize)
+                + " Bytes --> " + std::to_string(targetSize) + " Bytes)\n"
+            );
+            emitIndented(
+                "mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize * 8)) - 1))
+                + "\n"
+            );
             emitIndented("and rax, rbx\n");
         }
     }
 }
 
 
-void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node) {
     auto size = sizeFromSemanticalType(node->semanticType);
     emitIndented("; Variable Access(" + node->name + ")\n");
 
-    if (node->semanticType->getType() == AstNodeType::AstArrayType && expectedValueType == ValueType::Value){
+    if (node->semanticType->getType() == AstNodeType::AstArrayType && expectedValueType == ValueType::Value) {
         emitIndented("; Copy " + std::to_string(size) + " bytes of stack space\n");
         emitIndented("sub rsp, " + std::to_string(size) + "\n");
         emitIndented("mov rdi, rsp\n");
@@ -944,8 +1012,8 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
         emitIndented("call memcpy\n");
         functionCallEpilogue();
     }
-    else{
-        if (expectedValueType == ValueType::Value && size != 8 && size != 4){
+    else {
+        if (expectedValueType == ValueType::Value && size != 8 && size != 4) {
             // non 32-bit and 64-bit operations don't clear the remaining bits
             emitIndented("xor eax, eax\n");
         }
@@ -955,40 +1023,41 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
         std::string nasmSize = sizeToNASMType(size);
         std::string dst = getRegisterWithSize("rax", size);
         std::string src = "";
-        if (node->variable->isGlobal)
-            src = "[" + std::get<std::string>(node->variable->accessor) + "]";
+        if (node->variable->isGlobal) src = "[" + std::get<std::string>(node->variable->accessor) + "]";
         else
             src = "[rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "]";
-        
+
         emitIndented(instruction + " " + nasmSize + " " + dst + ", " + src + "\n");
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node){
-    if (expectedValueType == ValueType::Value){
+void NASMCodeGenerator::visit(std::shared_ptr<AstDereference> node) {
+    if (expectedValueType == ValueType::Value) {
         auto size = NASMCodeGenerator::sizeFromSemanticalType(node->semanticType);
         node->operand->accept(this);
         emitIndented("; Dereference\n");
         emitIndented("mov " + sizeToNASMType(size) + " " + getRegisterWithSize("rax", size) + ", [rax]\n");
-        emitIndented("; explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(size) + " Bytes)\n");
-        emitIndented("mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(size*8))-1)) + "\n");
+        emitIndented(
+            "; explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(size) + " Bytes)\n"
+        );
+        emitIndented(
+            "mov rbx, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(size * 8)) - 1)) + "\n"
+        );
         emitIndented("and rax, rbx\n");
     }
-    else{
+    else {
         expectedValueType = ValueType::Value;
         node->operand->accept(this);
         // rax already contains the address
     }
 }
-void NASMCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node) {
     emitIndented("; array access\n");
     int targetSize = sizeFromSemanticalType(node->semanticType);
 
     const auto prevArrayAccessFinalSize = arrayAccessFinalSize;
-    auto arrayAccessFinalSizeRestore = ScopeGuard([&](){
-        arrayAccessFinalSize = prevArrayAccessFinalSize;
-    });
+    auto arrayAccessFinalSizeRestore = ScopeGuard([&]() { arrayAccessFinalSize = prevArrayAccessFinalSize; });
 
-    if (arrayAccessFinalSize == 0){
+    if (arrayAccessFinalSize == 0) {
         emitIndented("mov rax, 0\n");
         arrayAccessFinalSize = targetSize;
     }
@@ -1003,7 +1072,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
     emitIndented("mul rcx\n");
     emitIndented("add rax, rbx\n");
 
-    if (node->array->getType() == AstNodeType::AstVariableAccess || node->array->getType() == AstNodeType::AstDereference){
+    if (node->array->getType() == AstNodeType::AstVariableAccess || node->array->getType() == AstNodeType::AstDereference) {
         emitIndented("mov rcx, rax\n");
         const auto prevValueType = expectedValueType;
         expectedValueType = ValueType::Address;
@@ -1011,28 +1080,34 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
         expectedValueType = prevValueType;
 
         if (expectedValueType == ValueType::Value)
-            emitIndented("mov " + sizeToNASMType(arrayAccessFinalSize) + " " + getRegisterWithSize("rax", arrayAccessFinalSize) + ", [rax + rcx]\n");
+            emitIndented(
+                "mov " + sizeToNASMType(arrayAccessFinalSize) + " "
+                + getRegisterWithSize("rax", arrayAccessFinalSize) + ", [rax + rcx]\n"
+            );
         else
             emitIndented("lea rax, [rax + rcx]\n");
     }
 
-    else if (node->array->getType() == AstNodeType::AstArrayAccess){
+    else if (node->array->getType() == AstNodeType::AstArrayAccess) {
         node->array->accept(this);
     }
-    else if (node->array->getType() == AstNodeType::AstArrayLiteral){
+    else if (node->array->getType() == AstNodeType::AstArrayLiteral) {
         expectValueType(ValueType::Value);
         emitIndented("push rcx\n");
         node->array->accept(this);
-        
+
         // restore rcx
         emitIndented("mov rcx, [rsp+" + std::to_string(stackPassedValueSize) + "]\n");
 
-        emitIndented("mov " + sizeToNASMType(arrayAccessFinalSize) + " " + getRegisterWithSize("rax", arrayAccessFinalSize) + ", [rsp + rcx]\n");
+        emitIndented(
+            "mov " + sizeToNASMType(arrayAccessFinalSize) + " "
+            + getRegisterWithSize("rax", arrayAccessFinalSize) + ", [rsp + rcx]\n"
+        );
 
         // +8 for the pushed rcx
-        emitIndented("add rsp, " + std::to_string(stackPassedValueSize+8) + "\n");
+        emitIndented("add rsp, " + std::to_string(stackPassedValueSize + 8) + "\n");
     }
-    else{
+    else {
         Error("NASM Generator: Unimplemented array access!");
         printErrorToken(node->token, R_SharpSource);
         exit(1);
@@ -1045,18 +1120,21 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     emitIndented("; Array Literal\n");
     emitIndented("sub rsp, " + std::to_string(sizeFromSemanticalType(node->semanticType)) + "\n");
     uint64_t currentOffset = 0;
-    for (auto element : node->elements){
+    for (auto element : node->elements) {
         element->accept(this);
-        switch(elementSize){
+        switch (elementSize) {
             case 1:
             case 2:
             case 4:
             case 8:
-                emitIndented("mov " + sizeToNASMType(elementSize) + " [rsp+" + std::to_string(currentOffset) + "], " + getRegisterWithSize("rax", elementSize) + "\n");
+                emitIndented(
+                    "mov " + sizeToNASMType(elementSize) + " [rsp+" + std::to_string(currentOffset) + "], "
+                    + getRegisterWithSize("rax", elementSize) + "\n"
+                );
                 break;
-            default:{
+            default: {
                 emitIndented("; Copy " + std::to_string(elementSize) + " bytes of stack space\n");
-                emitIndented("lea rdi, [rsp+" + std::to_string(currentOffset+elementSize) + "]\n");
+                emitIndented("lea rdi, [rsp+" + std::to_string(currentOffset + elementSize) + "]\n");
                 emitIndented("mov rsi, rsp\n");
                 emitIndented("mov rdx, " + std::to_string(elementSize) + "\n");
                 functionCallPrologue();
@@ -1066,7 +1144,7 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
             }
         }
         currentOffset += elementSize;
-        if (element->getType() == AstNodeType::AstArrayLiteral){
+        if (element->getType() == AstNodeType::AstArrayLiteral) {
             emitIndented("add rsp, " + std::to_string(stackPassedValueSize) + "\n");
         }
     }
@@ -1074,10 +1152,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     stackPassedValueSize = sizeFromSemanticalType(node->semanticType);
 }
 
-void NASMCodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node){
-    if (node->getType() == AstNodeType::AstInteger){
+void NASMCodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node) {
+    if (node->getType() == AstNodeType::AstInteger) {
         auto intNode = std::dynamic_pointer_cast<AstInteger>(node);
-        switch(sizeFromSemanticalType(node->semanticType)){
+        switch (sizeFromSemanticalType(node->semanticType)) {
             case 1: emitIndented("db " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
             case 2: emitIndented("dw " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
             case 4: emitIndented("dd " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
@@ -1089,21 +1167,20 @@ void NASMCodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node){
                 break;
         }
     }
-    else if (node->getType() == AstNodeType::AstArrayLiteral){
+    else if (node->getType() == AstNodeType::AstArrayLiteral) {
         auto arrayNode = std::dynamic_pointer_cast<AstArrayLiteral>(node);
-        for (auto element : arrayNode->elements){
+        for (auto element : arrayNode->elements) {
             bool contains_array = element->semanticType->getType() == AstNodeType::AstArrayType;
-            if (contains_array)
-                indent(BinarySection::Data);
+            if (contains_array) indent(BinarySection::Data);
 
             defineGlobalData(element);
-            if (contains_array){
+            if (contains_array) {
                 dedent(BinarySection::Data);
                 emitIndented("\n", BinarySection::Data);
             }
         }
     }
-    else{
+    else {
         Error("NASM Generator: Global variable must be an integer or array. (Found: " + node->toString() + ")");
         printErrorToken(node->token, R_SharpSource);
         exit(1);
@@ -1111,10 +1188,10 @@ void NASMCodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node){
 }
 
 // declarations
-void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
+void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node) {
     expectedValueType = ValueType::Value;
-    if (node->variable->isGlobal){
-        if (!node->value){
+    if (node->variable->isGlobal) {
+        if (!node->value) {
             return;
         }
         emitIndented("; Global Variable (" + node->name + ")\n", BinarySection::Data);
@@ -1124,10 +1201,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         defineGlobalData(node->value);
         dedent(BinarySection::Data);
     }
-    else{
+    else {
         emitIndented("; Variable (" + node->name + ")\n");
-        if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType){
-            if (node->value){
+        if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType) {
+            if (node->value) {
                 node->value->accept(this);
                 auto size = node->variable->sizeInBytes;
                 emitIndented("; Copy " + std::to_string(size) + " bytes of stack space\n");
@@ -1135,14 +1212,16 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
                 if (node->variable->isGlobal)
                     emitIndented("lea rdi, [" + std::get<std::string>(node->variable->accessor) + "]\n");
                 else
-                    emitIndented("lea rdi, [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "]\n");
+                    emitIndented(
+                        "lea rdi, [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "]\n"
+                    );
                 emitIndented("mov rdx, " + std::to_string(size) + "\n");
                 functionCallPrologue();
                 emitIndented("call memcpy\n");
                 functionCallEpilogue();
                 emitIndented("add rsp, " + std::to_string(size) + "\n");
             }
-            else{
+            else {
                 auto size = sizeFromSemanticalType(node->semanticType);
                 emitIndented("; Zero out " + std::to_string(size) + " bytes of stack space\n");
                 emitIndented("lea rdi, [rbp-" + std::to_string(std::get<int>(node->variable->accessor)) + "]\n");
@@ -1154,23 +1233,32 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
             }
         }
 
-        else{
-            switch (node->variable->sizeInBytes){
+        else {
+            switch (node->variable->sizeInBytes) {
                 case 1:
                 case 2:
                 case 4:
                 case 8:
-                    if (node->value){
+                    if (node->value) {
                         node->value->accept(this);
-                        emitIndented("mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], " + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n");
+                        emitIndented(
+                            "mov [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], "
+                            + getRegisterWithSize("rax", node->variable->sizeInBytes) + "\n"
+                        );
                     }
-                    else{
-                        emitIndented("mov " + sizeToNASMType(node->variable->sizeInBytes) + " [rbp - " + std::to_string(std::get<int>(node->variable->accessor)) + "], 0\n");
+                    else {
+                        emitIndented(
+                            "mov " + sizeToNASMType(node->variable->sizeInBytes) + " [rbp - "
+                            + std::to_string(std::get<int>(node->variable->accessor)) + "], 0\n"
+                        );
                     }
                     break;
-                
+
                 default:
-                    Error("NASM Generator: Unsupported variable size " + std::to_string(node->variable->sizeInBytes) + " for variable '" + node->variable->name + "'");
+                    Error(
+                        "NASM Generator: Unsupported variable size " + std::to_string(node->variable->sizeInBytes)
+                        + " for variable '" + node->variable->name + "'"
+                    );
                     printErrorToken(node->token, R_SharpSource);
                     exit(1);
             }

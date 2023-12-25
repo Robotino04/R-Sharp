@@ -5,9 +5,9 @@
 #include <map>
 #include <memory>
 
-namespace RSI{
+namespace RSI {
 
-enum class InstructionType{
+enum class InstructionType {
     NOP,
 
     MOVE,
@@ -23,7 +23,7 @@ enum class InstructionType{
     MULTIPLY,
     DIVIDE,
     MODULO,
-    
+
     EQUAL,
     NOT_EQUAL,
     LESS_THAN,
@@ -58,13 +58,13 @@ struct Reference;
 struct Label;
 struct GlobalReference;
 
-struct Constant{
+struct Constant {
     uint64_t value;
 
-    bool operator== (Constant const& other) const{
+    bool operator==(Constant const& other) const {
         return this->value == other.value;
     }
-    bool operator != (Constant const& other) const{
+    bool operator!=(Constant const& other) const {
         return !(*this == other);
     }
 };
@@ -80,7 +80,7 @@ struct TranslationUnit;
 }
 
 
-namespace std{
-    template<>
-    struct hash<RSI::HWRegister>;
+namespace std {
+template <>
+struct hash<RSI::HWRegister>;
 }

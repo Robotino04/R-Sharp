@@ -12,190 +12,188 @@
 #include "R-Sharp/AstNodes.hpp"
 #include "R-Sharp/Logging.hpp"
 
-namespace RSI{
+namespace RSI {
 
 inline const std::map<InstructionType, uint> numArgumentsUsed = {
-    {InstructionType::NOP, 0},
+    {InstructionType::NOP,                   0},
 
-    {InstructionType::MOVE, 1},
-    {InstructionType::RETURN, 1},
+    {InstructionType::MOVE,                  1},
+    {InstructionType::RETURN,                1},
 
-    {InstructionType::NEGATE, 1},
-    {InstructionType::BINARY_NOT, 1},
-    {InstructionType::LOGICAL_NOT, 1},
+    {InstructionType::NEGATE,                1},
+    {InstructionType::BINARY_NOT,            1},
+    {InstructionType::LOGICAL_NOT,           1},
 
-    {InstructionType::ADD, 2},
-    {InstructionType::SUBTRACT, 2},
-    {InstructionType::MULTIPLY, 2},
-    {InstructionType::DIVIDE, 2},
-    {InstructionType::MODULO, 2},
+    {InstructionType::ADD,                   2},
+    {InstructionType::SUBTRACT,              2},
+    {InstructionType::MULTIPLY,              2},
+    {InstructionType::DIVIDE,                2},
+    {InstructionType::MODULO,                2},
 
-    {InstructionType::EQUAL, 2},
-    {InstructionType::NOT_EQUAL, 2},
-    {InstructionType::LESS_THAN, 2},
-    {InstructionType::LESS_THAN_OR_EQUAL, 2},
-    {InstructionType::GREATER_THAN, 2},
+    {InstructionType::EQUAL,                 2},
+    {InstructionType::NOT_EQUAL,             2},
+    {InstructionType::LESS_THAN,             2},
+    {InstructionType::LESS_THAN_OR_EQUAL,    2},
+    {InstructionType::GREATER_THAN,          2},
     {InstructionType::GREATER_THAN_OR_EQUAL, 2},
 
-    {InstructionType::LOGICAL_AND, 2},
-    {InstructionType::LOGICAL_OR, 2},
+    {InstructionType::LOGICAL_AND,           2},
+    {InstructionType::LOGICAL_OR,            2},
 
-    {InstructionType::BINARY_AND, 2},
+    {InstructionType::BINARY_AND,            2},
 
-    {InstructionType::JUMP, 1},
-    {InstructionType::JUMP_IF_ZERO, 2},
-    {InstructionType::DEFINE_LABEL, 1},
+    {InstructionType::JUMP,                  1},
+    {InstructionType::JUMP_IF_ZERO,          2},
+    {InstructionType::DEFINE_LABEL,          1},
 
-    {InstructionType::STORE_PARAMETER, 1},
-    {InstructionType::LOAD_PARAMETER, 1},
-    {InstructionType::CALL, 2},
+    {InstructionType::STORE_PARAMETER,       1},
+    {InstructionType::LOAD_PARAMETER,        1},
+    {InstructionType::CALL,                  2},
 
-    {InstructionType::FUNCTION_BEGIN, 0},
-    
-    {InstructionType::STORE_MEMORY, 2},
-    {InstructionType::LOAD_MEMORY, 1},
+    {InstructionType::FUNCTION_BEGIN,        0},
+
+    {InstructionType::STORE_MEMORY,          2},
+    {InstructionType::LOAD_MEMORY,           1},
 };
 
 inline const std::map<InstructionType, std::string> mnemonics = {
-    {InstructionType::NOP, "nop"},
+    {InstructionType::NOP,                   "nop" },
 
-    {InstructionType::MOVE, "mov"},
-    {InstructionType::RETURN, "ret"},
+    {InstructionType::MOVE,                  "mov" },
+    {InstructionType::RETURN,                "ret" },
 
-    {InstructionType::NEGATE, "neg"},
-    {InstructionType::BINARY_NOT, "bnot"},
-    {InstructionType::LOGICAL_NOT, "lnot"},
+    {InstructionType::NEGATE,                "neg" },
+    {InstructionType::BINARY_NOT,            "bnot"},
+    {InstructionType::LOGICAL_NOT,           "lnot"},
 
-    {InstructionType::ADD, "add"},
-    {InstructionType::SUBTRACT, "sub"},
-    {InstructionType::MULTIPLY, "mul"},
-    {InstructionType::DIVIDE, "div"},
-    {InstructionType::MODULO, "mod"},
+    {InstructionType::ADD,                   "add" },
+    {InstructionType::SUBTRACT,              "sub" },
+    {InstructionType::MULTIPLY,              "mul" },
+    {InstructionType::DIVIDE,                "div" },
+    {InstructionType::MODULO,                "mod" },
 
-    {InstructionType::EQUAL, "eq"},
-    {InstructionType::NOT_EQUAL, "neq"},
-    {InstructionType::LESS_THAN, "lt"},
-    {InstructionType::LESS_THAN_OR_EQUAL, "leq"},
-    {InstructionType::GREATER_THAN, "gt"},
-    {InstructionType::GREATER_THAN_OR_EQUAL, "geq"},
+    {InstructionType::EQUAL,                 "eq"  },
+    {InstructionType::NOT_EQUAL,             "neq" },
+    {InstructionType::LESS_THAN,             "lt"  },
+    {InstructionType::LESS_THAN_OR_EQUAL,    "leq" },
+    {InstructionType::GREATER_THAN,          "gt"  },
+    {InstructionType::GREATER_THAN_OR_EQUAL, "geq" },
 
-    {InstructionType::LOGICAL_AND, "land"},
-    {InstructionType::LOGICAL_OR, "lor"},
+    {InstructionType::LOGICAL_AND,           "land"},
+    {InstructionType::LOGICAL_OR,            "lor" },
 
-    {InstructionType::BINARY_AND, "band"},
+    {InstructionType::BINARY_AND,            "band"},
 
-    {InstructionType::JUMP, "jmp"},
-    {InstructionType::JUMP_IF_ZERO, "jmpz"},
-    {InstructionType::DEFINE_LABEL, "defl"},
-  
-    {InstructionType::STORE_PARAMETER, "spar"},
-    {InstructionType::LOAD_PARAMETER, "lpar"},
-    {InstructionType::CALL, "call"},
+    {InstructionType::JUMP,                  "jmp" },
+    {InstructionType::JUMP_IF_ZERO,          "jmpz"},
+    {InstructionType::DEFINE_LABEL,          "defl"},
 
-    {InstructionType::FUNCTION_BEGIN, "fbeg"},
+    {InstructionType::STORE_PARAMETER,       "spar"},
+    {InstructionType::LOAD_PARAMETER,        "lpar"},
+    {InstructionType::CALL,                  "call"},
 
-    {InstructionType::STORE_MEMORY, "smem"},
-    {InstructionType::LOAD_MEMORY, "lmem"},
+    {InstructionType::FUNCTION_BEGIN,        "fbeg"},
 
+    {InstructionType::STORE_MEMORY,          "smem"},
+    {InstructionType::LOAD_MEMORY,           "lmem"},
 };
 
-struct HWRegister{
-    HWRegister(): id(highestID++){
-    }
+struct HWRegister {
+    HWRegister(): id(highestID++) {}
 
-    constexpr bool operator==(HWRegister const& other) const{
+    constexpr bool operator==(HWRegister const& other) const {
         return this->getID() == other.getID();
     }
-    constexpr bool operator!=(HWRegister const& other) const{
+    constexpr bool operator!=(HWRegister const& other) const {
         return !(*this == other);
     }
 
-    constexpr bool operator <(HWRegister const& other) const{
+    constexpr bool operator<(HWRegister const& other) const {
         return this->getID() < other.getID();
     }
 
-    constexpr inline uint64_t getID() const{
+    constexpr inline uint64_t getID() const {
         return id;
     }
 
-    private:
-        uint64_t id;
+private:
+    uint64_t id;
 
-    private:
-        static inline std::atomic<uint64_t> highestID = 0;
+private:
+    static inline std::atomic<uint64_t> highestID = 0;
 };
 
 
-struct Reference{
+struct Reference {
     std::string name;
     std::optional<std::shared_ptr<SemanticVariableData>> variable;
     std::optional<HWRegister> assignedRegister;
 
-    bool operator < (Reference const& other) const{
+    bool operator<(Reference const& other) const {
         return name < other.name;
     }
 
-    bool operator == (Reference const& other) const{
+    bool operator==(Reference const& other) const {
         return name == other.name;
     }
-    bool operator != (Reference const& other) const{
+    bool operator!=(Reference const& other) const {
         return !(*this == other);
     }
 };
-struct GlobalReference{
+struct GlobalReference {
     std::string name;
     std::optional<std::shared_ptr<SemanticVariableData>> variable;
 
-    bool operator < (GlobalReference const& other) const{
+    bool operator<(GlobalReference const& other) const {
         return name < other.name;
     }
 
-    bool operator == (GlobalReference const& other) const{
+    bool operator==(GlobalReference const& other) const {
         return name == other.name;
     }
-    bool operator != (GlobalReference const& other) const{
+    bool operator!=(GlobalReference const& other) const {
         return !(*this == other);
     }
 };
-struct Label{
+struct Label {
     std::string name;
 
-    bool operator < (Label const& other) const{
+    bool operator<(Label const& other) const {
         return name < other.name;
     }
 
-    bool operator == (Label const& other) const{
+    bool operator==(Label const& other) const {
         return name == other.name;
     }
-    bool operator != (Label const& other) const{
+    bool operator!=(Label const& other) const {
         return !(*this == other);
     }
 };
 
 
-struct Instruction{
+struct Instruction {
     InstructionType type;
     Operand result;
     Operand op1;
     Operand op2;
 
-    struct Metadata{
+    struct Metadata {
         std::set<std::shared_ptr<Reference>> liveVariablesBefore = {};
     } meta;
 };
 
-struct Function{
+struct Function {
     std::string name;
     std::shared_ptr<SemanticFunctionData> function;
     std::vector<Instruction> instructions;
 
-    struct Metadata{
+    struct Metadata {
         std::set<std::shared_ptr<Reference>> allReferences = {};
         std::set<HWRegister> allRegisters = {};
     } meta;
 };
 
-struct TranslationUnit{
+struct TranslationUnit {
     std::vector<RSI::Function> functions;
     std::vector<std::shared_ptr<RSI::Label>> externLabels;
     std::vector<std::pair<std::shared_ptr<RSI::GlobalReference>, RSI::Constant>> initializedGlobalVariables;
@@ -205,11 +203,11 @@ struct TranslationUnit{
 }
 
 
-namespace std{
-    template<>
-    struct hash<RSI::HWRegister>{
-        size_t operator() (RSI::HWRegister const& reg) const{
-            return std::hash<uint64_t>()(reg.getID());
-        }
-    };
+namespace std {
+template <>
+struct hash<RSI::HWRegister> {
+    size_t operator()(RSI::HWRegister const& reg) const {
+        return std::hash<uint64_t>()(reg.getID());
+    }
+};
 }

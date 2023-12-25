@@ -42,7 +42,7 @@ enum class AstNodeType {
     AstTypeConversion,
     AstAddressOf,
     AstArrayAccess,
-    
+
 
     AstVariableDeclaration,
     AstPrimitiveType,
@@ -105,11 +105,13 @@ struct AstArrayType;
 struct AstPrimitiveType;
 struct AstTags;
 
-struct AstNode{
+struct AstNode {
     virtual ~AstNode() = default;
     AstNode() = default;
 
-    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const{return {};};
+    virtual std::vector<std::shared_ptr<AstNode>> getChildren() const {
+        return {};
+    };
     virtual AstNodeType getType() const = 0;
     virtual std::string toString() const = 0;
     virtual void accept(AstVisitor* visitor) = 0;
@@ -119,7 +121,7 @@ struct AstNode{
 };
 
 
-enum class RSharpPrimitiveType{
+enum class RSharpPrimitiveType {
     NONE,
     I8,
     I16,
@@ -129,7 +131,7 @@ enum class RSharpPrimitiveType{
     C_void,
 };
 
-enum class AstBinaryType{
+enum class AstBinaryType {
     Add,
     Subtract,
     Multiply,
@@ -145,10 +147,10 @@ enum class AstBinaryType{
 
     LogicalAnd,
     LogicalOr,
-    
+
     None,
 };
-enum class AstUnaryType{
+enum class AstUnaryType {
     Negate,
     LogicalNot,
     BinaryNot,

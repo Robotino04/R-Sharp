@@ -8,92 +8,89 @@
 #include <sstream>
 #include <map>
 
-AArch64CodeGenerator::AArch64CodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
+AArch64CodeGenerator::AArch64CodeGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource) {
     this->root = root;
     this->R_SharpSource = R_SharpSource;
 }
 
-void AArch64CodeGenerator::indent(AArch64CodeGenerator::BinarySection section){
+void AArch64CodeGenerator::indent(AArch64CodeGenerator::BinarySection section) {
     indentLevels.at(static_cast<int>(section))++;
 }
-void AArch64CodeGenerator::dedent(AArch64CodeGenerator::BinarySection section){
-    if (!indentLevels.at(static_cast<int>(section))){
+void AArch64CodeGenerator::dedent(AArch64CodeGenerator::BinarySection section) {
+    if (!indentLevels.at(static_cast<int>(section))) {
         Fatal("Indentation error in section nr. " + std::to_string(static_cast<int>(section)));
     }
     indentLevels.at(static_cast<int>(section))--;
 }
 
-void AArch64CodeGenerator::emit(std::string const& str, AArch64CodeGenerator::BinarySection section){
+void AArch64CodeGenerator::emit(std::string const& str, AArch64CodeGenerator::BinarySection section) {
     sources.at(static_cast<int>(section)) += str;
 }
-void AArch64CodeGenerator::emitIndented(std::string const& str, AArch64CodeGenerator::BinarySection section){
-    for (int i=0; i<indentLevels.at(static_cast<int>(section)); i++){
+void AArch64CodeGenerator::emitIndented(std::string const& str, AArch64CodeGenerator::BinarySection section) {
+    for (int i = 0; i < indentLevels.at(static_cast<int>(section)); i++) {
         sources.at(static_cast<int>(section)) += "    ";
     }
     sources.at(static_cast<int>(section)) += str;
 }
 
 
-int AArch64CodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
+int AArch64CodeGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type) {
     static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
         {RSharpPrimitiveType::C_void, 1}, // should only be used for pointer arithmetic
-        {RSharpPrimitiveType::I8, 1},
-        {RSharpPrimitiveType::I16, 2},
-        {RSharpPrimitiveType::I32, 4},
-        {RSharpPrimitiveType::I64, 8},
+        {RSharpPrimitiveType::I8,     1},
+        {RSharpPrimitiveType::I16,    2},
+        {RSharpPrimitiveType::I32,    4},
+        {RSharpPrimitiveType::I64,    8},
     };
 
-    switch(type->getType()){
-        case AstNodeType::AstPrimitiveType:{
+    switch (type->getType()) {
+        case AstNodeType::AstPrimitiveType: {
             return primitive_sizes.at(std::static_pointer_cast<AstPrimitiveType>(type)->type);
         }
-        case AstNodeType::AstPointerType:{
+        case AstNodeType::AstPointerType: {
             return 8;
         }
-        case AstNodeType::AstArrayType:{
+        case AstNodeType::AstArrayType: {
             auto array = std::static_pointer_cast<AstArrayType>(type);
-            if (!array->size.has_value()){
+            if (!array->size.has_value()) {
                 throw std::runtime_error("Array without size during code generation.");
             }
-            if (array->size.value()->getType() != AstNodeType::AstInteger){
+            if (array->size.value()->getType() != AstNodeType::AstInteger) {
                 throw std::runtime_error("Array with non constant size during code generation.");
             }
-            return sizeFromSemanticalType(array->subtype) * std::static_pointer_cast<AstInteger>(array->size.value())->value;
+            return sizeFromSemanticalType(array->subtype)
+                 * std::static_pointer_cast<AstInteger>(array->size.value())->value;
         }
         default: throw std::runtime_error("Unimplemented type used");
     }
 }
 
-std::string AArch64CodeGenerator::getRegisterWithSize(int reg, int size){
-    if (reg < 0 || reg > 30){
+std::string AArch64CodeGenerator::getRegisterWithSize(int reg, int size) {
+    if (reg < 0 || reg > 30) {
         Fatal("Register r'", reg, "' of size ", size, " requested. This doesn't exist.\n");
     }
 
-    switch(size){
+    switch (size) {
         case 1:
         case 2:
-        case 4:
-            return "w" + std::to_string(reg);
-        
-        case 8:
-            return "x" + std::to_string(reg);
-        
-        default:
-            Fatal("Register r'", reg, "' of size ", size, " requested. This doesn't exist.\n");
+        case 4:  return "w" + std::to_string(reg);
+
+        case 8:  return "x" + std::to_string(reg);
+
+        default: Fatal("Register r'", reg, "' of size ", size, " requested. This doesn't exist.\n");
     }
 }
-std::string AArch64CodeGenerator::sizeToSuffix(int size,  bool fullSuffix){
-    switch(size){
-        case 1: return "b";
-        case 2: return "h";
-        case 4: return fullSuffix ? "w" : "";
-        case 8: return fullSuffix ? "d" : "";
-        default:
-            Fatal("Instruction suffix for size ", size, " requested. This doesn't exist.\n");
+std::string AArch64CodeGenerator::sizeToSuffix(int size, bool fullSuffix) {
+    switch (size) {
+        case 1:  return "b";
+        case 2:  return "h";
+        case 4:  return fullSuffix ? "w" : "";
+        case 8:  return fullSuffix ? "d" : "";
+        default: Fatal("Instruction suffix for size ", size, " requested. This doesn't exist.\n");
     }
 }
 
-std::string AArch64CodeGenerator::generate(){
+std::string AArch64CodeGenerator::generate() {
     sources.fill("");
     indentLevels.fill(0);
     arrayAccessFinalSize = 0;
@@ -111,15 +108,16 @@ std::string AArch64CodeGenerator::generate(){
     std::string output = "";
     output += "// AArch64 code generated by R-Sharp compiler\n\n";
     output += "// Macros for readability\n";
-    output += ".macro push reg\n"
-              " str \\reg, [sp, -16]!\n"
-              ".endm\n"
-              ".macro pop reg\n"
-              " ldr \\reg, [sp], 16\n"
-              ".endm\n\n";
+    output +=
+        ".macro push reg\n"
+        " str \\reg, [sp, -16]!\n"
+        ".endm\n"
+        ".macro pop reg\n"
+        " ldr \\reg, [sp], 16\n"
+        ".endm\n\n";
     output += ".text\n";
 
-    for (std::string const& externalLabel : externalLabels){
+    for (std::string const& externalLabel : externalLabels) {
         output += ".extern " + externalLabel + "\n";
     }
 
@@ -133,71 +131,71 @@ std::string AArch64CodeGenerator::generate(){
     return output;
 }
 
-std::string AArch64CodeGenerator::getUniqueLabel(std::string const& prefix){
+std::string AArch64CodeGenerator::getUniqueLabel(std::string const& prefix) {
     static uint64_t labelCounter = 0;
     return prefix + "_" + std::to_string(labelCounter++);
 }
 
-void AArch64CodeGenerator::generateFunctionProlouge(){
+void AArch64CodeGenerator::generateFunctionProlouge() {
     emitIndented("// Create stack frame\n");
 
-    for (int i=19; i<=28; i++){
+    for (int i = 19; i <= 28; i++) {
         emitIndented("push x" + std::to_string(i) + "\n");
     }
     emitIndented("mov fp, sp\n");
-
 }
-void AArch64CodeGenerator::generateFunctionEpilouge(){
+void AArch64CodeGenerator::generateFunctionEpilouge() {
     emitIndented("// Destroy stack frame\n");
-    
-    for (int i=28; i>=19; i--){
+
+    for (int i = 28; i >= 19; i--) {
         emitIndented("pop x" + std::to_string(i) + "\n");
     }
 }
-void AArch64CodeGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
+void AArch64CodeGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope) {
     emitIndented("// allocate local variables\n");
     emitIndented("sub sp, sp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
     int max_name_length = 0;
-    for (auto var : scope->variables){
+    for (auto var : scope->variables) {
         max_name_length = std::max<int>(max_name_length, var->name.length());
     }
     max_name_length += 4;
-    for (auto var : scope->variables){
+    for (auto var : scope->variables) {
         emitIndented("// " + var->name);
-        for (int i=0; i<max_name_length - var->name.length(); i++) emit(" ");
+        for (int i = 0; i < max_name_length - var->name.length(); i++)
+            emit(" ");
         emit(std::to_string(std::get<int>(var->accessor)) + "\n");
     }
 }
-void AArch64CodeGenerator::resetStackPointer(std::shared_ptr<AstBlock> scope){
+void AArch64CodeGenerator::resetStackPointer(std::shared_ptr<AstBlock> scope) {
     emitIndented("// Restore stack pointer to before this scope (" + scope->name + ")\n");
     emitIndented("add sp, sp, " + std::to_string(scope->sizeOfLocalVariables) + "\n");
 }
 
 // program
-void AArch64CodeGenerator::visit(std::shared_ptr<AstProgram> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstProgram> node) {
     node->globalScope->accept(this);
-    
-    for (auto var : node->globalScope->variables){
+
+    for (auto var : node->globalScope->variables) {
         var->accessor = getUniqueLabel(var->name);
     }
 
-    for (auto const& child : node->getChildren()){
+    for (auto const& child : node->getChildren()) {
         if (!child) continue;
-        if (child->getType() == AstNodeType::AstFunctionDefinition){
+        if (child->getType() == AstNodeType::AstFunctionDefinition) {
             child->accept(this);
         }
-        else if (child->getType() == AstNodeType::AstVariableDeclaration){
+        else if (child->getType() == AstNodeType::AstVariableDeclaration) {
             child->accept(this);
         }
-        else{
+        else {
             Fatal("Invalid node type in program");
         }
     }
 
 
     // uninitialized global variables
-    for (auto var : root->uninitializedGlobalVariables){
-        if (!var->isDefined){
+    for (auto var : root->uninitializedGlobalVariables) {
+        if (!var->isDefined) {
             emitIndented(std::get<std::string>(var->accessor) + ":\n", BinarySection::BSS);
             indent(BinarySection::BSS);
             emitIndented("    .space " + std::to_string(var->sizeInBytes) + "\n", BinarySection::BSS);
@@ -205,26 +203,31 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstProgram> node){
         }
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstParameterList> node) {
     // generate access strings
     node->parameterBlock->accept(this);
 
     int argumentNumber = 0;
-    for (auto const& child : node->parameters){
+    for (auto const& child : node->parameters) {
         if (argumentNumber == 0) emitIndented("mov x9, x0\n");
         child->accept(this);
         if (argumentNumber == 0) emitIndented("mov x0, x9\n");
 
         emitIndented("// Store argument " + std::to_string(argumentNumber) + " on stack\n");
-        emitIndented("str" + sizeToSuffix(child->variable->sizeInBytes) + " " + getRegisterWithSize(argumentNumber, child->variable->sizeInBytes) + ", [fp, -" + std::to_string(std::get<int>(child->variable->accessor)) + "]\n");
+        emitIndented(
+            "str" + sizeToSuffix(child->variable->sizeInBytes) + " "
+            + getRegisterWithSize(argumentNumber, child->variable->sizeInBytes) + ", [fp, -"
+            + std::to_string(std::get<int>(child->variable->accessor)) + "]\n"
+        );
 
         argumentNumber++;
     }
 }
 
 // definitions
-void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
-    if(std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern) == node->tags->tags.end()){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node) {
+    if (std::find(node->tags->tags.begin(), node->tags->tags.end(), AstTags::Value::Extern)
+        == node->tags->tags.end()) {
         emitIndented("// Function " + node->name + "\n\n");
         emitIndented(".global " + node->functionData->name + "\n");
         emitIndented(node->functionData->name + ":\n");
@@ -240,21 +243,21 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
         emitIndented("ret\n");
         dedent();
     }
-    else{
+    else {
         externalLabels.insert(node->functionData->name);
     }
 }
 
 
 // statements
-void AArch64CodeGenerator::visit(std::shared_ptr<AstBlock> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstBlock> node) {
     emitIndented("// Block begin (" + node->name + ")\n");
     indent();
-    
+
     if (!node->isMerged) setupLocalVariables(node);
 
 
-    for (auto child : node->getChildren()){
+    for (auto child : node->getChildren()) {
         if (child) child->accept(this);
     }
 
@@ -263,21 +266,21 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBlock> node){
     dedent();
     emitIndented("// Block end (" + node->name + ")\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstReturn> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstReturn> node) {
     expectedValueType = ValueType::Value;
     node->value->accept(this);
-    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope){
-        if (scope->expired()){
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
+        else {
             resetStackPointer(scope->lock());
         }
     }
     generateFunctionEpilouge();
     emitIndented("ret\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node) {
     std::string else_label = "." + getUniqueLabel("else");
     std::string end_label = "." + getUniqueLabel("end");
 
@@ -294,7 +297,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
     dedent();
     emitIndented(end_label + ":\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = getUniqueLabel("increment");
@@ -328,7 +331,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     resetStackPointer(node->initializationContext);
     emitIndented("// For loop end\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
     std::string increment_label = "." + getUniqueLabel("increment");
@@ -360,7 +363,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
     emitIndented(end_label + ":\n");
     emitIndented("// For loop end\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
@@ -378,7 +381,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstWhileLoop> node){
     dedent();
     emitIndented(end_label + ":\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node) {
     std::string start_label = "." + getUniqueLabel("start");
     std::string end_label = "." + getUniqueLabel("end");
 
@@ -394,28 +397,27 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
     emitIndented("cbnz x0, " + start_label + "\n");
     dedent();
     emitIndented(end_label + ":\n");
-
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstBreak> node){
-    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
-        if (varScope->expired()){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstBreak> node) {
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
-            resetStackPointer(varScope->lock());
+        else {
+            resetStackPointer(scope->lock());
         }
     }
 
     emitIndented("// Break\n");
     emitIndented("b " + std::get<std::string>(node->loop->breakLabel) + "\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstSkip> node){
-    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
-        if (varScope->expired()){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstSkip> node) {
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
-            resetStackPointer(varScope->lock());
+        else {
+            resetStackPointer(scope->lock());
         }
     }
 
@@ -425,16 +427,12 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstSkip> node){
 
 
 // expressions
-void AArch64CodeGenerator::visit(std::shared_ptr<AstUnary> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstUnary> node) {
     expectValueType(ValueType::Value);
     node->value->accept(this);
-    switch (node->type){
-        case AstUnaryType::Negate:
-            emitIndented("neg x0, x0\n");
-            break;
-        case AstUnaryType::BinaryNot:
-            emitIndented("mvn x0, x0\n");
-            break;
+    switch (node->type) {
+        case AstUnaryType::Negate:    emitIndented("neg x0, x0\n"); break;
+        case AstUnaryType::BinaryNot: emitIndented("mvn x0, x0\n"); break;
         case AstUnaryType::LogicalNot:
             emitIndented("cmp x0, 0\n");
             emitIndented("cset x0, eq\n");
@@ -446,47 +444,63 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstUnary> node){
             break;
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node) {
     node->left->accept(this);
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
-    if (!(node->type == AstBinaryType::LogicalOr || node->type == AstBinaryType::LogicalAnd)){
+    if (!(node->type == AstBinaryType::LogicalOr || node->type == AstBinaryType::LogicalAnd)) {
         emitIndented("push x0\n");
         node->right->accept(this);
         emitIndented("mov x1, x0\n");
         emitIndented("pop x0\n");
     }
-    switch (node->type){
+    switch (node->type) {
         case AstBinaryType::Add:
             emitIndented("// Add\n");
-            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype)) + "\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "mov x2, "
+                    + std::to_string(sizeFromSemanticalType(
+                        std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype
+                    ))
+                    + "\n"
+                );
                 // x0 = x0 + (x1 * x2)
                 emitIndented("madd x0, x1, x2, x0\n");
             }
-            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype)) + "\n");
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "mov x2, "
+                    + std::to_string(sizeFromSemanticalType(
+                        std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype
+                    ))
+                    + "\n"
+                );
                 // x0 = x1 + (x0 * x2)
                 emitIndented("madd x0, x0, x2, x1\n");
             }
-            else{
+            else {
                 expectValueType(ValueType::Value);
                 emitIndented("add x0, x0, x1\n");
             }
             break;
         case AstBinaryType::Subtract:
             emitIndented("// Subtract\n");
-            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n"
+                );
                 // x0 = x0 - (x1 * x2)
                 emitIndented("msub x0, x1, x2, x0\n");
             }
-            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
-                emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType) {
+                emitIndented(
+                    "mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n"
+                );
                 // x0 = x1 - (x0 * x2)
                 emitIndented("msub x0, x0, x2, x1\n");
             }
-            else{
+            else {
                 expectValueType(ValueType::Value);
                 emitIndented("sub x0, x0, x1\n");
             }
@@ -504,14 +518,13 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
             if (sizeFromSemanticalType(node->left->semanticType) <= 2)
                 emitIndented("sxth w0, w0    // sign extend from 16-bit to 32-bit\n");
 
-            
+
             if (sizeFromSemanticalType(node->right->semanticType) == 1)
                 emitIndented("sxtb w1, w1    // sign extend from 8-bit to 16-bit\n");
             if (sizeFromSemanticalType(node->right->semanticType) <= 2)
                 emitIndented("sxth w1, w1    // sign extend from 16-bit to 32-bit\n");
 
-            if (sizeFromSemanticalType(node->left->semanticType) == 8)
-                emitIndented("sdiv x0, x0, x1\n");
+            if (sizeFromSemanticalType(node->left->semanticType) == 8) emitIndented("sdiv x0, x0, x1\n");
             else
                 emitIndented("sdiv w0, w0, w1\n");
 
@@ -560,7 +573,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
             emitIndented("cset x0, ge\n");
             break;
 
-        case AstBinaryType::LogicalAnd:{
+        case AstBinaryType::LogicalAnd: {
             expectValueType(ValueType::Value);
             emitIndented("// Logical And\n");
             std::string end = "." + getUniqueLabel("end");
@@ -574,7 +587,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         }
 
-        case AstBinaryType::LogicalOr:{
+        case AstBinaryType::LogicalOr: {
             expectValueType(ValueType::Value);
             emitIndented("// Logical Or\n");
             std::string clause2 = "." + getUniqueLabel("second_expression");
@@ -582,7 +595,8 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
             emitIndented("cbz x0, " + clause2 + "\n");
             emitIndented("mov x0, 1\n");
             emitIndented("b " + end + "\n");
-            emitIndented(clause2 + ":\n"); indent();
+            emitIndented(clause2 + ":\n");
+            indent();
 
             // evaluate right side
             node->right->accept(this);
@@ -599,10 +613,10 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstInteger> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstInteger> node) {
     expectValueType(ValueType::Value);
     emitIndented("// Integer " + std::to_string(node->value) + "\n");
-    if (node->value == 0){
+    if (node->value == 0) {
         emitIndented("mov x0, xzr\n");
         return;
     }
@@ -611,19 +625,22 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstInteger> node){
     // movk MOVes and Keeps the rest
 
     uint64_t valueCopy = static_cast<uint64_t>(node->value);
-    for (int shiftAmount = 0; valueCopy >> shiftAmount && shiftAmount < 64; shiftAmount += 16){
-        if (shiftAmount == 0){
+    for (int shiftAmount = 0; valueCopy >> shiftAmount && shiftAmount < 64; shiftAmount += 16) {
+        if (shiftAmount == 0) {
             emitIndented("movz x0, " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + "\n");
         }
-        else{
-            emitIndented("movk x0, " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + ", lsl " + std::to_string(shiftAmount) + "\n");
+        else {
+            emitIndented(
+                "movk x0, " + std::to_string((valueCopy >> shiftAmount) & 0xFFFF) + ", lsl "
+                + std::to_string(shiftAmount) + "\n"
+            );
         }
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node) {
     auto size = sizeFromSemanticalType(node->semanticType);
     emitIndented("// Variable Access(" + node->name + ")\n");
-    if (node->semanticType->getType() == AstNodeType::AstArrayType && expectedValueType == ValueType::Value){
+    if (node->semanticType->getType() == AstNodeType::AstArrayType && expectedValueType == ValueType::Value) {
         emitIndented("// Copy " + std::to_string(size) + " bytes of stack space\n");
         emitIndented("sub sp, sp, " + std::to_string(size) + "\n");
         emitIndented("mov x0, sp\n");
@@ -636,20 +653,20 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableAccess> node){
         emitIndented("bl memcpy\n");
         functionCallEpilogue();
     }
-    else{
-        if (node->variable->isGlobal){
+    else {
+        if (node->variable->isGlobal) {
             emitIndented("ldr x0, =[" + std::get<std::string>(node->variable->accessor) + "]\n");
         }
-        else{
+        else {
             emitIndented("sub x0, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
         }
 
-        if (expectedValueType == ValueType::Value){
+        if (expectedValueType == ValueType::Value) {
             emitIndented("ldr" + sizeToSuffix(size) + " " + getRegisterWithSize(0, size) + ", [x0]\n");
         }
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node) {
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Value;
     node->rvalue->accept(this);
@@ -659,7 +676,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
     expectedValueType = ValueType::Value;
     emitIndented("pop x1\n");
 
-    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType){
+    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType) {
         emitIndented("mov x1, sp\n");
         emitIndented("ldr x2, =" + std::to_string(stackPassedValueSize) + "\n");
         functionCallPrologue();
@@ -672,7 +689,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstAssignment> node){
         emitIndented("mov x0, x1\n");
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node) {
     expectValueType(ValueType::Value);
     std::string true_clause = "." + getUniqueLabel("true_expression");
     std::string false_clause = "." + getUniqueLabel("false_expression");
@@ -680,31 +697,33 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstConditionalExpression> node)
     node->condition->accept(this);
     emitIndented("// Conditional Expression\n");
     emitIndented("cbz x0, " + false_clause + "\n");
-    emitIndented(true_clause + ":\n"); indent();
+    emitIndented(true_clause + ":\n");
+    indent();
     node->trueExpression->accept(this);
     emitIndented("b " + end + "\n");
     dedent();
-    emitIndented(false_clause + ":\n"); indent();
+    emitIndented(false_clause + ":\n");
+    indent();
     node->falseExpression->accept(this);
     dedent();
     emitIndented(end + ":\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstEmptyExpression> node) {
     expectValueType(ValueType::Value);
     emitIndented("// Empty Expression\n");
     emitIndented("mov x0, 1\n");
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstExpressionStatement> node) {
     stackPassedValueSize = 0;
     expectedValueType = ValueType::Value;
     node->expression->accept(this);
-    if (node->expression->semanticType->getType() == AstNodeType::AstArrayType){
+    if (node->expression->semanticType->getType() == AstNodeType::AstArrayType) {
         emitIndented("// Cleanup after array expression\n");
         emitIndented("add sp, sp, " + std::to_string(stackPassedValueSize) + "\n");
     }
 }
 
-void AArch64CodeGenerator::functionCallPrologue(){
+void AArch64CodeGenerator::functionCallPrologue() {
     emitIndented("// Align to 16 bytes\n");
     emitIndented("stp x8, x9, [sp, #-16]!\n");
     emitIndented("mov x20, sp\n");
@@ -714,11 +733,11 @@ void AArch64CodeGenerator::functionCallPrologue(){
     emitIndented("and x8, x9, x8\n");
     emitIndented("mov sp, x8\n");
     emitIndented("sub x20, x20, x8\n");
-    
+
     emitIndented("stp fp, lr, [sp, -16]!\n");
     emitIndented("mov fp, sp\n");
 }
-void AArch64CodeGenerator::functionCallEpilogue(){
+void AArch64CodeGenerator::functionCallEpilogue() {
     emitIndented("ldp fp, lr, [sp], 16\n");
 
     emitIndented("// Reset stack alignment\n");
@@ -727,21 +746,21 @@ void AArch64CodeGenerator::functionCallEpilogue(){
 }
 
 
-void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node) {
     expectValueType(ValueType::Value);
     // evaluate arguments
-    for (auto arg : node->arguments){
+    for (auto arg : node->arguments) {
         expectedValueType = ValueType::Value;
         arg->accept(this);
         emitIndented("push x0\n");
     }
-    if (node->arguments.size() > 8){
+    if (node->arguments.size() > 8) {
         Error("AArch64 Generator: More than 8 function arguments aren't yet supported!");
         printErrorToken(node->arguments.at(8)->token, R_SharpSource);
         exit(1);
     }
     // move arguments to registers
-    for (int i=node->arguments.size()-1; i>=0; i--){
+    for (int i = node->arguments.size() - 1; i >= 0; i--) {
         emitIndented("pop x" + std::to_string(i) + "\n");
     }
 
@@ -753,38 +772,49 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstFunctionCall> node){
     emitIndented("// Restore after function call (" + node->name + ")\n");
     functionCallEpilogue();
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstAddressOf> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstAddressOf> node) {
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Address;
     node->operand->accept(this);
     expectedValueType = ValueType::Value;
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstTypeConversion> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstTypeConversion> node) {
     int originSize = sizeFromSemanticalType(node->value->semanticType);
     int targetSize = sizeFromSemanticalType(node->semanticType);
     node->value->accept(this);
-    if (expectedValueType == ValueType::Value){
+    if (expectedValueType == ValueType::Value) {
         // only typecast values, no addresses
-        if (targetSize > originSize){
-            emitIndented("// Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize) + " bytes.\n");
-            emitIndented("sxt" + sizeToSuffix(originSize, true) + " " + getRegisterWithSize(0, targetSize) + ", w0\n");
+        if (targetSize > originSize) {
+            emitIndented(
+                "// Convert from " + std::to_string(originSize) + " bytes to " + std::to_string(targetSize)
+                + " bytes.\n"
+            );
+            emitIndented(
+                "sxt" + sizeToSuffix(originSize, true) + " " + getRegisterWithSize(0, targetSize) + ", w0\n"
+            );
         }
-        else if (targetSize == originSize);
-        else{
-            emitIndented("// explicit and to detect invalid upcasts later (" + std::to_string(originSize) + " Bytes --> " + std::to_string(targetSize) + " Bytes)\n");
-            emitIndented("mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize*8))-1)) + "\n");
+        else if (targetSize == originSize)
+            ;
+        else {
+            emitIndented(
+                "// explicit and to detect invalid upcasts later (" + std::to_string(originSize)
+                + " Bytes --> " + std::to_string(targetSize) + " Bytes)\n"
+            );
+            emitIndented(
+                "mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(targetSize * 8)) - 1))
+                + "\n"
+            );
             emitIndented("and x0, x0, x1\n");
         }
     }
 }
 
 
-
 // declarations
-void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node) {
     expectedValueType = ValueType::Value;
-    if (node->variable->isGlobal){
-        if (!node->value){
+    if (node->variable->isGlobal) {
+        if (!node->value) {
             return;
         }
         emitIndented("// Global Variable (" + node->name + ")\n", BinarySection::Data);
@@ -794,18 +824,20 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
         defineGlobalData(node->value);
         dedent(BinarySection::Data);
     }
-    else{
+    else {
         emitIndented("// Variable (" + node->name + ")\n");
-        
-        if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType){
-            if (node->value){
+
+        if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType) {
+            if (node->value) {
                 node->value->accept(this);
                 auto size = node->variable->sizeInBytes;
                 emitIndented("// Copy " + std::to_string(size) + " bytes of stack space\n");
                 if (node->variable->isGlobal)
                     emitIndented("ldr x0, =[" + std::get<std::string>(node->variable->accessor) + "]\n");
                 else
-                    emitIndented("sub x0, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
+                    emitIndented(
+                        "sub x0, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n"
+                    );
                 emitIndented("mov x1, sp\n");
                 emitIndented("ldr x2, =" + std::to_string(size) + "\n");
                 functionCallPrologue();
@@ -813,7 +845,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
                 functionCallEpilogue();
                 emitIndented("add sp, sp, " + std::to_string(size) + "\n");
             }
-            else{
+            else {
                 auto size = sizeFromSemanticalType(node->semanticType);
                 emitIndented("// Zero out " + std::to_string(size) + " bytes of stack space\n");
                 emitIndented("sub x0, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
@@ -824,45 +856,51 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
                 functionCallEpilogue();
             }
         }
-        else{
-            if (node->value){
+        else {
+            if (node->value) {
                 node->value->accept(this);
             }
-            else{
+            else {
                 emitIndented("mov x0, 0\n");
             }
             emitIndented("sub x19, fp, " + std::to_string(std::get<int>(node->variable->accessor)) + "\n");
-            emitIndented("str" + sizeToSuffix(node->variable->sizeInBytes) + " " + getRegisterWithSize(0, node->variable->sizeInBytes) + ", [x19]\n");
+            emitIndented(
+                "str" + sizeToSuffix(node->variable->sizeInBytes) + " "
+                + getRegisterWithSize(0, node->variable->sizeInBytes) + ", [x19]\n"
+            );
         }
     }
 }
 
-void AArch64CodeGenerator::visit(std::shared_ptr<AstDereference> node){
-    if (expectedValueType == ValueType::Value){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstDereference> node) {
+    if (expectedValueType == ValueType::Value) {
         int size = sizeFromSemanticalType(node->semanticType);
         node->operand->accept(this);
         emitIndented("// Dereference\n");
         emitIndented("ldr x0, [x0]\n");
-        emitIndented("// explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(size) + " Bytes)\n");
-        emitIndented("mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(size*8))-1)) + "\n");
+        emitIndented(
+            "// explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(size)
+            + " Bytes)\n"
+        );
+        emitIndented(
+            "mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(size * 8)) - 1)) + "\n"
+        );
         emitIndented("and x0, x0, x1\n");
     }
-    else{
+    else {
         expectedValueType = ValueType::Value;
         node->operand->accept(this);
         // x0 already contains the address
     }
 }
-void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
+void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayAccess> node) {
     emitIndented("// array access\n");
     int targetSize = sizeFromSemanticalType(node->semanticType);
 
     const auto prevArrayAccessFinalSize = arrayAccessFinalSize;
-    auto arrayAccessFinalSizeRestore = ScopeGuard([&](){
-        arrayAccessFinalSize = prevArrayAccessFinalSize;
-    });
+    auto arrayAccessFinalSizeRestore = ScopeGuard([&]() { arrayAccessFinalSize = prevArrayAccessFinalSize; });
 
-    if (arrayAccessFinalSize == 0){
+    if (arrayAccessFinalSize == 0) {
         emitIndented("mov x0, xzr\n");
         arrayAccessFinalSize = targetSize;
     }
@@ -876,7 +914,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
     emitIndented("ldr x2, =" + std::to_string(targetSize) + "\n");
     emitIndented("madd x0, x0, x2, x1\n");
 
-    if (node->array->getType() == AstNodeType::AstVariableAccess || node->array->getType() == AstNodeType::AstDereference){
+    if (node->array->getType() == AstNodeType::AstVariableAccess || node->array->getType() == AstNodeType::AstDereference) {
         emitIndented("mov x2, x0\n");
         const auto prevValueType = expectedValueType;
         expectedValueType = ValueType::Address;
@@ -885,28 +923,34 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayAccess> node){
 
         emitIndented("add x0, x0, x2\n");
         if (expectedValueType == ValueType::Value)
-            emitIndented("ldr" + sizeToSuffix(arrayAccessFinalSize) + " " + getRegisterWithSize(0, arrayAccessFinalSize) + ", [x0]\n");
+            emitIndented(
+                "ldr" + sizeToSuffix(arrayAccessFinalSize) + " "
+                + getRegisterWithSize(0, arrayAccessFinalSize) + ", [x0]\n"
+            );
     }
 
-    else if (node->array->getType() == AstNodeType::AstArrayAccess){
+    else if (node->array->getType() == AstNodeType::AstArrayAccess) {
         node->array->accept(this);
     }
-    else if (node->array->getType() == AstNodeType::AstArrayLiteral){
+    else if (node->array->getType() == AstNodeType::AstArrayLiteral) {
         expectValueType(ValueType::Value);
         emitIndented("push x2\n");
         node->array->accept(this);
-        
+
         // restore x2
         emitIndented("add x2, sp, " + std::to_string(stackPassedValueSize) + "\n");
         emitIndented("ldr x2, [x2]\n");
 
         emitIndented("add x2, sp, x2\n");
-        emitIndented("ldr" + sizeToSuffix(arrayAccessFinalSize) + " " + getRegisterWithSize(0, arrayAccessFinalSize) + ", [x2]\n");
+        emitIndented(
+            "ldr" + sizeToSuffix(arrayAccessFinalSize) + " " + getRegisterWithSize(0, arrayAccessFinalSize)
+            + ", [x2]\n"
+        );
 
         // +16 for the pushed r2 and padding for 16-byte alignment
-        emitIndented("add sp, sp, " + std::to_string(stackPassedValueSize+16) + "\n");
+        emitIndented("add sp, sp, " + std::to_string(stackPassedValueSize + 16) + "\n");
     }
-    else{
+    else {
         Error("NASM Generator: Unimplemented array access!");
         printErrorToken(node->token, R_SharpSource);
         exit(1);
@@ -919,19 +963,21 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     emitIndented("// Array Literal\n");
     emitIndented("sub sp, sp, " + std::to_string(sizeFromSemanticalType(node->semanticType)) + "\n");
     uint64_t currentOffset = 0;
-    for (auto element : node->elements){
+    for (auto element : node->elements) {
         element->accept(this);
         emitIndented("add x19, sp, " + std::to_string(currentOffset) + "\n");
-        switch(elementSize){
+        switch (elementSize) {
             case 1:
             case 2:
             case 4:
             case 8:
-                emitIndented("str" + sizeToSuffix(elementSize) + " " + getRegisterWithSize(0, elementSize) + ", [x19]\n");
+                emitIndented(
+                    "str" + sizeToSuffix(elementSize) + " " + getRegisterWithSize(0, elementSize) + ", [x19]\n"
+                );
                 break;
-            default:{
+            default: {
                 emitIndented("// Copy " + std::to_string(elementSize) + " bytes of stack space\n");
-                emitIndented("add x0, sp, " + std::to_string(currentOffset+elementSize) + "\n");
+                emitIndented("add x0, sp, " + std::to_string(currentOffset + elementSize) + "\n");
                 emitIndented("mov x1, sp\n");
                 emitIndented("ldr x2, =" + std::to_string(elementSize) + "\n");
                 functionCallPrologue();
@@ -941,7 +987,7 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
             }
         }
         currentOffset += elementSize;
-        if (element->getType() == AstNodeType::AstArrayLiteral){
+        if (element->getType() == AstNodeType::AstArrayLiteral) {
             emitIndented("add sp, sp, " + std::to_string(stackPassedValueSize) + "\n");
         }
     }
@@ -949,14 +995,22 @@ void AArch64CodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     stackPassedValueSize = sizeFromSemanticalType(node->semanticType);
 }
 
-void AArch64CodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node){
-    if (node->getType() == AstNodeType::AstInteger){
+void AArch64CodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node) {
+    if (node->getType() == AstNodeType::AstInteger) {
         auto intNode = std::dynamic_pointer_cast<AstInteger>(node);
-        switch(sizeFromSemanticalType(node->semanticType)){
-            case 1: emitIndented(".byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 2: emitIndented(".2byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 4: emitIndented(".4byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
-            case 8: emitIndented(".8byte " + std::to_string(intNode->value) + "\n", BinarySection::Data); break;
+        switch (sizeFromSemanticalType(node->semanticType)) {
+            case 1:
+                emitIndented(".byte " + std::to_string(intNode->value) + "\n", BinarySection::Data);
+                break;
+            case 2:
+                emitIndented(".2byte " + std::to_string(intNode->value) + "\n", BinarySection::Data);
+                break;
+            case 4:
+                emitIndented(".4byte " + std::to_string(intNode->value) + "\n", BinarySection::Data);
+                break;
+            case 8:
+                emitIndented(".8byte " + std::to_string(intNode->value) + "\n", BinarySection::Data);
+                break;
             default:
                 Error("AArch64 Generator: Global variable size not supported!");
                 printErrorToken(node->token, R_SharpSource);
@@ -964,22 +1018,23 @@ void AArch64CodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node)
                 break;
         }
     }
-    else if (node->getType() == AstNodeType::AstArrayLiteral){
+    else if (node->getType() == AstNodeType::AstArrayLiteral) {
         auto arrayNode = std::dynamic_pointer_cast<AstArrayLiteral>(node);
-        for (auto element : arrayNode->elements){
+        for (auto element : arrayNode->elements) {
             bool contains_array = element->semanticType->getType() == AstNodeType::AstArrayType;
-            if (contains_array)
-                indent(BinarySection::Data);
+            if (contains_array) indent(BinarySection::Data);
 
             defineGlobalData(element);
-            if (contains_array){
+            if (contains_array) {
                 dedent(BinarySection::Data);
                 emitIndented("\n", BinarySection::Data);
             }
         }
     }
-    else{
-        Error("AArch64 Generator: Global variable must be an integer or array. (Found: " + node->toString() + ")");
+    else {
+        Error(
+            "AArch64 Generator: Global variable must be an integer or array. (Found: " + node->toString() + ")"
+        );
         printErrorToken(node->token, R_SharpSource);
         exit(1);
     }

@@ -13,7 +13,7 @@ std::string escapeString(std::string const& str) {
             case '\'': result += "\\'"; break;
             case '\"': result += "\\\""; break;
             case '\\': result += "\\\\"; break;
-            default: result += c; break;
+            default:   result += c; break;
         }
     }
     return result;
@@ -29,7 +29,7 @@ std::vector<Token> cleanTokens(std::vector<Token> const& tokens) {
     return result;
 }
 
-void printErrorToken(Token token, std::string const& source){
+void printErrorToken(Token token, std::string const& source) {
     int start = token.position.startPos;
     int end = token.position.endPos;
 
@@ -44,10 +44,10 @@ void printErrorToken(Token token, std::string const& source){
 
     for (char c : src) {
         if (line >= token.position.line - 3 && line <= token.position.line) {
-            if (column == 1){
+            if (column == 1) {
                 ss << line;
                 // print some spacing to align the code
-                for (int i = 0; i < std::to_string(token.position.line).length()-std::to_string(line).length(); i++){
+                for (int i = 0; i < std::to_string(token.position.line).length() - std::to_string(line).length(); i++) {
                     ss << " ";
                 }
                 ss << "| ";
@@ -59,20 +59,23 @@ void printErrorToken(Token token, std::string const& source){
         if (c == '\n') {
             line++;
             column = 1;
-        } else {
+        }
+        else {
             column++;
         }
     }
 
     int prefixLen = (std::to_string(token.position.line) + "| ").length();
 
-    ss << "\n" << ANSI::set4BitColor(ANSI::Red) // enable red text
-        << std::string(prefixLen + token.position.column - 1, ' ') // print spaces before the error
-        << "^";
+    ss << "\n"
+       << ANSI::set4BitColor(ANSI::Red)                           // enable red text
+       << std::string(prefixLen + token.position.column - 1, ' ') // print spaces before the error
+       << "^";
     try {
         ss << std::string(end - start - 1, '~'); // underline the error
     }
-    catch(std::length_error){}
+    catch (std::length_error) {
+    }
 
     ss << ANSI::reset(); // disable red text
     Print(ss.str());

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-struct Architecture{
+struct Architecture {
     std::vector<RSI::HWRegister> allRegisters;
     std::vector<RSI::HWRegister> generalPurposeRegisters;
     std::vector<RSI::HWRegister> parameterRegisters;
@@ -20,7 +20,7 @@ struct Architecture{
     void validate();
 };
 
-enum class OutputArchitecture{
+enum class OutputArchitecture {
     x86_64,
     AArch64,
 };
@@ -30,7 +30,7 @@ inline const std::set<OutputArchitecture> allArchitectureTypes = {OutputArchitec
 extern const Architecture x86_64;
 extern const Architecture aarch64;
 
-enum class NasmRegisters{
+enum class NasmRegisters {
     RAX,
     RBX,
     RCX,
@@ -51,4 +51,3 @@ enum class NasmRegisters{
     COUNT,
 };
 extern const std::map<std::pair<std::string, int>, std::string> nasmRegisterSize;
-

@@ -9,42 +9,43 @@
 #include <sstream>
 #include <map>
 
-RSIGenerator::RSIGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource){
+RSIGenerator::RSIGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource) {
     this->root = root;
     this->R_SharpSource = R_SharpSource;
 }
 
-int RSIGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type){
+int RSIGenerator::sizeFromSemanticalType(std::shared_ptr<AstType> type) {
     static const std::map<RSharpPrimitiveType, int> primitive_sizes = {
         {RSharpPrimitiveType::C_void, 1}, // should only be used for pointer arithmetic
-        {RSharpPrimitiveType::I8, 1},
-        {RSharpPrimitiveType::I16, 2},
-        {RSharpPrimitiveType::I32, 4},
-        {RSharpPrimitiveType::I64, 8},
+        {RSharpPrimitiveType::I8,     1},
+        {RSharpPrimitiveType::I16,    2},
+        {RSharpPrimitiveType::I32,    4},
+        {RSharpPrimitiveType::I64,    8},
     };
 
-    switch(type->getType()){
-        case AstNodeType::AstPrimitiveType:{
+    switch (type->getType()) {
+        case AstNodeType::AstPrimitiveType: {
             return primitive_sizes.at(std::static_pointer_cast<AstPrimitiveType>(type)->type);
         }
-        case AstNodeType::AstPointerType:{
+        case AstNodeType::AstPointerType: {
             return 8;
         }
-        case AstNodeType::AstArrayType:{
+        case AstNodeType::AstArrayType: {
             auto array = std::static_pointer_cast<AstArrayType>(type);
-            if (!array->size.has_value()){
+            if (!array->size.has_value()) {
                 throw std::runtime_error("Array without size during code generation.");
             }
-            if (array->size.value()->getType() != AstNodeType::AstInteger){
+            if (array->size.value()->getType() != AstNodeType::AstInteger) {
                 throw std::runtime_error("Array with non constant size during code generation.");
             }
-            return sizeFromSemanticalType(array->subtype) * std::static_pointer_cast<AstInteger>(array->size.value())->value;
+            return sizeFromSemanticalType(array->subtype)
+                 * std::static_pointer_cast<AstInteger>(array->size.value())->value;
         }
         default: throw std::runtime_error("Unimplemented type used");
     }
 }
 
-RSI::TranslationUnit RSIGenerator::generate(){
+RSI::TranslationUnit RSIGenerator::generate() {
     arrayAccessFinalSize = 0;
     stackPassedValueSize = 0;
 
@@ -58,20 +59,20 @@ RSI::TranslationUnit RSIGenerator::generate(){
     return generatedTU;
 }
 
-std::string RSIGenerator::makeStringUnique(std::string const& prefix){
+std::string RSIGenerator::makeStringUnique(std::string const& prefix) {
     static uint64_t labelCounter = 0;
     return prefix + "_" + std::to_string(labelCounter++);
 }
-std::shared_ptr<RSI::Reference> RSIGenerator::getNewReference(std::string const& name){
+std::shared_ptr<RSI::Reference> RSIGenerator::getNewReference(std::string const& name) {
     return std::make_shared<RSI::Reference>(RSI::Reference{.name = makeStringUnique(name)});
 }
-std::shared_ptr<RSI::Label> RSIGenerator::getNewLabel(std::string const& name){
+std::shared_ptr<RSI::Label> RSIGenerator::getNewLabel(std::string const& name) {
     return std::make_shared<RSI::Label>(RSI::Label{.name = makeStringUnique(name)});
 }
 
-void RSIGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
+void RSIGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope) {
     int max_name_length = 0;
-    for (auto var : scope->variables){
+    for (auto var : scope->variables) {
         max_name_length = std::max<int>(max_name_length, var->name.length());
     }
     max_name_length += 4;
@@ -83,55 +84,57 @@ void RSIGenerator::setupLocalVariables(std::shared_ptr<AstBlock> scope){
 }
 
 // program
-void RSIGenerator::visit(std::shared_ptr<AstProgram> node){
+void RSIGenerator::visit(std::shared_ptr<AstProgram> node) {
     node->globalScope->accept(this);
-    
-    for (auto var : node->globalScope->variables){
+
+    for (auto var : node->globalScope->variables) {
         var->accessor = makeStringUnique(var->name);
     }
 
 
     // generate labels
-    for (auto const& child : node->getChildren()){
+    for (auto const& child : node->getChildren()) {
         if (!child) continue;
-        if (child->getType() == AstNodeType::AstFunctionDefinition){
+        if (child->getType() == AstNodeType::AstFunctionDefinition) {
             auto function_def = std::dynamic_pointer_cast<AstFunctionDefinition>(child);
-            if (ContainerTools::contains(function_def->tags->tags, AstTags::Value::Extern)){
-                function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(RSI::Label{.name = function_def->functionData->name});
+            if (ContainerTools::contains(function_def->tags->tags, AstTags::Value::Extern)) {
+                function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(
+                    RSI::Label{.name = function_def->functionData->name}
+                );
             }
-            else{
+            else {
                 function_def->functionData->rsiLabel = getNewLabel(function_def->functionData->name);
             }
 
             // main is implicitly extern
-            if (function_def->functionData->name == "main"){
-                function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(RSI::Label{.name = function_def->functionData->name});
+            if (function_def->functionData->name == "main") {
+                function_def->functionData->rsiLabel = std::make_shared<RSI::Label>(
+                    RSI::Label{.name = function_def->functionData->name}
+                );
             }
         }
-        else if (child->getType() == AstNodeType::AstVariableDeclaration){
+        else if (child->getType() == AstNodeType::AstVariableDeclaration) {
             child->accept(this);
         }
     }
 
-    for (auto const& child : node->getChildren()){
+    for (auto const& child : node->getChildren()) {
         if (!child) continue;
-        if (child->getType() == AstNodeType::AstFunctionDefinition){
+        if (child->getType() == AstNodeType::AstFunctionDefinition) {
             child->accept(this);
         }
-        else if (child->getType() == AstNodeType::AstVariableDeclaration){
-            
-        }
-        else{
+        else if (child->getType() == AstNodeType::AstVariableDeclaration) {}
+        else {
             Fatal("Invalid node type in program");
         }
     }
 }
-void RSIGenerator::visit(std::shared_ptr<AstParameterList> node){
+void RSIGenerator::visit(std::shared_ptr<AstParameterList> node) {
     // generate access strings
     node->parameterBlock->accept(this);
 
     uint parameterIndex = 0;
-    for (auto const& child : node->parameters){
+    for (auto const& child : node->parameters) {
         auto ref = getNewReference(child->variable->name);
         child->variable->accessor = ref;
         emit(RSI::Instruction{
@@ -140,19 +143,19 @@ void RSIGenerator::visit(std::shared_ptr<AstParameterList> node){
             .op1 = RSI::Constant{.value = parameterIndex},
         });
         ref->variable = child->variable;
-        
+
         parameterIndex++;
     }
 }
 
 // definitions
-void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
-    if(!ContainerTools::contains(node->tags->tags, AstTags::Value::Extern)){
+void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node) {
+    if (!ContainerTools::contains(node->tags->tags, AstTags::Value::Extern)) {
         auto& func = generatedTU.functions.emplace_back();
         func.name = node->functionData->name;
         func.function = node->functionData;
 
-        if (!node->functionData->rsiLabel){
+        if (!node->functionData->rsiLabel) {
             Fatal("Function \"", node->name, "\" didn't get an RSI label.");
         }
 
@@ -172,32 +175,32 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionDefinition> node){
             .op1 = RSI::Constant{.value = 0},
         });
     }
-    else{
+    else {
         generatedTU.externLabels.push_back(node->functionData->rsiLabel);
     }
 }
 
 
 // statements
-void RSIGenerator::visit(std::shared_ptr<AstBlock> node){
+void RSIGenerator::visit(std::shared_ptr<AstBlock> node) {
     if (!node->isMerged) setupLocalVariables(node);
 
 
-    for (auto child : node->getChildren()){
+    for (auto child : node->getChildren()) {
         if (child) child->accept(this);
     }
 
     // don't change stack pointer if it wasn't modified
     if (!node->isMerged) resetStackPointer(node);
 }
-void RSIGenerator::visit(std::shared_ptr<AstReturn> node){
+void RSIGenerator::visit(std::shared_ptr<AstReturn> node) {
     expectedValueType = ValueType::Value;
     node->value->accept(this);
-    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope){
-        if (scope->expired()){
+    for (auto scope = node->containedScopes.rbegin(); scope != node->containedScopes.rend(); ++scope) {
+        if (scope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
+        else {
             resetStackPointer(scope->lock());
         }
     }
@@ -206,7 +209,7 @@ void RSIGenerator::visit(std::shared_ptr<AstReturn> node){
         .op1 = lastResult,
     });
 }
-void RSIGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
+void RSIGenerator::visit(std::shared_ptr<AstConditionalStatement> node) {
     const auto else_label = getNewLabel(".else");
     const auto end_label = getNewLabel(".end");
 
@@ -232,7 +235,7 @@ void RSIGenerator::visit(std::shared_ptr<AstConditionalStatement> node){
         .op1 = end_label,
     });
 }
-void RSIGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
+void RSIGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node) {
     auto const start_label = getNewLabel(".start");
     auto const end_label = getNewLabel(".end");
     auto const increment_label = getNewLabel(".increment");
@@ -255,7 +258,7 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
         .op2 = end_label,
     });
     node->body->accept(this);
-    
+
     emit(RSI::Instruction{
         .type = RSI::InstructionType::DEFINE_LABEL,
         .op1 = increment_label,
@@ -273,7 +276,7 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopDeclaration> node){
     // // manually restore the stack pointer
     // resetStackPointer(node->initializationContext);
 }
-void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
+void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node) {
     auto const start_label = getNewLabel(".start");
     auto const end_label = getNewLabel(".end");
     auto const increment_label = getNewLabel(".increment");
@@ -295,7 +298,7 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
         .op2 = end_label,
     });
     node->body->accept(this);
-    
+
     emit(RSI::Instruction{
         .type = RSI::InstructionType::DEFINE_LABEL,
         .op1 = increment_label,
@@ -310,7 +313,7 @@ void RSIGenerator::visit(std::shared_ptr<AstForLoopExpression> node){
         .op1 = end_label,
     });
 }
-void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node){
+void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node) {
     auto const start_label = getNewLabel(".start");
     auto const end_label = getNewLabel(".end");
 
@@ -337,7 +340,7 @@ void RSIGenerator::visit(std::shared_ptr<AstWhileLoop> node){
         .op1 = end_label,
     });
 }
-void RSIGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
+void RSIGenerator::visit(std::shared_ptr<AstDoWhileLoop> node) {
     auto const start_label = getNewLabel(".start");
     auto const end_label = getNewLabel(".end");
 
@@ -363,14 +366,13 @@ void RSIGenerator::visit(std::shared_ptr<AstDoWhileLoop> node){
         .type = RSI::InstructionType::DEFINE_LABEL,
         .op1 = end_label,
     });
-
 }
-void RSIGenerator::visit(std::shared_ptr<AstBreak> node){
-    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
-        if (varScope->expired()){
+void RSIGenerator::visit(std::shared_ptr<AstBreak> node) {
+    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope) {
+        if (varScope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
+        else {
             resetStackPointer(varScope->lock());
         }
     }
@@ -380,12 +382,12 @@ void RSIGenerator::visit(std::shared_ptr<AstBreak> node){
         .op1 = std::get<std::shared_ptr<RSI::Label>>(node->loop->breakLabel),
     });
 }
-void RSIGenerator::visit(std::shared_ptr<AstSkip> node){
-    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope){
-        if (varScope->expired()){
+void RSIGenerator::visit(std::shared_ptr<AstSkip> node) {
+    for (auto varScope = node->containedScopes.rbegin(); varScope != node->containedScopes.rend(); ++varScope) {
+        if (varScope->expired()) {
             Fatal("INTERNAL ERROR: std::weak_ptr expired during code generation.");
         }
-        else{
+        else {
             resetStackPointer(varScope->lock());
         }
     }
@@ -398,25 +400,19 @@ void RSIGenerator::visit(std::shared_ptr<AstSkip> node){
 
 
 // expressions
-void RSIGenerator::visit(std::shared_ptr<AstUnary> node){
+void RSIGenerator::visit(std::shared_ptr<AstUnary> node) {
     expectValueType(ValueType::Value);
     node->value->accept(this);
-    
+
     RSI::Instruction instr{
         .result = getNewReference(),
         .op1 = lastResult,
     };
 
-    switch (node->type){
-        case AstUnaryType::Negate:
-            instr.type = RSI::InstructionType::NEGATE;
-            break;
-        case AstUnaryType::BinaryNot:
-            instr.type = RSI::InstructionType::BINARY_NOT;
-            break;
-        case AstUnaryType::LogicalNot:
-            instr.type = RSI::InstructionType::LOGICAL_NOT;
-            break;
+    switch (node->type) {
+        case AstUnaryType::Negate:     instr.type = RSI::InstructionType::NEGATE; break;
+        case AstUnaryType::BinaryNot:  instr.type = RSI::InstructionType::BINARY_NOT; break;
+        case AstUnaryType::LogicalNot: instr.type = RSI::InstructionType::LOGICAL_NOT; break;
         default:
             Error("RSI Generator: Unary operator not implemented!");
             printErrorToken(node->token, R_SharpSource);
@@ -425,16 +421,16 @@ void RSIGenerator::visit(std::shared_ptr<AstUnary> node){
     }
     emit(instr);
 }
-void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
+void RSIGenerator::visit(std::shared_ptr<AstBinary> node) {
     node->left->accept(this);
     const auto leftValue = lastResult;
 
     // logical and and or will short circuit, so the right side is not evaluated until necessary
-    if (node->type == AstBinaryType::LogicalOr){
+    if (node->type == AstBinaryType::LogicalOr) {
         auto end_label = getNewLabel(".logical_or_end");
         auto right_label = getNewLabel(".logical_or_right");
         auto result = getNewReference("result");
-        
+
         emit(RSI::Instruction{
             .type = RSI::InstructionType::JUMP_IF_ZERO,
             .op1 = leftValue,
@@ -472,11 +468,11 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         lastResult = result;
         return;
     }
-    else if (node->type == AstBinaryType::LogicalAnd){
+    else if (node->type == AstBinaryType::LogicalAnd) {
         auto end_label = getNewLabel(".logical_and_end");
         auto right_label = getNewLabel(".logical_and_right");
         auto result = getNewReference();
-    
+
         auto isZeroRef = getNewReference();
         emit(RSI::Instruction{
             .type = RSI::InstructionType::EQUAL,
@@ -530,41 +526,41 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
         .op1 = leftValue,
         .op2 = lastResult,
     };
-    
 
-    switch (node->type){
+
+    switch (node->type) {
         case AstBinaryType::Add:
-            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType) {
                 Fatal("Not implemented!");
                 // emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->left->semanticType)->subtype)) + "\n");
                 // // x0 = x0 + (x1 * x2)
                 // emitIndented("madd x0, x1, x2, x0\n");
             }
-            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType) {
                 Fatal("Not implemented!");
                 // emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(std::static_pointer_cast<AstPointerType>(node->right->semanticType)->subtype)) + "\n");
                 // // x0 = x1 + (x0 * x2)
                 // emitIndented("madd x0, x0, x2, x1\n");
             }
-            else{
+            else {
                 expectValueType(ValueType::Value);
                 instr.type = RSI::InstructionType::ADD;
             }
             break;
         case AstBinaryType::Subtract:
-            if (node->left->semanticType->getType() == AstNodeType::AstPointerType){
+            if (node->left->semanticType->getType() == AstNodeType::AstPointerType) {
                 Fatal("Not implemented!");
                 // emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
                 // // x0 = x0 - (x1 * x2)
                 // emitIndented("msub x0, x1, x2, x0\n");
             }
-            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType){
+            else if (node->right->semanticType->getType() == AstNodeType::AstPointerType) {
                 Fatal("Not implemented!");
                 // emitIndented("mov x2, " + std::to_string(sizeFromSemanticalType(node->left->semanticType)) + "\n");
                 // // x0 = x1 - (x0 * x2)
                 // emitIndented("msub x0, x0, x2, x1\n");
             }
-            else{
+            else {
                 expectValueType(ValueType::Value);
                 instr.type = RSI::InstructionType::SUBTRACT;
             }
@@ -607,7 +603,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
             instr.type = RSI::InstructionType::GREATER_THAN_OR_EQUAL;
             break;
 
-        case AstBinaryType::LogicalAnd:{
+        case AstBinaryType::LogicalAnd: {
             expectValueType(ValueType::Value);
             Fatal("Not implemented!");
             // emitIndented("// Logical And\n");
@@ -622,7 +618,7 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
             break;
         }
 
-        case AstBinaryType::LogicalOr:{
+        case AstBinaryType::LogicalOr: {
             expectValueType(ValueType::Value);
             Fatal("Not implemented!");
             // emitIndented("// Logical Or\n");
@@ -650,14 +646,14 @@ void RSIGenerator::visit(std::shared_ptr<AstBinary> node){
 
     emit(instr);
 }
-void RSIGenerator::visit(std::shared_ptr<AstInteger> node){
+void RSIGenerator::visit(std::shared_ptr<AstInteger> node) {
     expectValueType(ValueType::Value);
 
     lastResult = RSI::Constant{.value = static_cast<uint64_t>(node->value)};
 }
-void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
+void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node) {
     auto size = sizeFromSemanticalType(node->semanticType);
-    if (node->semanticType->getType() == AstNodeType::AstArrayType && expectedValueType == ValueType::Value){
+    if (node->semanticType->getType() == AstNodeType::AstArrayType && expectedValueType == ValueType::Value) {
         Fatal("Not implemented!");
         // emitIndented("// Copy " + std::to_string(size) + " bytes of stack space\n");
         // emitIndented("sub sp, sp, " + std::to_string(size) + "\n");
@@ -671,11 +667,11 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node){
         // emitIndented("bl memcpy\n");
         // functionCallEpilogue();
     }
-    else{
+    else {
         lastResult = std::get<RSI::Operand>(node->variable->accessor);
     }
 }
-void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
+void RSIGenerator::visit(std::shared_ptr<AstAssignment> node) {
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Value;
     node->rvalue->accept(this);
@@ -686,7 +682,7 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
     expectedValueType = ValueType::Value;
     auto lvalue = lastResult;
 
-    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType){
+    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType) {
         Fatal("Not implemented!");
         // emitIndented("mov x1, sp\n");
         // emitIndented("ldr x2, =" + std::to_string(stackPassedValueSize) + "\n");
@@ -702,13 +698,13 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node){
         });
     }
 }
-void RSIGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
+void RSIGenerator::visit(std::shared_ptr<AstConditionalExpression> node) {
     expectValueType(ValueType::Value);
     const auto false_clause = getNewLabel(".false_expression");
     const auto end_label = getNewLabel(".end");
 
     const auto result = getNewReference();
-    
+
     node->condition->accept(this);
     // emitIndented("// If statement\n");
     emit(RSI::Instruction{
@@ -743,26 +739,26 @@ void RSIGenerator::visit(std::shared_ptr<AstConditionalExpression> node){
 
     lastResult = result;
 }
-void RSIGenerator::visit(std::shared_ptr<AstEmptyExpression> node){
+void RSIGenerator::visit(std::shared_ptr<AstEmptyExpression> node) {
     expectValueType(ValueType::Value);
     lastResult = RSI::Constant{.value = 1};
 }
-void RSIGenerator::visit(std::shared_ptr<AstExpressionStatement> node){
+void RSIGenerator::visit(std::shared_ptr<AstExpressionStatement> node) {
     stackPassedValueSize = 0;
     expectedValueType = ValueType::Value;
     node->expression->accept(this);
-    if (node->expression->semanticType->getType() == AstNodeType::AstArrayType){
+    if (node->expression->semanticType->getType() == AstNodeType::AstArrayType) {
         Fatal("Not implemented!");
         // emitIndented("// Cleanup after array expression\n");
         // emitIndented("add sp, sp, " + std::to_string(stackPassedValueSize) + "\n");
     }
 }
 
-void RSIGenerator::visit(std::shared_ptr<AstFunctionCall> node){
+void RSIGenerator::visit(std::shared_ptr<AstFunctionCall> node) {
     expectValueType(ValueType::Value);
 
     // evaluate arguments
-    for (auto arg : node->arguments){
+    for (auto arg : node->arguments) {
         expectedValueType = ValueType::Value;
         arg->accept(this);
         emit(RSI::Instruction{
@@ -771,7 +767,7 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionCall> node){
         });
     }
 
-    if (!node->function->rsiLabel){
+    if (!node->function->rsiLabel) {
         Fatal("Function \"", node->name, "\" didn't get an RSI label.");
     }
 
@@ -782,18 +778,18 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionCall> node){
         .op2 = RSI::Constant{.value = node->arguments.size()},
     });
 }
-void RSIGenerator::visit(std::shared_ptr<AstAddressOf> node){
+void RSIGenerator::visit(std::shared_ptr<AstAddressOf> node) {
     expectValueType(ValueType::Value);
     Fatal("Not implemented!");
     // expectedValueType = ValueType::Address;
     // node->operand->accept(this);
     // expectedValueType = ValueType::Value;
 }
-void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node){
+void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node) {
     int originSize = sizeFromSemanticalType(node->value->semanticType);
     int targetSize = sizeFromSemanticalType(node->semanticType);
     node->value->accept(this);
-    if (expectedValueType == ValueType::Value){
+    if (expectedValueType == ValueType::Value) {
         // only typecast values, no addresses
         Warning("Not using type cast \"sanity and\". May produce wrong outputs.");
         // emit(RSI::Instruction{
@@ -821,25 +817,24 @@ void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node){
 }
 
 
-
 // declarations
-void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
+void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node) {
     expectedValueType = ValueType::Value;
-    if (node->variable->isGlobal){
-        if (node->value){
+    if (node->variable->isGlobal) {
+        if (node->value) {
             node->variable->accessor = defineGlobalData(node->value, node->variable);
         }
-        else{
+        else {
             auto ref = std::make_shared<RSI::GlobalReference>(RSI::GlobalReference{
                 .name = makeStringUnique(node->variable->name),
-                .variable = node->variable
+                .variable = node->variable,
             });
             node->variable->accessor = ref;
             generatedTU.uninitializedGlobalVariables.push_back(ref);
         }
     }
-    else{
-        if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType){
+    else {
+        if (node->variable->type.lock()->getType() == AstNodeType::AstArrayType) {
             Fatal("Not implemented!");
             // if (node->value){
             //     node->value->accept(this);
@@ -867,11 +862,11 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
             //     functionCallEpilogue();
             // }
         }
-        else{
-            if (node->value){
+        else {
+            if (node->value) {
                 node->value->accept(this);
             }
-            else{
+            else {
                 lastResult = RSI::Constant{
                     .value = 0,
                 };
@@ -888,24 +883,28 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableDeclaration> node){
     }
 }
 
-void RSIGenerator::visit(std::shared_ptr<AstDereference> node){
-    if (expectedValueType == ValueType::Value){
+void RSIGenerator::visit(std::shared_ptr<AstDereference> node) {
+    if (expectedValueType == ValueType::Value) {
         int size = sizeFromSemanticalType(node->semanticType);
         node->operand->accept(this);
         Fatal("Not implemented!");
+        // clang-format off
+        
         // emitIndented("// Dereference\n");
         // emitIndented("ldr x0, [x0]\n");
         // emitIndented("// explicit and to detect invalid upcasts later (8 Bytes --> " + std::to_string(size) + " Bytes)\n");
         // emitIndented("mov x1, " + std::to_string(uint64_t((__uint128_t(1) << __uint128_t(size*8))-1)) + "\n");
         // emitIndented("and x0, x0, x1\n");
+
+        // clang-format on
     }
-    else{
+    else {
         expectedValueType = ValueType::Value;
         node->operand->accept(this);
         // x0 already contains the address
     }
 }
-void RSIGenerator::visit(std::shared_ptr<AstArrayAccess> node){
+void RSIGenerator::visit(std::shared_ptr<AstArrayAccess> node) {
     Fatal("Not implemented!");
     // emitIndented("// array access\n");
     // int targetSize = sizeFromSemanticalType(node->semanticType);
@@ -948,7 +947,7 @@ void RSIGenerator::visit(std::shared_ptr<AstArrayAccess> node){
     //     expectValueType(ValueType::Value);
     //     emitIndented("push x2\n");
     //     node->array->accept(this);
-        
+
     //     // restore x2
     //     emitIndented("add x2, sp, " + std::to_string(stackPassedValueSize) + "\n");
     //     emitIndented("ldr x2, [x2]\n");
@@ -1003,13 +1002,15 @@ void RSIGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     // stackPassedValueSize = sizeFromSemanticalType(node->semanticType);
 }
 
-std::shared_ptr<RSI::GlobalReference> RSIGenerator::defineGlobalData(std::shared_ptr<AstExpression> node, std::shared_ptr<SemanticVariableData> var){
-    if (node->getType() == AstNodeType::AstInteger){
+std::shared_ptr<RSI::GlobalReference> RSIGenerator::defineGlobalData(
+    std::shared_ptr<AstExpression> node, std::shared_ptr<SemanticVariableData> var
+) {
+    if (node->getType() == AstNodeType::AstInteger) {
         auto intNode = std::dynamic_pointer_cast<AstInteger>(node);
         RSI::Constant value{.value = static_cast<uint64_t>(intNode->value)};
         auto ref = std::make_shared<RSI::GlobalReference>(RSI::GlobalReference{
             .name = makeStringUnique(var->name),
-            .variable = var            
+            .variable = var,
         });
         generatedTU.initializedGlobalVariables.emplace_back(ref, value);
         return ref;
@@ -1028,7 +1029,7 @@ std::shared_ptr<RSI::GlobalReference> RSIGenerator::defineGlobalData(std::shared
     //         }
     //     }
     // }
-    else{
+    else {
         Error("RSI Generator: Global variable must be an integer or array. (Found: " + node->toString() + ")");
         printErrorToken(node->token, R_SharpSource);
         exit(1);

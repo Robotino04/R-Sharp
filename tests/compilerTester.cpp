@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <wait.h>
 
-enum class ReturnValue{
+enum class ReturnValue {
     NormalExit = 0,
     UnknownError = 1,
     SyntaxError = 2,
@@ -20,7 +20,7 @@ enum class ReturnValue{
     AssemblingError = 4,
 };
 
-struct ExecutionResults{
+struct ExecutionResults {
     int compilationReturnValue = static_cast<int>(ReturnValue::NormalExit);
     bool skipped = false;
     int returnValue = 0;
@@ -37,16 +37,16 @@ std::string escapeString(std::string const& str) {
             case '\'': result += "\\'"; break;
             case '\"': result += "\\\""; break;
             case '\\': result += "\\\\"; break;
-            default: result += c; break;
+            default:   result += c; break;
         }
     }
     return result;
 }
 
-ExecutionResults parseExpectations(std::string filename){
+ExecutionResults parseExpectations(std::string filename) {
     ExecutionResults expectedResult;
     std::ifstream input(filename);
-    
+
     std::string line;
     int lineNumber = 0;
     while (std::getline(input, line)) {
@@ -102,7 +102,7 @@ ExecutionResults parseExpectations(std::string filename){
                     i++;
                     if (output[i] == '/') {
                         std::cout << "Error: unterminated string on line " << lineNumber << "\n";
-                    exit(1);
+                        exit(1);
                     }
                     else {
                         expectedResult.output += '*' + output[i];
@@ -113,7 +113,7 @@ ExecutionResults parseExpectations(std::string filename){
                 }
             }
         }
-        else{
+        else {
             std::cout << "Error: unknown test parameter on line " << lineNumber << "\n";
             exit(1);
         }
@@ -122,21 +122,22 @@ ExecutionResults parseExpectations(std::string filename){
     return expectedResult;
 }
 
-bool validate(ExecutionResults real, ExecutionResults expected){
+bool validate(ExecutionResults real, ExecutionResults expected) {
     bool isValid = true;
     std::cout << "Validation:";
 
-    std::cout << "\n\tCompilation exit code: " << real.compilationReturnValue << " (expected " << expected.compilationReturnValue << ") ";
+    std::cout << "\n\tCompilation exit code: " << real.compilationReturnValue << " (expected "
+              << expected.compilationReturnValue << ") ";
     if (real.compilationReturnValue != expected.compilationReturnValue) {
         isValid = false;
         std::cout << "✗";
     }
-    else{
+    else {
         std::cout << "✓";
     }
     bool printExecution = (expected.compilationReturnValue == static_cast<int>(ReturnValue::NormalExit));
-    
-    if (printExecution){
+
+    if (printExecution) {
         std::cout << "\n\tExecution exit code: " << real.returnValue << " (expected " << expected.returnValue << ") ";
         if (real.returnValue != expected.returnValue) {
             isValid = false;
@@ -145,13 +146,14 @@ bool validate(ExecutionResults real, ExecutionResults expected){
         else
             std::cout << "✓";
     }
-    else{
+    else {
         std::cout << "\n\tExecution exit code: [not executed] (expected " << expected.returnValue << ") ✗";
     }
 
 
-    if (printExecution){
-        std::cout << "\n\tExecution output: \"" << escapeString(real.output) << "\" (expected \"" << escapeString(expected.output) << "\") ";
+    if (printExecution) {
+        std::cout << "\n\tExecution output: \"" << escapeString(real.output) << "\" (expected \""
+                  << escapeString(expected.output) << "\") ";
         if (real.output != expected.output) {
             isValid = false;
             std::cout << "✗";
@@ -159,7 +161,7 @@ bool validate(ExecutionResults real, ExecutionResults expected){
         else
             std::cout << "✓";
     }
-    else{
+    else {
         std::cout << "\n\tExecution output: [not executed] (expected " << expected.returnValue << ") ✗";
     }
 
@@ -167,7 +169,7 @@ bool validate(ExecutionResults real, ExecutionResults expected){
     if (isValid) {
         std::cout << "\nPASSED\n\n";
     }
-    else{
+    else {
         std::cout << "\nFAILED\n\n";
     }
     return isValid;
@@ -179,61 +181,61 @@ struct CommandResult {
     bool wasKilled = false;
 };
 
-template<typename T>
+template <typename T>
 void printBits(T const& value) {
     for (int i = sizeof(T) * 8 - 1; i >= 0; i--) {
         std::cout << ((value >> i) & 1);
     }
 }
 
-enum class Popen2Type{
+enum class Popen2Type {
     Reading,
     Writing,
 };
 
-FILE* popen2(std::string command, Popen2Type type, int& pid){
+FILE* popen2(std::string command, Popen2Type type, int& pid) {
     static const int READ = 0;
     static const int WRITE = 1;
     pid_t child_pid;
 
     int fd[2];
-    if(pipe(fd) == -1){
+    if (pipe(fd) == -1) {
         throw std::runtime_error("pipe() failed!");
     }
 
-    if((child_pid = fork()) == -1){
+    if ((child_pid = fork()) == -1) {
         throw std::runtime_error("fork() failed!");
     }
 
     /* child process */
-    if (child_pid == 0){
-        if (type == Popen2Type::Reading){
-            close(fd[READ]);    //Close the READ end of the pipe since the child's fd is write-only
-            dup2(fd[WRITE], 1); //Redirect stdout to pipe
+    if (child_pid == 0) {
+        if (type == Popen2Type::Reading) {
+            close(fd[READ]);    // Close the READ end of the pipe since the child's fd is write-only
+            dup2(fd[WRITE], 1); // Redirect stdout to pipe
             close(fd[WRITE]);
         }
-        else{
-            close(fd[WRITE]);    //Close the WRITE end of the pipe since the child's fd is read-only
-            dup2(fd[READ], 0);   //Redirect stdin to pipe
+        else {
+            close(fd[WRITE]);  // Close the WRITE end of the pipe since the child's fd is read-only
+            dup2(fd[READ], 0); // Redirect stdin to pipe
             close(fd[READ]);
         }
 
-        setpgid(child_pid, child_pid); //Needed so negative PIDs can kill children of /bin/sh
+        setpgid(child_pid, child_pid); // Needed so negative PIDs can kill children of /bin/sh
         execl("/bin/sh", "sh", "-c", command.c_str(), NULL);
         exit(127);
     }
-    else{
-        if (type == Popen2Type::Reading){
-            close(fd[WRITE]); //Close the WRITE end of the pipe since parent's fd is read-only
+    else {
+        if (type == Popen2Type::Reading) {
+            close(fd[WRITE]); // Close the WRITE end of the pipe since parent's fd is read-only
         }
-        else{
-            close(fd[READ]); //Close the READ end of the pipe since parent's fd is write-only
+        else {
+            close(fd[READ]); // Close the READ end of the pipe since parent's fd is write-only
         }
     }
 
     pid = child_pid;
 
-    if (type == Popen2Type::Reading){
+    if (type == Popen2Type::Reading) {
         return fdopen(fd[READ], "r");
     }
 
@@ -246,43 +248,44 @@ CommandResult execute(std::string const& cmd, std::optional<std::chrono::seconds
 
     int childPid = 0;
 
-    const auto closer = [](FILE* fp){fclose(fp);};
+    const auto closer = [](FILE* fp) { fclose(fp); };
     std::unique_ptr<FILE, decltype(closer)> pipe(popen2(cmd + " 2>&1", Popen2Type::Reading, childPid), closer);
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
     std::cout << "Child PID is " << childPid << "\n";
-    
+
     // start a timeout
     std::atomic<bool> watchdog_stop = false;
-    std::thread timeout_watchdog([&](){
+    std::thread timeout_watchdog([&]() {
         if (!timeout.has_value()) return;
         auto endTime = std::chrono::system_clock::now() + timeout.value();
 
-        while (std::chrono::system_clock::now() < endTime){
-            if (watchdog_stop){
+        while (std::chrono::system_clock::now() < endTime) {
+            if (watchdog_stop) {
                 return;
             }
             // don't use 100% cpu
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
-        if (childPid != 0){
+        if (childPid != 0) {
             // the program is probably stuck somehow. Kill it with SIGKILL.
             std::cout << "Timeout reached. Killing with SIGKILL.\n";
             result.wasKilled = true;
             killpg(childPid, SIGKILL);
         }
-        else{
+        else {
             std::cout << "Child PID is 0. Not killing.\n";
         }
     });
 
     // read stdout of child
     while (!feof(pipe.get())) {
-        if (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+        if (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             result.output += buffer.data();
-        else{
+        }
+        else {
             break;
         }
     }
@@ -303,7 +306,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    int i=0;
+    int i = 0;
 
     std::string compilerPath = argv[++i];
     std::string inputFile = argv[++i];
@@ -313,12 +316,12 @@ int main(int argc, char** argv) {
     std::string standardLibrary = argv[++i];
     std::string proxy = "";
     std::string gccCompiler = "gcc";
-    if (i+1 < argc) proxy = argv[++i];
-    if (i+1 < argc) gccCompiler = argv[++i];
+    if (i + 1 < argc) proxy = argv[++i];
+    if (i + 1 < argc) gccCompiler = argv[++i];
     std::cout << "proxy: " << proxy << "\n";
     std::cout << "gccCompiler: " << gccCompiler << "\n";
 
-    
+
     ExecutionResults expectedResults = parseExpectations(inputFile);
 
     // get the filename without the directory and extension
@@ -331,13 +334,15 @@ int main(int argc, char** argv) {
 
     std::string test_lib_command = gccCompiler + " -c -g " + testLibrarySource + " -o " + test_lib_outfile;
 
-    std::string rsharp_command = compilerPath + " -o " + outputFile + " " + inputFile + " -f " + outputLanguage + " --compiler " + gccCompiler + " --link " + test_lib_outfile + " --stdlib " + standardLibrary;
+    std::string rsharp_command = compilerPath + " -o " + outputFile + " " + inputFile + " -f "
+                               + outputLanguage + " --compiler " + gccCompiler + " --link " + test_lib_outfile
+                               + " --stdlib " + standardLibrary;
 
     ExecutionResults realResults;
 
     std::cout << "Compiling Test Library: " << test_lib_command << "\n";
     auto test_lib_result = execute(test_lib_command, std::optional<std::chrono::seconds>());
-    if (test_lib_result.returnCode){
+    if (test_lib_result.returnCode) {
         std::cout << test_lib_result.output << "\n";
         return 1;
     }
@@ -345,28 +350,27 @@ int main(int argc, char** argv) {
     auto timeout = std::chrono::seconds(10);
     std::cout << "Compiling: " << rsharp_command << " (Timeout: " << timeout.count() << "s)\n";
     auto compilerResult = execute(rsharp_command, timeout);
-    if (compilerResult.wasKilled){
+    if (compilerResult.wasKilled) {
         std::cout << "Compiler was killed by timeout.\nFAILED\n";
         return 1;
     }
 
     realResults.compilationReturnValue = compilerResult.returnCode;
 
-    if (realResults.compilationReturnValue == static_cast<int>(ReturnValue::NormalExit)){
+    if (realResults.compilationReturnValue == static_cast<int>(ReturnValue::NormalExit)) {
         std::string executionCommand;
-        if (proxy.size())
-            executionCommand = proxy + " " + outputFile;
+        if (proxy.size()) executionCommand = proxy + " " + outputFile;
         else
             executionCommand = outputFile;
-        
+
         auto timeout = std::chrono::seconds(10);
         std::cout << "Runnning: " << executionCommand << " (Timeout: " << timeout.count() << "s)\n";
         auto programResult = execute(executionCommand, timeout);
-        if (programResult.output.length() > 1000){
+        if (programResult.output.length() > 1000) {
             std::cout << "Output is more than 1000 characters. It will be truncated!\n";
             programResult.output = programResult.output.substr(0, 1000);
         }
-        if (programResult.wasKilled){
+        if (programResult.wasKilled) {
             std::cout << "Testee was killed by timeout.\nFAILED\n";
             return 1;
         }
@@ -383,7 +387,7 @@ int main(int argc, char** argv) {
             std::cout << "Program skipped\n";
             return 0;
         }
-        
+
         if (realResults.compilationReturnValue != static_cast<int>(ReturnValue::NormalExit)) {
             std::cout << "Compiling Failed: \n\n";
             std::cout << compilerResult.output << "\n";
