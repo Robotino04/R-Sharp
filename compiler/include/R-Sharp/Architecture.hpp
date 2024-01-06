@@ -14,6 +14,7 @@ struct Architecture {
     std::vector<RSI::HWRegister> parameterRegisters;
     std::vector<RSI::HWRegister> calleeSavedRegisters;
     RSI::HWRegister returnValueRegister;
+    RSI::HWRegister stackPointerRegister;
 
     std::map<RSI::HWRegister, std::string> registerTranslation;
 

@@ -123,11 +123,15 @@ private:
     static inline std::atomic<uint64_t> highestID = 0;
 };
 
+struct StackSlot {
+    uint64_t offset = 0;
+};
+
 
 struct Reference {
     std::string name;
     std::optional<std::shared_ptr<SemanticVariableData>> variable;
-    std::optional<HWRegister> assignedRegister;
+    StorageLocation storageLocation;
 
     bool operator<(Reference const& other) const {
         return name < other.name;
@@ -140,6 +144,7 @@ struct Reference {
         return !(*this == other);
     }
 };
+
 struct GlobalReference {
     std::string name;
     std::optional<std::shared_ptr<SemanticVariableData>> variable;
@@ -190,6 +195,7 @@ struct Function {
     struct Metadata {
         std::set<std::shared_ptr<Reference>> allReferences = {};
         std::set<HWRegister> allRegisters = {};
+        uint64_t maxStackUsage = 0;
     } meta;
 };
 

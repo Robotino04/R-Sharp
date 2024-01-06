@@ -31,6 +31,10 @@ void Architecture::validate() {
     if (!ContainerTools::contains(allRegisters, returnValueRegister)) {
         Fatal("Return value register is an unknown register");
     }
+
+    if (!ContainerTools::contains(allRegisters, stackPointerRegister)) {
+        Fatal("Stack pointer register is an unknown register");
+    }
 }
 
 const Architecture x86_64 = []() {
@@ -91,6 +95,7 @@ const Architecture x86_64 = []() {
         {REG(R15), "r15"},
     };
     arch.returnValueRegister = REG(RAX);
+    arch.stackPointerRegister = REG(RSP);
 
 #undef REG
 
@@ -102,7 +107,7 @@ const Architecture x86_64 = []() {
 
 const Architecture aarch64 = []() {
     Architecture arch;
-    arch.allRegisters = std::vector<RSI::HWRegister>(31);
+    arch.allRegisters = std::vector<RSI::HWRegister>(32);
 
     const auto registerRange = [&arch](int start, int end) {
         std::vector<RSI::HWRegister> regs;
@@ -116,10 +121,13 @@ const Architecture aarch64 = []() {
     arch.generalPurposeRegisters = ContainerTools::flatten<RSI::HWRegister>({registerRange(0, 17), registerRange(19, 28)});
     arch.parameterRegisters = registerRange(0, 7);
     arch.returnValueRegister = arch.allRegisters.at(0);
+    arch.stackPointerRegister = arch.allRegisters.at(31);
 
-    for (int i = 0; i < arch.allRegisters.size(); i++) {
+    for (int i = 0; i < arch.allRegisters.size() - 1; i++) {
         arch.registerTranslation.insert({arch.allRegisters.at(i), "x" + std::to_string(i)});
     }
+
+    arch.registerTranslation.insert({arch.stackPointerRegister, "sp"});
 
     arch.validate();
 

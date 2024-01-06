@@ -2,6 +2,7 @@
 #include "R-Sharp/RSIGenerator.hpp"
 #include "R-Sharp/Graph.hpp"
 #include "R-Sharp/Architecture.hpp"
+#include "R-Sharp/Utils/ContainerTools.hpp"
 
 #include "R-Sharp/Utils/ScopeGuard.hpp"
 
@@ -94,8 +95,11 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch) {
             auto ref = std::get<std::shared_ptr<RSI::Reference>>(operand);
 
             // keep the color/register
-            if (ref->assignedRegister.has_value()) {
-                vert->color = HWRegisterToColor.at(ref->assignedRegister.value());
+            if (std::holds_alternative<RSI::HWRegister>(ref->storageLocation)) {
+                vert->color = HWRegisterToColor.at(std::get<RSI::HWRegister>(ref->storageLocation));
+            }
+            if (std::holds_alternative<RSI::StackSlot>(ref->storageLocation)) {
+                vert->color = VertexColor();
             }
             if (referenceToVertex.count(ref) == 0) {
                 referenceToVertex.insert_or_assign(ref, vert);
@@ -137,18 +141,31 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch) {
         lastInstruction = instr;
     }
 
-    if (!interferenceGraph.colorIn(allAvailableColors)) {
-        Fatal("Unable to color graph with the given colors.");
-    }
+    interferenceGraph.colorIn(allAvailableColors);
+
+    std::map<VertexColor, RSI::StackSlot> colorToStackSlot;
+    uint64_t currentStackOffset = 0;
 
     for (auto vertex : interferenceGraph) {
-        vertexToReference.at(vertex)->assignedRegister = colorToHWRegister.at(vertex->color.value());
+        if (!ContainerTools::contains(allAvailableColors, vertex->color.value())) {
+            if (colorToStackSlot.count(vertex->color.value()))
+                vertexToReference.at(vertex)->storageLocation = colorToStackSlot.at(vertex->color.value());
+            else {
+                vertexToReference.at(vertex)->storageLocation = StackSlot{.offset = currentStackOffset};
+                currentStackOffset += 8;
+                colorToStackSlot.insert_or_assign(vertex->color.value(), std::get<RSI::StackSlot>(vertexToReference.at(vertex)->storageLocation));
+            }
+        }
+        else {
+            vertexToReference.at(vertex)->storageLocation = colorToHWRegister.at(vertex->color.value());
+        }
     }
 }
 
 void enumerateRegisters(Function& func, Architecture const& architecture) {
     func.meta.allRegisters = {};
     func.meta.allReferences = {};
+    func.meta.maxStackUsage = 0;
     for (auto instr : func.instructions) {
         if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result))
             func.meta.allReferences.insert(std::get<std::shared_ptr<RSI::Reference>>(instr.result));
@@ -161,7 +178,10 @@ void enumerateRegisters(Function& func, Architecture const& architecture) {
     }
 
     for (auto ref : func.meta.allReferences) {
-        if (ref->assignedRegister.has_value()) func.meta.allRegisters.insert(ref->assignedRegister.value());
+        if (std::holds_alternative<RSI::HWRegister>(ref->storageLocation))
+            func.meta.allRegisters.insert(std::get<RSI::HWRegister>(ref->storageLocation));
+        if (std::holds_alternative<RSI::StackSlot>(ref->storageLocation))
+            func.meta.maxStackUsage += 8;
     }
 }
 
@@ -262,10 +282,10 @@ void seperateDivReferences(
     instr.op2 = move2.result;
     instr.result = moveRes.op1;
 
-    std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->assignedRegister = x86_64.allRegisters.at(
+    std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->storageLocation = x86_64.allRegisters.at(
         static_cast<int>(NasmRegisters::RAX)
     );
-    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister = x86_64.allRegisters.at(
+    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->storageLocation = x86_64.allRegisters.at(
         static_cast<int>(NasmRegisters::RAX)
     );
 
@@ -287,7 +307,7 @@ void seperateCallResults(
     };
     instr.result = moveRes.op1;
 
-    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->assignedRegister = architecture.returnValueRegister;
+    std::get<std::shared_ptr<RSI::Reference>>(instr.result)->storageLocation = architecture.returnValueRegister;
 
     afterInstructions.push_back(moveRes);
 }
@@ -303,7 +323,7 @@ void seperateLoadParameters(
         Fatal("Function uses more parameters than are supported on this platform");
 
     const auto param = RSIGenerator::getNewReference("param");
-    param->assignedRegister = architecture.parameterRegisters.at(parameterIndex);
+    param->storageLocation = architecture.parameterRegisters.at(parameterIndex);
 
     RSI::Instruction move{
         .type = RSI::InstructionType::MOVE,

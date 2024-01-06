@@ -57,6 +57,7 @@ struct HWRegister;
 struct Reference;
 struct Label;
 struct GlobalReference;
+struct StackSlot;
 
 struct Constant {
     uint64_t value;
@@ -70,6 +71,7 @@ struct Constant {
 };
 
 using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>, std::shared_ptr<Label>, std::shared_ptr<GlobalReference>>;
+using StorageLocation = std::variant<std::monostate, HWRegister, StackSlot>;
 
 
 struct Instruction;

@@ -1,6 +1,6 @@
 #include "R-Sharp/RSITools.hpp"
-#include "R-Sharp/RSI.hpp"
 
+#include "R-Sharp/RSI.hpp"
 #include "R-Sharp/Utils/LambdaOverload.hpp"
 
 namespace RSI {
@@ -11,7 +11,16 @@ std::string stringify_operand(Operand const& op, std::map<HWRegister, std::strin
             [](Constant const& x) { return std::to_string(x.value); },
             [&](std::shared_ptr<RSI::Reference> x) {
                 return x->name + "("
-                     + (x->assignedRegister.has_value() ? registerTranslation.at(x->assignedRegister.value()) : "None")
+                     + std::visit(
+                           lambda_overload{
+                               [&](RSI::HWRegister reg) -> std::string { return registerTranslation.at(reg); },
+                               [](std::monostate) -> std::string { return "None"; },
+                               [](RSI::StackSlot slot) -> std::string {
+                                   return "[sp+" + std::to_string(slot.offset) + "]";
+                               },
+                           },
+                           x->storageLocation
+                     )
                      + ")";
             },
             [](std::shared_ptr<RSI::GlobalReference> x) { return "$" + x->name + "(global)"; },
@@ -92,5 +101,4 @@ std::string stringify_function(RSI::Function const& function, std::map<HWRegiste
     }
     return result;
 }
-
 }

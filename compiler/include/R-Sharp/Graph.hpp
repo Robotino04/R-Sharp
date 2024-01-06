@@ -126,12 +126,10 @@ public:
         }
         else if (vertices.size() == 1) {
             if (!vertices.at(0)->color.has_value()) {
-                // std::cout << "coloring " << std::to_string(*vertices.at(0)) << " as " <<
-                // availableColors.at(0).getID() << "\n";
+                // std::cout << "coloring " << std::to_string(*vertices.at(0)) << " as " << availableColors.at(0).getID() << "\n";
                 vertices.at(0)->color = availableColors.at(0);
             }
-            // std::cout << "keeping " << std::to_string(*vertices.at(0)) << " as " <<
-            // vertices.at(0)->color.value().getID() << "\n";
+            // std::cout << "keeping " << std::to_string(*vertices.at(0)) << " as " << vertices.at(0)->color.value().getID() << "\n";
 
             return true;
         }
@@ -154,7 +152,8 @@ public:
             }
         };
 
-        for (auto vertexWithLeastNeighbours : verticesSorted) {
+        auto vertexWithLeastNeighbours = verticesSorted.front();
+        {
             // printVertex(vertexWithLeastNeighbours);
             // printGraph(*this);
             // std::cout << "\n--\n";
@@ -167,8 +166,7 @@ public:
             addVertex(vertexWithLeastNeighbours);
 
             if (callFailed) {
-                restoreColors();
-                continue;
+                goto fail;
             }
 
             if (vertexWithLeastNeighbours->color.has_value()) {
@@ -180,12 +178,10 @@ public:
                     }
                 );
                 if (sameColoredNeighbour != vertexWithLeastNeighbours->neighbours.end()) {
-                    restoreColors();
-                    continue;
+                    goto fail;
                 }
                 else {
-                    // std::cout << "keeping " << std::to_string(*vertexWithLeastNeighbours) << " as " <<
-                    // vertexWithLeastNeighbours->color.value().getID() << "\n";
+                    // std::cout << "keeping " << std::to_string(*vertexWithLeastNeighbours) << " as " << vertexWithLeastNeighbours->color.value().getID() << "\n";
                     return true;
                 }
             }
@@ -194,8 +190,7 @@ public:
             std::vector<VertexColor> availableColorsForVertex = availableColors;
             for (auto neighbour : vertexWithLeastNeighbours->neighbours) {
                 if (!neighbour->color.has_value()) {
-                    restoreColors();
-                    continue;
+                    goto fail;
                 }
                 availableColorsForVertex.erase(
                     std::remove(
@@ -205,18 +200,18 @@ public:
                 );
             }
             if (availableColorsForVertex.size() == 0) {
-                restoreColors();
-                continue;
+                goto fail;
             }
 
-            // std::cout << "coloring " << std::to_string(*vertexWithLeastNeighbours) << " as " <<
-            // availableColorsForVertex.at(0).getID() << "\n";
+            // std::cout << "coloring " << std::to_string(*vertexWithLeastNeighbours) << " as " << availableColorsForVertex.at(0).getID() << "\n";
             vertexWithLeastNeighbours->color = availableColorsForVertex.at(0);
             return true;
         }
 
-        restoreColors();
-        return false;
+    fail:
+        // restoreColors();
+        vertexWithLeastNeighbours->color = VertexColor();
+        return true;
     }
 
     using Iterator = typename std::vector<std::shared_ptr<Vertex<DataT>>>::iterator;
