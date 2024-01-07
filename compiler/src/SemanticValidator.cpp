@@ -210,12 +210,14 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
             if (found->semanticType->getType() == AstNodeType::AstPrimitiveType) {
                 // temporarily allow int to pointer conversions
                 // TODO: use ContainerTools::contains
-                return std::find(
-                           integerTypes.begin(),
-                           integerTypes.end(),
-                           std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type
-                       )
-                    != integerTypes.end();
+                const bool isValid = std::find(
+                                         integerTypes.begin(),
+                                         integerTypes.end(),
+                                         std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type
+                                     )
+                                  != integerTypes.end();
+                if (isValid) Warning("Performing integer to pointer conversion.");
+                return isValid;
             }
             else if (found->semanticType->getType() == AstNodeType::AstPointerType) {
                 auto found_type = std::static_pointer_cast<AstPointerType>(found->semanticType);

@@ -78,13 +78,20 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch) {
     Graph<void> interferenceGraph;
     using Vertex = Vertex<void>;
 
-    auto allAvailableColors = VertexColor::getNColors(arch.generalPurposeRegisters.size());
+    auto allAssignableColors = VertexColor::getNColors(arch.generalPurposeRegisters.size());
+    auto stackPointerColor = VertexColor();
+    auto allAvailableColors = allAssignableColors;
+    allAvailableColors.push_back(stackPointerColor);
+
     std::map<VertexColor, RSI::HWRegister> colorToHWRegister;
     std::map<RSI::HWRegister, VertexColor> HWRegisterToColor;
+
     for (int i = 0; i < arch.generalPurposeRegisters.size(); i++) {
-        colorToHWRegister.insert({allAvailableColors.at(i), arch.generalPurposeRegisters.at(i)});
-        HWRegisterToColor.insert({arch.generalPurposeRegisters.at(i), allAvailableColors.at(i)});
+        colorToHWRegister.insert({allAssignableColors.at(i), arch.generalPurposeRegisters.at(i)});
+        HWRegisterToColor.insert({arch.generalPurposeRegisters.at(i), allAssignableColors.at(i)});
     }
+    colorToHWRegister.insert({stackPointerColor, arch.stackPointerRegister});
+    HWRegisterToColor.insert({arch.stackPointerRegister, stackPointerColor});
 
     std::map<std::shared_ptr<RSI::Reference>, std::shared_ptr<Vertex>> referenceToVertex;
     std::map<std::shared_ptr<Vertex>, std::shared_ptr<RSI::Reference>> vertexToReference;
@@ -141,7 +148,7 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch) {
         lastInstruction = instr;
     }
 
-    interferenceGraph.colorIn(allAvailableColors);
+    interferenceGraph.colorIn(allAssignableColors);
 
     std::map<VertexColor, RSI::StackSlot> colorToStackSlot;
     uint64_t currentStackOffset = 0;
@@ -153,7 +160,9 @@ void assignRegistersGraphColoring(Function& func, Architecture const& arch) {
             else {
                 vertexToReference.at(vertex)->storageLocation = StackSlot{.offset = currentStackOffset};
                 currentStackOffset += 8;
-                colorToStackSlot.insert_or_assign(vertex->color.value(), std::get<RSI::StackSlot>(vertexToReference.at(vertex)->storageLocation));
+                colorToStackSlot.insert_or_assign(
+                    vertex->color.value(), std::get<RSI::StackSlot>(vertexToReference.at(vertex)->storageLocation)
+                );
             }
         }
         else {
@@ -180,8 +189,7 @@ void enumerateRegisters(Function& func, Architecture const& architecture) {
     for (auto ref : func.meta.allReferences) {
         if (std::holds_alternative<RSI::HWRegister>(ref->storageLocation))
             func.meta.allRegisters.insert(std::get<RSI::HWRegister>(ref->storageLocation));
-        if (std::holds_alternative<RSI::StackSlot>(ref->storageLocation))
-            func.meta.maxStackUsage += 8;
+        if (std::holds_alternative<RSI::StackSlot>(ref->storageLocation)) func.meta.maxStackUsage += 8;
     }
 }
 
@@ -237,7 +245,7 @@ void replaceModWithDivMulSub(
 void moveConstantsToReferences(
     RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions
 ) {
-    if (std::holds_alternative<RSI::Constant>(instr.op1)) {
+    if (std::holds_alternative<RSI::Constant>(instr.op1) || std::holds_alternative<RSI::DynamicConstant>(instr.op1)) {
         RSI::Instruction move{
             .type = RSI::InstructionType::MOVE,
             .result = RSIGenerator::getNewReference("constant"),
@@ -248,7 +256,7 @@ void moveConstantsToReferences(
         beforeInstructions.push_back(move);
     }
 
-    if (std::holds_alternative<RSI::Constant>(instr.op2)) {
+    if (std::holds_alternative<RSI::Constant>(instr.op2) || std::holds_alternative<RSI::DynamicConstant>(instr.op2)) {
         RSI::Instruction move{
             .type = RSI::InstructionType::MOVE,
             .result = RSIGenerator::getNewReference("constant"),
@@ -312,7 +320,7 @@ void seperateCallResults(
     afterInstructions.push_back(moveRes);
 }
 
-void seperateLoadParameters(
+void separateLoadParameters(
     Architecture const& architecture,
     RSI::Instruction& instr,
     std::vector<RSI::Instruction>& beforeInstructions,
@@ -335,7 +343,32 @@ void seperateLoadParameters(
     afterInstructions.push_back(move);
 }
 
-void seperateGlobalReferences(
+void resolveAddressOf(
+    Architecture const& architecture,
+    RSI::Instruction& instr,
+    std::vector<RSI::Instruction>& beforeInstructions,
+    std::vector<RSI::Instruction>& afterInstructions
+) {
+    if (!std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op1)
+        || !std::holds_alternative<RSI::StackSlot>(std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->storageLocation)) {
+        Fatal("Trying to take address of value not on stack.");
+    }
+    auto& op = std::get<RSI::StackSlot>(std::get<std::shared_ptr<RSI::Reference>>(instr.op1)->storageLocation);
+    instr.type = RSI::InstructionType::ADD;
+    instr.op1 = RSI::DynamicConstant{
+        .value = &op.offset,
+    };
+    auto stack_pointer = RSIGenerator::getNewReference("sp");
+    stack_pointer->storageLocation = architecture.stackPointerRegister;
+    instr.op2 = stack_pointer;
+
+    beforeInstructions.push_back(Instruction{
+        .type = InstructionType::SET_LIVE,
+        .result = stack_pointer,
+    });
+}
+
+void separateGlobalReferences(
     RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions
 ) {
     if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result)) {
@@ -387,6 +420,22 @@ void globalReferenceToMemoryAccess(
         };
         instr.result = lmem.op1;
         afterInstructions.push_back(lmem);
+    }
+}
+
+void separateStackVariables(
+    RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions
+) {
+    if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result)
+        && std::holds_alternative<RSI::StackSlot>(std::get<std::shared_ptr<RSI::Reference>>(instr.result)->storageLocation)) {
+        RSI::Instruction smem{
+            .type = RSI::InstructionType::STORE_MEMORY,
+            .op1 = RSIGenerator::getNewReference(),
+            .op2 = instr.op1,
+        };
+        instr.op1 = instr.result;
+        instr.result = smem.op1;
+        afterInstructions.push_back(smem);
     }
 }
 

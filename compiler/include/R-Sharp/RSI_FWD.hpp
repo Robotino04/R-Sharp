@@ -17,7 +17,6 @@ enum class InstructionType {
     BINARY_NOT,
     LOGICAL_NOT,
 
-
     ADD,
     SUBTRACT,
     MULTIPLY,
@@ -48,6 +47,9 @@ enum class InstructionType {
 
     STORE_MEMORY,
     LOAD_MEMORY,
+
+    ADDRESS_OF,
+    SET_LIVE,
 };
 
 extern const std::map<InstructionType, uint> numArgumentsUsed;
@@ -69,8 +71,18 @@ struct Constant {
         return !(*this == other);
     }
 };
+struct DynamicConstant {
+    uint64_t* value = nullptr;
 
-using Operand = std::variant<std::monostate, Constant, std::shared_ptr<Reference>, std::shared_ptr<Label>, std::shared_ptr<GlobalReference>>;
+    bool operator==(DynamicConstant const& other) const {
+        return this->value == other.value;
+    }
+    bool operator!=(DynamicConstant const& other) const {
+        return !(*this == other);
+    }
+};
+
+using Operand = std::variant<std::monostate, Constant, DynamicConstant, std::shared_ptr<Reference>, std::shared_ptr<Label>, std::shared_ptr<GlobalReference>>;
 using StorageLocation = std::variant<std::monostate, HWRegister, StackSlot>;
 
 

@@ -9,6 +9,11 @@ std::string stringify_operand(Operand const& op, std::map<HWRegister, std::strin
     return std::visit(
         lambda_overload{
             [](Constant const& x) { return std::to_string(x.value); },
+            [](DynamicConstant const& x) -> std::string {
+                if (x.value != nullptr) return std::to_string(*x.value) + "#dyn";
+                else
+                    return "unk#dyn";
+            },
             [&](std::shared_ptr<RSI::Reference> x) {
                 return x->name + "("
                      + std::visit(
@@ -82,6 +87,10 @@ std::string stringify_function(RSI::Function const& function, std::map<HWRegiste
         else if (instr.type == RSI::InstructionType::STORE_MEMORY) {
             result += " " + stringify_operand(instr.op1, registerTranslation) + ", "
                     + stringify_operand(instr.op2, registerTranslation) + "\n";
+            continue;
+        }
+        else if (instr.type == RSI::InstructionType::SET_LIVE) {
+            result += " " + stringify_operand(instr.result, registerTranslation) + "\n";
             continue;
         }
 

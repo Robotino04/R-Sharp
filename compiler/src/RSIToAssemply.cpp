@@ -9,13 +9,20 @@ std::string translateOperand(RSI::Operand const& op, Architecture const& arch, s
     return std::visit(
         lambda_overload{
             [&](RSI::Constant const& x) { return constantPrefix + std::to_string(x.value); },
+            [&](RSI::DynamicConstant const& x) {
+                if (x.value == nullptr) {
+                    Fatal("Dynamic constrant wasn't resolved.");
+                }
+                return constantPrefix + std::to_string(*x.value);
+            },
             [&](std::shared_ptr<RSI::Reference> x) {
                 return std::visit(
                     lambda_overload{
                         [&](RSI::HWRegister reg) -> std::string { return arch.registerTranslation.at(reg); },
                         [](std::monostate) -> std::string { return "(none)"; },
                         [&](RSI::StackSlot slot) -> std::string {
-                            return "[" + arch.registerTranslation.at(arch.stackPointerRegister) + "+" + std::to_string(slot.offset) + "]";
+                            return "[" + arch.registerTranslation.at(arch.stackPointerRegister) + "+"
+                                 + std::to_string(slot.offset) + "]";
                         },
                     },
                     x->storageLocation
@@ -286,8 +293,10 @@ std::string rsiToAarch64(RSI::Function const& function) {
                 result += "sub sp, sp, " + std::to_string(function.meta.maxStackUsage) + "\n";
 
                 break;
-
-            default: Fatal("Unimplemented RSI instrution for aarch64."); break;
+            case RSI::InstructionType::SET_LIVE: break;
+            default:
+                Fatal("Unimplemented RSI instruction for aarch64. (", RSI::mnemonics.at(instr.type), ")");
+                break;
         }
     }
 
@@ -304,9 +313,7 @@ bool isRegister(RSI::Operand const& op, NasmRegisters reg) {
 std::string rsiToNasm(RSI::Function const& function) {
     std::string result = "";
 
-    const auto translateOperandNasm = [&](RSI::Operand const& op) {
-        return translateOperand(op, x86_64, "");
-    };
+    const auto translateOperandNasm = [&](RSI::Operand const& op) { return translateOperand(op, x86_64, ""); };
 
     for (auto instr_it = function.instructions.begin(); instr_it != function.instructions.end(); instr_it++) {
         RSI::Instruction const& instr = *instr_it;
@@ -483,11 +490,21 @@ std::string rsiToNasm(RSI::Function const& function) {
                     result += translateOperandNasm(instr.op1);
                 else if (std::holds_alternative<RSI::Constant>(instr.op1))
                     result += translateOperandNasm(instr.op1);
+                else if (std::holds_alternative<RSI::DynamicConstant>(instr.op1))
+                    result += translateOperandNasm(instr.op1);
                 else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1))
                     result += "[" + translateOperandNasm(instr.op1) + "]";
                 else
                     Fatal("Unknown type of operand used for move instruction");
                 result += "\n";
+                break;
+            case RSI::InstructionType::STORE_MEMORY:
+                result += "mov QWORD [" + translateOperandNasm(instr.op1) + "], "
+                        + translateOperandNasm(instr.op2) + "\n";
+                break;
+            case RSI::InstructionType::LOAD_MEMORY:
+                result += "mov QWORD " + translateOperandNasm(instr.result) + ", ["
+                        + translateOperandNasm(instr.op1) + "]\n";
                 break;
             case RSI::InstructionType::RETURN:
                 result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
@@ -601,8 +618,11 @@ std::string rsiToNasm(RSI::Function const& function) {
                 }
                 result += "sub rsp, " + std::to_string(function.meta.maxStackUsage) + "\n";
                 break;
+            case RSI::InstructionType::SET_LIVE: break;
 
-            default: Fatal("Unimplemented RSI instruction for nasm."); break;
+            default:
+                Fatal("Unimplemented RSI instruction for nasm. (", RSI::mnemonics.at(instr.type), ")");
+                break;
         }
     }
 

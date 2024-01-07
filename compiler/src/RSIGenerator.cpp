@@ -667,8 +667,19 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node) {
         // emitIndented("bl memcpy\n");
         // functionCallEpilogue();
     }
-    else {
+    else if (expectedValueType == ValueType::Value) {
         lastResult = std::get<RSI::Operand>(node->variable->accessor);
+    }
+    else {
+        auto accessor = std::get<RSI::Operand>(node->variable->accessor);
+        if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(accessor)) {
+            std::get<std::shared_ptr<RSI::Reference>>(accessor)->storageLocation = RSI::StackSlot();
+        }
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::ADDRESS_OF,
+            .result = getNewReference(),
+            .op1 = accessor,
+        });
     }
 }
 void RSIGenerator::visit(std::shared_ptr<AstAssignment> node) {
@@ -677,10 +688,12 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node) {
     node->rvalue->accept(this);
     auto rvalue = lastResult;
 
-    expectedValueType = ValueType::Address;
+    bool isDerefAssign = node->lvalue->getType() == AstNodeType::AstDereference;
+
+    if (isDerefAssign) expectedValueType = ValueType::Address;
     node->lvalue->accept(this);
-    expectedValueType = ValueType::Value;
     auto lvalue = lastResult;
+    expectedValueType = ValueType::Value;
 
     if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType) {
         Fatal("Not implemented!");
@@ -689,6 +702,13 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node) {
         // functionCallPrologue();
         // emitIndented("bl memcpy\n");
         // functionCallEpilogue();
+    }
+    else if (isDerefAssign) {
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::STORE_MEMORY,
+            .op1 = lvalue,
+            .op2 = rvalue,
+        });
     }
     else {
         emit(RSI::Instruction{
@@ -780,10 +800,9 @@ void RSIGenerator::visit(std::shared_ptr<AstFunctionCall> node) {
 }
 void RSIGenerator::visit(std::shared_ptr<AstAddressOf> node) {
     expectValueType(ValueType::Value);
-    Fatal("Not implemented!");
-    // expectedValueType = ValueType::Address;
-    // node->operand->accept(this);
-    // expectedValueType = ValueType::Value;
+    expectedValueType = ValueType::Address;
+    node->operand->accept(this);
+    expectedValueType = ValueType::Value;
 }
 void RSIGenerator::visit(std::shared_ptr<AstTypeConversion> node) {
     int originSize = sizeFromSemanticalType(node->value->semanticType);
@@ -887,7 +906,12 @@ void RSIGenerator::visit(std::shared_ptr<AstDereference> node) {
     if (expectedValueType == ValueType::Value) {
         int size = sizeFromSemanticalType(node->semanticType);
         node->operand->accept(this);
-        Fatal("Not implemented!");
+        emit(RSI::Instruction{
+            .type = RSI::InstructionType::LOAD_MEMORY,
+            .result = getNewReference(),
+            .op1 = lastResult,
+        });
+
         // clang-format off
         
         // emitIndented("// Dereference\n");

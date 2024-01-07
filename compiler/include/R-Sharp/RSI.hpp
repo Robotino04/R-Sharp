@@ -54,6 +54,9 @@ inline const std::map<InstructionType, uint> numArgumentsUsed = {
 
     {InstructionType::STORE_MEMORY,          2},
     {InstructionType::LOAD_MEMORY,           1},
+
+    {InstructionType::ADDRESS_OF,            1},
+    {InstructionType::SET_LIVE,              0},
 };
 
 inline const std::map<InstructionType, std::string> mnemonics = {
@@ -96,6 +99,9 @@ inline const std::map<InstructionType, std::string> mnemonics = {
 
     {InstructionType::STORE_MEMORY,          "smem"},
     {InstructionType::LOAD_MEMORY,           "lmem"},
+
+    {InstructionType::ADDRESS_OF,            "adof"},
+    {InstructionType::SET_LIVE,              "setl"},
 };
 
 struct HWRegister {

@@ -29,16 +29,25 @@ void seperateCallResults(
     std::vector<RSI::Instruction>& beforeInstructions,
     std::vector<RSI::Instruction>& afterInstructions
 );
-void seperateLoadParameters(
+void separateLoadParameters(
     Architecture const& architecture,
     RSI::Instruction& instr,
     std::vector<RSI::Instruction>& beforeInstructions,
     std::vector<RSI::Instruction>& afterInstructions
 );
-void seperateGlobalReferences(
+void resolveAddressOf(
+    Architecture const& architecture,
+    RSI::Instruction& instr,
+    std::vector<RSI::Instruction>& beforeInstructions,
+    std::vector<RSI::Instruction>& afterInstructions
+);
+void separateGlobalReferences(
     RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions
 );
 void globalReferenceToMemoryAccess(
+    RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions
+);
+void separateStackVariables(
     RSI::Instruction& instr, std::vector<RSI::Instruction>& beforeInstructions, std::vector<RSI::Instruction>& afterInstructions
 );
 

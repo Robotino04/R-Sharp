@@ -252,7 +252,7 @@ int main(int argc, const char** argv) {
                 RSIPass{
                     .humanHeader = "Separeate global references",
                     .architectures = allArchitectureTypes,
-                    .perInstructionFunction = RSI::seperateGlobalReferences,
+                    .perInstructionFunction = RSI::separateGlobalReferences,
                 },
                 RSIPass{
                     .humanHeader = "Replace global reference with memory access",
@@ -291,11 +291,11 @@ int main(int argc, const char** argv) {
                     ),
                 },
                 RSIPass{
-                    .humanHeader = "Seperate parameter loads",
+                    .humanHeader = "Separate parameter loads",
                     .architectures = {OutputArchitecture::x86_64},
                     .positiveInstructionTypes = {RSI::InstructionType::LOAD_PARAMETER},
                     .perInstructionFunction = std::bind(
-                        RSI::seperateLoadParameters,
+                        RSI::separateLoadParameters,
                         x86_64,
                         std::placeholders::_1,
                         std::placeholders::_2,
@@ -303,12 +303,37 @@ int main(int argc, const char** argv) {
                     ),
                 },
                 RSIPass{
-                    .humanHeader = "Seperate parameter loads",
+                    .humanHeader = "Separate parameter loads",
                     .architectures = {OutputArchitecture::AArch64},
                     .positiveInstructionTypes = {RSI::InstructionType::LOAD_PARAMETER},
                     .perInstructionFunction = std::bind(
-                        RSI::seperateLoadParameters,
-                        aarch64, std::placeholders::_1,
+                        RSI::separateLoadParameters,
+                        aarch64,
+                        std::placeholders::_1,
+                        std::placeholders::_2,
+                        std::placeholders::_3
+                    ),
+                },
+                RSIPass{
+                    .humanHeader = "Resolve addresses",
+                    .architectures = {OutputArchitecture::AArch64},
+                    .positiveInstructionTypes = {RSI::InstructionType::ADDRESS_OF},
+                    .perInstructionFunction = std::bind(
+                        RSI::resolveAddressOf,
+                        aarch64,
+                        std::placeholders::_1,
+                        std::placeholders::_2,
+                        std::placeholders::_3
+                    ),
+                },
+                RSIPass{
+                    .humanHeader = "Resolve addresses",
+                    .architectures = {OutputArchitecture::x86_64},
+                    .positiveInstructionTypes = {RSI::InstructionType::ADDRESS_OF},
+                    .perInstructionFunction = std::bind(
+                        RSI::resolveAddressOf,
+                        x86_64,
+                        std::placeholders::_1,
                         std::placeholders::_2,
                         std::placeholders::_3
                     ),
@@ -340,7 +365,7 @@ int main(int argc, const char** argv) {
                     .perFunctionFunction = RSI::analyzeLiveVariables,
                 },
                 RSIPass{
-                    .humanHeader = "",
+                    .humanHeader = "Sanity check",
                     .architectures = allArchitectureTypes,
                     .positiveInstructionTypes = {},
                     .isFunctionWide = true,
@@ -356,6 +381,11 @@ int main(int argc, const char** argv) {
                     .positiveInstructionTypes = {},
                     .isFunctionWide = true,
                     .perFunctionFunction = RSI::assignRegistersGraphColoring,
+                },
+                RSIPass{
+                    .humanHeader = "Separate stack variables",
+                    .architectures = {OutputArchitecture::AArch64},
+                    .perInstructionFunction = RSI::separateStackVariables,
                 },
                 RSIPass{
                     .humanHeader = "Register enumeration",
