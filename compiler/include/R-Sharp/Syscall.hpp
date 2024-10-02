@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 enum class Syscall {
     read = 0,
     write = 1,

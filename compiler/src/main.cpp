@@ -1,29 +1,28 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <filesystem>
 
 #include "R-Sharp/Logging.hpp"
-#include "R-Sharp/Tokenizer.hpp"
-#include "R-Sharp/Token.hpp"
-#include "R-Sharp/AstNodes.hpp"
-#include "R-Sharp/Parser.hpp"
-#include "R-Sharp/Utils.hpp"
-#include "R-Sharp/ParsingCache.hpp"
 
-#include "R-Sharp/AstPrinter.hpp"
-#include "R-Sharp/CCodeGenerator.hpp"
-#include "R-Sharp/NASMCodeGenerator.hpp"
-#include "R-Sharp/AArch64CodeGenerator.hpp"
-#include "R-Sharp/ErrorPrinter.hpp"
-#include "R-Sharp/SemanticValidator.hpp"
-#include "R-Sharp/RSIGenerator.hpp"
-#include "R-Sharp/RSIAnalysis.hpp"
-#include "R-Sharp/RSIToAssembly.hpp"
-#include "R-Sharp/Architecture.hpp"
-#include "R-Sharp/RSIPass.hpp"
-#include "R-Sharp/RSITools.hpp"
+#include "R-Sharp/frontend/Tokenizer.hpp"
+#include "R-Sharp/frontend/Token.hpp"
+#include "R-Sharp/frontend/Parser.hpp"
+#include "R-Sharp/frontend/Utils.hpp"
+#include "R-Sharp/frontend/ParsingCache.hpp"
+
+#include "R-Sharp/ast/AstNodes.hpp"
+#include "R-Sharp/ast/AstPrinter.hpp"
+#include "R-Sharp/backend/CCodeGenerator.hpp"
+#include "R-Sharp/backend/NASMCodeGenerator.hpp"
+#include "R-Sharp/backend/AArch64CodeGenerator.hpp"
+#include "R-Sharp/ast/ErrorPrinter.hpp"
+#include "R-Sharp/ast/SemanticValidator.hpp"
+#include "R-Sharp/backend/RSIGenerator.hpp"
+#include "R-Sharp/backend/RSIAnalysis.hpp"
+#include "R-Sharp/backend/RSIToAssembly.hpp"
+#include "R-Sharp/backend/Architecture.hpp"
+#include "R-Sharp/backend/RSIPass.hpp"
 
 enum class ReturnValue {
     NormalExit = 0,
@@ -239,7 +238,8 @@ int main(int argc, const char** argv) {
                 translationUnit = RSIGenerator(ast, R_Sharp_Source).generate();
                 break;
         }
-        if (outputSource.length()) Print(outputSource);
+        if (outputSource.length())
+            Print(outputSource);
         else {
             // clang-format off
             std::vector<RSIPass> passes = {
@@ -500,7 +500,8 @@ int main(int argc, const char** argv) {
                                 + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
-            if (success) Print("Compilation successful.");
+            if (success)
+                Print("Compilation successful.");
             else {
                 Error("Compilation failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
@@ -513,7 +514,8 @@ int main(int argc, const char** argv) {
                                 + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             int success = !system(command.c_str());
-            if (success) Print("Compilation successful.");
+            if (success)
+                Print("Compilation successful.");
             else {
                 Error("Compilation failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
@@ -526,7 +528,8 @@ int main(int argc, const char** argv) {
                                 + outputFilename + ".o";
             Print("Executing: ", command);
             int success = !system(command.c_str());
-            if (success) Print("Assembling successful.");
+            if (success)
+                Print("Assembling successful.");
             else {
                 Error("Assembling failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
@@ -537,7 +540,8 @@ int main(int argc, const char** argv) {
                     + additionalyLinkedFiles_str + " -o " + outputFilename;
             Print("Executing: ", command);
             success = !system(command.c_str());
-            if (success) Print("Linking successful.");
+            if (success)
+                Print("Linking successful.");
             else {
                 Error("Linking failed.");
                 return static_cast<int>(ReturnValue::AssemblingError);
