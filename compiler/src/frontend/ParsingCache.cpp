@@ -21,13 +21,6 @@ bool ParsingCache::containsWildcard(std::string const& filename) {
             return std::filesystem::equivalent(std::filesystem::path(filename), std::filesystem::path(other.first));
         }
     );
-    if (equivalentFind != filenamesToAlreadyImportedIdentifiers.end()) {
-        for (auto equiv : (*equivalentFind).second) {
-            if (containsWildcard(equiv)) {
-                return true;
-            }
-        }
-    }
 
     return wildcardIncludedFiles.count(absolute_filename);
 }
@@ -44,7 +37,8 @@ bool ParsingCache::containsNonWildcard(std::string const& filename, std::string 
             filenamesToAlreadyImportedIdentifiers.end(),
             [&](auto const& other) {
                 return std::filesystem::equivalent(
-                    std::filesystem::path(filename), std::filesystem::path(other.first)
+                    std::filesystem::path(filename),
+                    std::filesystem::path(other.first)
                 );
             }
         );

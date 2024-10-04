@@ -491,7 +491,7 @@ int main(int argc, const char** argv) {
         "-g -Werror -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-but-set-variable "
         "-Wno-unused-function";
     const std::string gccArgumentsLink = "-g -Werror -Wall -no-pie ";
-    const std::string nasmArgumentsCompile = "-g -w+error -w+all";
+    const std::string nasmArgumentsCompile = "-g -w+error";
 
     switch (outputFormat) {
         case OutputFormat::C: {

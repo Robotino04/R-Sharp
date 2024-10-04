@@ -7,6 +7,15 @@ A general purpose programming language.
 ## Unit Tests
 Some of the tests used for R# are from [this](https://github.com/nlsandler/write_a_c_compiler) repository and rewritten to R#.
 
+## Commands
+```sh
+# in build/
+ctest -j -R "^valid/(binary|unary|boolean|c_void|character_literal|conditional|function|global|import|loops|numbers|scoping|stdlib|variables)"
+
+# in build/
+make -j && compiler/rsc -f rsi_nasm --stdlib ../stdlib ../test.rs
+```
+
 ## RSI porting progress
 - [ ] arrays
 - [x] binary_operators
@@ -20,7 +29,7 @@ Some of the tests used for R# are from [this](https://github.com/nlsandler/write
 - [x] import
 - [x] loops
 - [x] numbers
-- [ ] pointers
+- [-] pointers
 - [ ] rest
 - [x] scoping
 - [ ] sized_integers

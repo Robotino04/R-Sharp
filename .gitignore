@@ -3,3 +3,4 @@ build/
 !.vscode/launch.json
 test.rs
 .cache/
+compile_commands.json
