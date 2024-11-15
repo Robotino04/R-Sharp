@@ -1,7 +1,9 @@
 #include "R-Sharp/frontend/Parser.hpp"
+#include "R-Sharp/ast/AstNodesFWD.hpp"
 #include "R-Sharp/frontend/Tokenizer.hpp"
 
 #include <filesystem>
+#include <memory>
 
 Parser::Parser(std::vector<Token> const& tokens, std::string const& filename, std::string const& importSearchPath, ParsingCache& cache)
     : tokens(tokens), filename(filename), importSearchPath(importSearchPath), cache(cache) {
@@ -25,9 +27,11 @@ bool Parser::match(TokenType type, std::string value) const {
     return !isAtEnd() && getCurrentToken().type == type && getCurrentToken().value == value;
 }
 bool Parser::match(std::vector<TokenType> types) const {
-    if (isAtEnd(types.size() - 1)) return false;
+    if (isAtEnd(types.size() - 1))
+        return false;
     for (int i = 0; i < types.size(); i++) {
-        if (getToken(i).type != types[i]) return false;
+        if (getToken(i).type != types[i])
+            return false;
     }
     return true;
 }
@@ -47,9 +51,11 @@ bool Parser::match(int offset, TokenType type, std::string value) const {
     return !isAtEnd(offset) && getToken(offset).type == type && getToken(offset).value == value;
 }
 bool Parser::match(int offset, std::vector<TokenType> types) const {
-    if (isAtEnd(offset + types.size() - 1)) return false;
+    if (isAtEnd(offset + types.size() - 1))
+        return false;
     for (int i = 0; i < types.size(); i++) {
-        if (getToken(offset + i).type != types[i]) return false;
+        if (getToken(offset + i).type != types[i])
+            return false;
     }
     return true;
 }
@@ -96,7 +102,8 @@ Token Parser::consumeAnyOne(std::vector<TokenType> types) {
     std::string error = "Expected one of ";
     for (int i = 0; i < types.size(); i++) {
         error += tokenTypeToString(types[i]);
-        if (i != types.size() - 1) error += ", ";
+        if (i != types.size() - 1)
+            error += ", ";
     }
     parserError(error, " but got ", getCurrentToken().toString());
     return getCurrentToken();
@@ -114,7 +121,8 @@ Token Parser::getCurrentToken() const {
     return tokens[currentTokenIndex];
 }
 Token Parser::getToken(int offset) const {
-    if (isAtEnd(offset)) return Token(TokenType::EndOfFile, "");
+    if (isAtEnd(offset))
+        return Token(TokenType::EndOfFile, "");
     return tokens[currentTokenIndex + offset];
 }
 
@@ -242,7 +250,8 @@ std::vector<std::shared_ptr<AstProgramItem>> Parser::parseImportStatement() {
     // preprocessing
 
     std::string path;
-    if (importPath.at(0).value == "std") importPath.at(0).value = importSearchPath;
+    if (importPath.at(0).value == "std")
+        importPath.at(0).value = importSearchPath;
     else {
         path = std::filesystem::absolute(filename).remove_filename();
     }
@@ -746,10 +755,29 @@ std::shared_ptr<AstExpression> Parser::parseNumber() {
     number->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::I64);
     return number;
 }
+std::shared_ptr<AstAssignLocation> Parser::parseAssignmentLocation() {
+    std::shared_ptr<AstAssignLocation> location = std::make_shared<AstAssignLocation>();
+    location->expr = parsePrefixExp();
+
+    bool valid = false;
+
+    switch (location->expr->getType()) {
+        case AstNodeType::AstVariableAccess:
+        case AstNodeType::AstArrayAccess:
+        case AstNodeType::AstDereference:    {
+            break;
+        }
+
+        default:
+            parserError("Expected array access, dereference or variable, but got ", getCurrentToken().toString());
+            break;
+    }
+    return location;
+}
 
 std::shared_ptr<AstAssignment> Parser::parseAssignment() {
     std::shared_ptr<AstAssignment> assignment = std::make_shared<AstAssignment>();
-    assignment->lvalue = parsePrefixExp();
+    assignment->lvalue = parseAssignmentLocation();
     assignment->token = consume(TokenType::Assign);
     assignment->rvalue = parseExpression();
     return assignment;
@@ -760,7 +788,8 @@ std::shared_ptr<AstFunctionCall> Parser::parseFunctionCall() {
     consume(TokenType::LeftParen);
     while (!match(TokenType::RightParen)) {
         functionCall->arguments.push_back(parseExpression());
-        if (match(TokenType::Comma)) consume(TokenType::Comma);
+        if (match(TokenType::Comma))
+            consume(TokenType::Comma);
         else {
             break;
         }

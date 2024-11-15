@@ -1,5 +1,6 @@
 #pragma once
 
+#include "R-Sharp/ast/AstNodes.hpp"
 #include "R-Sharp/ast/AstVisitor.hpp"
 
 #include <vector>
@@ -35,6 +36,7 @@ public:
     void visit(std::shared_ptr<AstVariableAccess> node) override;
     void visit(std::shared_ptr<AstDereference> node) override;
     void visit(std::shared_ptr<AstArrayAccess> node) override;
+    void visit(std::shared_ptr<AstAssignLocation> node) override;
 
     void visit(std::shared_ptr<AstArrayLiteral> node) override;
 

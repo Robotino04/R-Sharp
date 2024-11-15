@@ -48,6 +48,9 @@ enum class InstructionType {
     STORE_MEMORY,
     LOAD_MEMORY,
 
+    LOAD_GLOBAL,
+    STORE_GLOBAL,
+
     ADDRESS_OF,
     SET_LIVE,
 };

@@ -54,53 +54,59 @@ inline const std::map<InstructionType, uint> numArgumentsUsed = {
     {InstructionType::STORE_MEMORY,          2},
     {InstructionType::LOAD_MEMORY,           1},
 
+    {InstructionType::LOAD_GLOBAL,           1},
+    {InstructionType::STORE_GLOBAL,          2},
+
     {InstructionType::ADDRESS_OF,            1},
     {InstructionType::SET_LIVE,              0},
 };
 
 inline const std::map<InstructionType, std::string> mnemonics = {
-    {InstructionType::NOP,                   "nop" },
+    {InstructionType::NOP,                   "nop"  },
 
-    {InstructionType::MOVE,                  "mov" },
-    {InstructionType::RETURN,                "ret" },
+    {InstructionType::MOVE,                  "mov"  },
+    {InstructionType::RETURN,                "ret"  },
 
-    {InstructionType::NEGATE,                "neg" },
-    {InstructionType::BINARY_NOT,            "bnot"},
-    {InstructionType::LOGICAL_NOT,           "lnot"},
+    {InstructionType::NEGATE,                "neg"  },
+    {InstructionType::BINARY_NOT,            "bnot" },
+    {InstructionType::LOGICAL_NOT,           "lnot" },
 
-    {InstructionType::ADD,                   "add" },
-    {InstructionType::SUBTRACT,              "sub" },
-    {InstructionType::MULTIPLY,              "mul" },
-    {InstructionType::DIVIDE,                "div" },
-    {InstructionType::MODULO,                "mod" },
+    {InstructionType::ADD,                   "add"  },
+    {InstructionType::SUBTRACT,              "sub"  },
+    {InstructionType::MULTIPLY,              "mul"  },
+    {InstructionType::DIVIDE,                "div"  },
+    {InstructionType::MODULO,                "mod"  },
 
-    {InstructionType::EQUAL,                 "eq"  },
-    {InstructionType::NOT_EQUAL,             "neq" },
-    {InstructionType::LESS_THAN,             "lt"  },
-    {InstructionType::LESS_THAN_OR_EQUAL,    "leq" },
-    {InstructionType::GREATER_THAN,          "gt"  },
-    {InstructionType::GREATER_THAN_OR_EQUAL, "geq" },
+    {InstructionType::EQUAL,                 "eq"   },
+    {InstructionType::NOT_EQUAL,             "neq"  },
+    {InstructionType::LESS_THAN,             "lt"   },
+    {InstructionType::LESS_THAN_OR_EQUAL,    "leq"  },
+    {InstructionType::GREATER_THAN,          "gt"   },
+    {InstructionType::GREATER_THAN_OR_EQUAL, "geq"  },
 
-    {InstructionType::LOGICAL_AND,           "land"},
-    {InstructionType::LOGICAL_OR,            "lor" },
+    {InstructionType::LOGICAL_AND,           "land" },
+    {InstructionType::LOGICAL_OR,            "lor"  },
 
-    {InstructionType::BINARY_AND,            "band"},
+    {InstructionType::BINARY_AND,            "band" },
 
-    {InstructionType::JUMP,                  "jmp" },
-    {InstructionType::JUMP_IF_ZERO,          "jmpz"},
-    {InstructionType::DEFINE_LABEL,          "defl"},
+    {InstructionType::JUMP,                  "jmp"  },
+    {InstructionType::JUMP_IF_ZERO,          "jmpz" },
+    {InstructionType::DEFINE_LABEL,          "defl" },
 
-    {InstructionType::STORE_PARAMETER,       "spar"},
-    {InstructionType::LOAD_PARAMETER,        "lpar"},
-    {InstructionType::CALL,                  "call"},
+    {InstructionType::STORE_PARAMETER,       "spar" },
+    {InstructionType::LOAD_PARAMETER,        "lpar" },
+    {InstructionType::CALL,                  "call" },
 
-    {InstructionType::FUNCTION_BEGIN,        "fbeg"},
+    {InstructionType::FUNCTION_BEGIN,        "fbeg" },
 
-    {InstructionType::STORE_MEMORY,          "smem"},
-    {InstructionType::LOAD_MEMORY,           "lmem"},
+    {InstructionType::STORE_MEMORY,          "smem" },
+    {InstructionType::LOAD_MEMORY,           "lmem" },
 
-    {InstructionType::ADDRESS_OF,            "adof"},
-    {InstructionType::SET_LIVE,              "setl"},
+    {InstructionType::LOAD_GLOBAL,           "lglob"},
+    {InstructionType::STORE_GLOBAL,          "sglob"},
+
+    {InstructionType::ADDRESS_OF,            "adof" },
+    {InstructionType::SET_LIVE,              "setl" },
 };
 
 struct HWRegister {

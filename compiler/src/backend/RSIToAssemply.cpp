@@ -5,6 +5,7 @@
 
 #include "R-Sharp/Utils/ContainerTools.hpp"
 #include "R-Sharp/Utils/LambdaOverload.hpp"
+#include "R-Sharp/backend/RSI_FWD.hpp"
 
 std::string translateOperand(RSI::Operand const& op, Architecture const& arch, std::string constantPrefix) {
     return std::visit(
@@ -143,6 +144,23 @@ std::string rsiToAarch64(RSI::Function const& function) {
                         + translateOperandAarch64(instr.op2) + "\n";
                 result += "cset " + translateOperandAarch64(instr.result) + ", ge\n";
                 break;
+            case RSI::InstructionType::STORE_GLOBAL:
+                result += "str " + translateOperandAarch64(instr.op2) + ", ["
+                        + translateOperandAarch64(instr.op1) + "]\n";
+                break;
+            case RSI::InstructionType::LOAD_GLOBAL:
+                ENSURE_RESULT(instr);
+
+                if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result)
+                    && std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)) {
+                    result += "ldr " + translateOperandAarch64(instr.result)
+                            + ", " + translateOperandAarch64(instr.op1) + "\n";
+                }
+                else {
+                    Fatal("LOAD_GLOBAL can only move from global to reference.");
+                }
+
+                break;
             case RSI::InstructionType::MOVE:
                 if (std::holds_alternative<RSI::Constant>(instr.op1)) {
                     uint64_t valueCopy = static_cast<uint64_t>(std::get<RSI::Constant>(instr.op1).value);
@@ -163,12 +181,11 @@ std::string rsiToAarch64(RSI::Function const& function) {
                         }
                     }
                 }
-                else if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result) && std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)){
-                    result += "ldr " + translateOperandAarch64(instr.result)
-                            + ", =" + translateOperandAarch64(instr.op1) + "\n";
+                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)) {
+                    Fatal("Invalid move instruction. Use LOAD_GLOBL to read from global.");
                 }
-                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result) && std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.op1)){
-                    Fatal("Invalid move instruction. Use STORE_MEMORY to assign to global.");
+                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result)) {
+                    Fatal("Invalid move instruction. Use STORE_GLOBAL to assign to global.");
                 }
                 else {
                     result += "mov " + translateOperandAarch64(instr.result) + ", "
@@ -396,17 +413,21 @@ std::string rsiToNasm(RSI::Function const& function) {
             case RSI::InstructionType::MODULO:
                 ENSURE_RESULT(instr);
 
-                if (!isRegister(instr.result, NasmRegisters::RAX)) result += "push rax\n";
-                if (!isRegister(instr.result, NasmRegisters::RDX)) result += "push rdx\n";
+                if (!isRegister(instr.result, NasmRegisters::RAX))
+                    result += "push rax\n";
+                if (!isRegister(instr.result, NasmRegisters::RDX))
+                    result += "push rdx\n";
 
                 result += "mov rax, " + translateOperandNasm(instr.op1) + "\n";
                 result += "cqo\n";
                 result += "idiv " + translateOperandNasm(instr.op2) + "\n";
                 result += "mov " + translateOperandNasm(instr.result) + ", rdx\n";
 
-                if (!isRegister(instr.result, NasmRegisters::RDX)) result += "pop rdx\n";
+                if (!isRegister(instr.result, NasmRegisters::RDX))
+                    result += "pop rdx\n";
 
-                if (!isRegister(instr.result, NasmRegisters::RAX)) result += "pop rax\n";
+                if (!isRegister(instr.result, NasmRegisters::RAX))
+                    result += "pop rax\n";
 
                 break;
             case RSI::InstructionType::NEGATE:
@@ -478,12 +499,25 @@ std::string rsiToNasm(RSI::Function const& function) {
                         + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 4)) + ", "
                         + nasmRegisterSize.at(std::make_pair(translateOperandNasm(instr.result), 1)) + "\n";
                 break;
+            case RSI::InstructionType::STORE_GLOBAL:
+                result += "mov QWORD [" + translateOperandNasm(instr.op1) + "], "
+                        + translateOperandNasm(instr.op2) + "\n";
+                break;
+            break;
+            case RSI::InstructionType::LOAD_GLOBAL:
+                if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result)
+                    && std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)) {
+                    result += "mov QWORD " + translateOperandNasm(instr.result) + ", ["
+                            + translateOperandNasm(instr.op1) + "]\n";
+                }
+                else {
+                    Fatal("LOAD_GLOBAL can only move from global to reference.");
+                }
+                break;
             case RSI::InstructionType::MOVE:
                 result += "mov QWORD ";
                 if (std::holds_alternative<std::shared_ptr<RSI::Reference>>(instr.result))
                     result += translateOperandNasm(instr.result);
-                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result))
-                    result += "[" + translateOperandNasm(instr.result) + "]";
                 else
                     Fatal("Unknown type of result used for move instruction");
                 result += ", ";
@@ -493,17 +527,22 @@ std::string rsiToNasm(RSI::Function const& function) {
                     result += translateOperandNasm(instr.op1);
                 else if (std::holds_alternative<RSI::DynamicConstant>(instr.op1))
                     result += translateOperandNasm(instr.op1);
-                else if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1))
-                    result += "[" + translateOperandNasm(instr.op1) + "]";
                 else
                     Fatal("Unknown type of operand used for move instruction");
                 result += "\n";
                 break;
             case RSI::InstructionType::STORE_MEMORY:
+                if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1) || std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1)){
+                    Fatal("STORE_MEMORY used for accessing global. Use STORE_GLOBAL.");
+                }
+
                 result += "mov QWORD [" + translateOperandNasm(instr.op1) + "], "
                         + translateOperandNasm(instr.op2) + "\n";
                 break;
             case RSI::InstructionType::LOAD_MEMORY:
+                if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.op1) || std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(instr.result)){
+                    Fatal("LOAD_MEMORY used for accessing global. Use LOAD_GLOBAL.");
+                }
                 result += "mov QWORD " + translateOperandNasm(instr.result) + ", ["
                         + translateOperandNasm(instr.op1) + "]\n";
                 break;
@@ -558,7 +597,8 @@ std::string rsiToNasm(RSI::Function const& function) {
                 for (auto reg_it = regsToPreserve.begin(); reg_it != regsToPreserve.end();) {
                     if (std::holds_alternative<RSI::HWRegister>((*reg_it)->storageLocation)
                         && ContainerTools::contains(
-                            x86_64.calleeSavedRegisters, std::get<RSI::HWRegister>((*reg_it)->storageLocation)
+                            x86_64.calleeSavedRegisters,
+                            std::get<RSI::HWRegister>((*reg_it)->storageLocation)
                         )) {
                         reg_it = regsToPreserve.erase(reg_it);
                     }

@@ -54,6 +54,7 @@ public:
     VISITOR_FN(AstTypeConversion);
     VISITOR_FN(AstDereference);
     VISITOR_FN(AstArrayAccess);
+    VISITOR_FN(AstAssignLocation);
 
     VISITOR_FN(AstVariableDeclaration);
     VISITOR_FN(AstPointerType);

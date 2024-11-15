@@ -624,10 +624,10 @@ void SemanticValidator::visit(std::shared_ptr<AstArrayLiteral> node) {
 
 void SemanticValidator::visit(std::shared_ptr<AstAssignment> node) {
     AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
-    if (node->lvalue->getType() == AstNodeType::AstVariableAccess) {
-        auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue);
+    if (node->lvalue->expr->getType() == AstNodeType::AstVariableAccess) {
+        auto var = std::static_pointer_cast<AstVariableAccess>(node->lvalue->expr);
         if (isVariableDeclared(var->name)) {
-            requireEquivalentTypes(node->lvalue, node->lvalue);
+            requireEquivalentTypes(node->lvalue, node->rvalue);
             var->variable = getVariable(var->name);
             if (!isEqualTypeInSharedPointer(node->lvalue->semanticType, node->rvalue->semanticType)) {
                 // apply an automaic type conversion
@@ -645,10 +645,10 @@ void SemanticValidator::visit(std::shared_ptr<AstAssignment> node) {
             node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
         }
     }
-    else if (node->lvalue->getType() == AstNodeType::AstDereference) {
+    else if (node->lvalue->expr->getType() == AstNodeType::AstDereference) {
         node->semanticType = node->lvalue->semanticType;
     }
-    else if (node->lvalue->getType() == AstNodeType::AstArrayAccess) {
+    else if (node->lvalue->expr->getType() == AstNodeType::AstArrayAccess) {
         node->semanticType = node->lvalue->semanticType;
     }
     else {
@@ -657,6 +657,10 @@ void SemanticValidator::visit(std::shared_ptr<AstAssignment> node) {
         printErrorToken(node->token, source);
         node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
     }
+}
+void SemanticValidator::visit(std::shared_ptr<AstAssignLocation> node) {
+    AstVisitor::visit(std::dynamic_pointer_cast<AstNode>(node));
+    node->semanticType = node->expr->semanticType;
 }
 void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node) {
     // visit the children

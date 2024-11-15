@@ -339,7 +339,7 @@ struct AstAssignment : AstExpression, public std::enable_shared_from_this<AstAss
     GET_SINGLE_CHILDREN(rvalue, lvalue)
     TO_STRING(AstAssignment)
 
-    SINGLE_CHILD(AstExpression, lvalue)
+    SINGLE_CHILD(AstAssignLocation, lvalue)
     SINGLE_CHILD(AstExpression, rvalue)
 };
 
@@ -478,6 +478,15 @@ struct AstArrayAccess : public AstExpression, public std::enable_shared_from_thi
     SINGLE_CHILD(AstExpression, index)
 };
 
+struct AstAssignLocation : public AstExpression, public std::enable_shared_from_this<AstAssignLocation> {
+    BASE(AstAssignLocation)
+    TO_STRING(AstAssignLocation)
+
+    GET_SINGLE_CHILDREN(expr)
+
+    SINGLE_CHILD(AstExpression, expr)
+};
+
 // ----------------------------------| Declarations |---------------------------------- //
 struct AstVariableDeclaration : public AstDeclaration,
                                 public AstProgramItem,
@@ -497,7 +506,7 @@ RSharpPrimitiveType stringToType(std::string const& str);
 std::string typeToString(RSharpPrimitiveType type);
 
 struct AstPrimitiveType : public AstType, public std::enable_shared_from_this<AstPrimitiveType> {
-    AstPrimitiveType(RSharpPrimitiveType type): type(type){};
+    AstPrimitiveType(RSharpPrimitiveType type): type(type) {};
 
 
     BASE(AstPrimitiveType);
@@ -514,7 +523,7 @@ struct AstPrimitiveType : public AstType, public std::enable_shared_from_this<As
 
 
 struct AstPointerType : public AstType, public std::enable_shared_from_this<AstPointerType> {
-    AstPointerType(std::shared_ptr<AstType> subtype): subtype(subtype){};
+    AstPointerType(std::shared_ptr<AstType> subtype): subtype(subtype) {};
 
 
     BASE(AstPointerType);
@@ -532,7 +541,7 @@ struct AstPointerType : public AstType, public std::enable_shared_from_this<AstP
 };
 
 struct AstArrayType : public AstType, public std::enable_shared_from_this<AstArrayType> {
-    AstArrayType(std::shared_ptr<AstType> subtype): subtype(subtype){};
+    AstArrayType(std::shared_ptr<AstType> subtype): subtype(subtype) {};
 
 
     BASE(AstArrayType);

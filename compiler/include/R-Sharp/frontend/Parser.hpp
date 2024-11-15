@@ -120,6 +120,7 @@ private:
     std::shared_ptr<AstExpression> parsePrimaryExp();
 
 
+    std::shared_ptr<AstAssignLocation> parseAssignmentLocation();
     std::shared_ptr<AstAssignment> parseAssignment();
 
     std::shared_ptr<AstExpression> parseNumber();

@@ -249,6 +249,7 @@ int main(int argc, const char** argv) {
                     .positiveInstructionTypes = {RSI::InstructionType::NOP},
                     .perInstructionFunction = [](auto&, auto&, auto&){},
                 },
+                /*
                 RSIPass{
                     .humanHeader = "Separeate global references",
                     .architectures = allArchitectureTypes,
@@ -260,6 +261,7 @@ int main(int argc, const char** argv) {
                     .positiveInstructionTypes = {RSI::InstructionType::MOVE},
                     .perInstructionFunction = RSI::globalReferenceToMemoryAccess,
                 },
+                */
                 RSIPass{
                     .humanHeader = "Seperate divisions",
                     .architectures = {OutputArchitecture::x86_64},

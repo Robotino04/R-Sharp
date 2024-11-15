@@ -9,7 +9,6 @@ AstUnaryType toUnaryOperator(TokenType type) {
         default:               Fatal("Invalid unary operator");
     }
 }
-
 AstBinaryType toBinaryOperator(TokenType type) {
     switch (type) {
         case TokenType::Plus:             return AstBinaryType::Add;

@@ -2,10 +2,15 @@
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/ast/AstNodes.hpp"
 #include "R-Sharp/Utils.hpp"
+#include "R-Sharp/ast/AstNodesFWD.hpp"
 #include "R-Sharp/ast/VariableSizeInserter.hpp"
 #include "R-Sharp/Utils/ContainerTools.hpp"
+#include "R-Sharp/backend/RSI.hpp"
+#include "R-Sharp/backend/RSI_FWD.hpp"
 
 #include <map>
+#include <memory>
+#include <variant>
 
 RSIGenerator::RSIGenerator(std::shared_ptr<AstProgram> root, std::string R_SharpSource) {
     this->root = root;
@@ -673,6 +678,13 @@ void RSIGenerator::visit(std::shared_ptr<AstVariableAccess> node) {
     }
     else if (expectedValueType == ValueType::Value) {
         lastResult = std::get<RSI::Operand>(node->variable->accessor);
+        if (std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(lastResult)) {
+            emit(RSI::Instruction{
+                .type = RSI::InstructionType::LOAD_GLOBAL,
+                .result = getNewReference(),
+                .op1 = lastResult,
+            });
+        }
     }
     else {
         auto accessor = std::get<RSI::Operand>(node->variable->accessor);
@@ -690,37 +702,64 @@ void RSIGenerator::visit(std::shared_ptr<AstAssignment> node) {
     expectValueType(ValueType::Value);
     expectedValueType = ValueType::Value;
     node->rvalue->accept(this);
+
     auto rvalue = lastResult;
+    switch (node->lvalue->expr->getType()) {
+        case AstNodeType::AstDereference: {
+            expectedValueType = ValueType::Address;
+            node->lvalue->accept(this);
+            auto lvalue = lastResult;
+            expectedValueType = ValueType::Value;
 
-    bool isDerefAssign = node->lvalue->getType() == AstNodeType::AstDereference;
+            emit(RSI::Instruction{
+                .type = RSI::InstructionType::STORE_MEMORY,
+                .op1 = lvalue,
+                .op2 = rvalue,
+            });
+            break;
+        }
+        case AstNodeType::AstArrayAccess: {
+            Fatal("Not implemented!");
+            // emitIndented("mov x1, sp\n");
+            // emitIndented("ldr x2, =" + std::to_string(stackPassedValueSize) + "\n");
+            // functionCallPrologue();
+            // emitIndented("bl memcpy\n");
+            // functionCallEpilogue();
+            break;
+        }
+        case AstNodeType::AstVariableAccess: {
+            auto var = std::dynamic_pointer_cast<AstVariableAccess>(node->lvalue->expr);
+            if (std::holds_alternative<RSI::Operand>(var->variable->accessor)
+                && std::holds_alternative<std::shared_ptr<RSI::GlobalReference>>(
+                    std::get<RSI::Operand>(var->variable->accessor)
+                )) {
+                // a global variable
+                emit(RSI::Instruction{
+                    .type = RSI::InstructionType::STORE_GLOBAL,
+                    .op1 = std::get<RSI::Operand>(var->variable->accessor),
+                    .op2 = rvalue,
+                });
+            }
+            else {
+                // a local variable
+                expectedValueType = ValueType::Value;
+                node->lvalue->accept(this);
+                auto lvalue = lastResult;
+                expectedValueType = ValueType::Value;
 
-    if (isDerefAssign)
-        expectedValueType = ValueType::Address;
-    node->lvalue->accept(this);
-    auto lvalue = lastResult;
-    expectedValueType = ValueType::Value;
 
-    if (node->lvalue->semanticType->getType() == AstNodeType::AstArrayType) {
-        Fatal("Not implemented!");
-        // emitIndented("mov x1, sp\n");
-        // emitIndented("ldr x2, =" + std::to_string(stackPassedValueSize) + "\n");
-        // functionCallPrologue();
-        // emitIndented("bl memcpy\n");
-        // functionCallEpilogue();
-    }
-    else if (isDerefAssign) {
-        emit(RSI::Instruction{
-            .type = RSI::InstructionType::STORE_MEMORY,
-            .op1 = lvalue,
-            .op2 = rvalue,
-        });
-    }
-    else {
-        emit(RSI::Instruction{
-            .type = RSI::InstructionType::MOVE,
-            .result = lvalue,
-            .op1 = rvalue,
-        });
+                emit(RSI::Instruction{
+                    .type = RSI::InstructionType::MOVE,
+                    .result = lvalue,
+                    .op1 = rvalue,
+                });
+            }
+            break;
+        }
+        default: {
+            Fatal("Unknown node type for AstAssignLocation: ", node->lvalue->expr->toString());
+            break;
+        }
     }
 }
 void RSIGenerator::visit(std::shared_ptr<AstConditionalExpression> node) {

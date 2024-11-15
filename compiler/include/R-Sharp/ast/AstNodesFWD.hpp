@@ -42,6 +42,7 @@ enum class AstNodeType {
     AstTypeConversion,
     AstAddressOf,
     AstArrayAccess,
+    AstAssignLocation,
 
 
     AstVariableDeclaration,
@@ -92,6 +93,7 @@ struct AstFunctionCall;
 struct AstTypeConversion;
 struct AstAddressOf;
 struct AstArrayAccess;
+struct AstAssignLocation;
 
 struct AstLValue;
 struct AstDereference;
