@@ -2,6 +2,7 @@
 #include "R-Sharp/Logging.hpp"
 #include "R-Sharp/ast/AstNodes.hpp"
 #include "R-Sharp/Utils.hpp"
+#include "R-Sharp/ast/AstNodesFWD.hpp"
 #include "R-Sharp/ast/VariableSizeInserter.hpp"
 #include "R-Sharp/Utils/ScopeGuard.hpp"
 
@@ -976,6 +977,10 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstAddressOf> node) {
 void NASMCodeGenerator::visit(std::shared_ptr<AstTypeConversion> node) {
     int originSize = sizeFromSemanticalType(node->value->semanticType);
     int targetSize = sizeFromSemanticalType(node->semanticType);
+    if (node->value->semanticType->getType() == AstNodeType::AstArrayType
+        && node->semanticType->getType() == AstNodeType::AstPointerType) {
+        expectedValueType = ValueType::Address;
+    }
     node->value->accept(this);
     if (expectedValueType == ValueType::Value) {
         // only typecast values, no addresses
@@ -1125,7 +1130,9 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayAccess> node) {
     }
 }
 void NASMCodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
-    expectValueType(ValueType::Value);
+    const auto prevValueType = expectedValueType;
+    expectedValueType = ValueType::Value;
+
     uint64_t elementSize = sizeFromSemanticalType(std::dynamic_pointer_cast<AstArrayType>(node->semanticType)->subtype);
     emitIndented("\n");
     emitIndented("; Array Literal\n");
@@ -1161,6 +1168,12 @@ void NASMCodeGenerator::visit(std::shared_ptr<AstArrayLiteral> node) {
     }
 
     stackPassedValueSize = sizeFromSemanticalType(node->semanticType);
+
+    if (prevValueType == ValueType::Address) {
+        emitIndented("mov rax, rsp\n");
+    }
+
+    expectedValueType = prevValueType;
 }
 
 void NASMCodeGenerator::defineGlobalData(std::shared_ptr<AstExpression> node) {

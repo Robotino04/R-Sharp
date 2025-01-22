@@ -64,7 +64,8 @@ private:
         std::string msg = "operands don't match"
     );
     void requireType(std::shared_ptr<AstNode> node);
-    bool areEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found);
+    bool areEquivalentTypes(std::shared_ptr<AstType> expected, std::shared_ptr<AstType> found);
+    bool areEquivalentTypesInSharedPtr(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found);
 
 private:
     std::shared_ptr<AstNode> root;

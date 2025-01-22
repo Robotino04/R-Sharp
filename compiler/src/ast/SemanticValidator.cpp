@@ -2,7 +2,9 @@
 #include "R-Sharp/ast/AstNodes.hpp"
 #include "R-Sharp/Utils.hpp"
 #include "R-Sharp/Logging.hpp"
+#include "R-Sharp/ast/AstNodesFWD.hpp"
 
+#include <memory>
 #include <set>
 #include <queue>
 
@@ -125,11 +127,24 @@ std::shared_ptr<SemanticFunctionData> SemanticValidator::getFunction(std::string
 
         // allow function if the parameters can be casted
         if (other->parameters->parameters.size() != params->parameters.size()) {
+            Warning(
+                "A function named ",
+                name,
+                " was found, but it has ",
+                other->parameters->parameters.size(),
+                " parameters instead of ",
+                params->parameters.size()
+            );
             return false;
         }
 
         for (int i = 0; i < other->parameters->parameters.size(); i++) {
-            if (!areEquivalentTypes(other->parameters->parameters.at(i), params->parameters.at(i))) {
+            if (!areEquivalentTypesInSharedPtr(other->parameters->parameters.at(i), params->parameters.at(i))) {
+                Warning(
+                    "A function named ",
+                    name,
+                    " with the correct number of arguments was found, but it has different types"
+                );
                 return false;
             }
         }
@@ -177,29 +192,33 @@ bool isEqualTypeInSharedPointer(std::shared_ptr<AstType> a, std::shared_ptr<AstT
         default: throw std::runtime_error("Unknown type to test equality");
     }
 }
+bool SemanticValidator::areEquivalentTypesInSharedPtr(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found) {
+    requireType(expected);
+    requireType(found);
 
-bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found) {
+    return areEquivalentTypes(expected->semanticType, found->semanticType);
+}
+
+bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstType> expected, std::shared_ptr<AstType> found) {
     static const std::vector<RSharpPrimitiveType> integerTypes = {
         RSharpPrimitiveType::I8,
         RSharpPrimitiveType::I16,
         RSharpPrimitiveType::I32,
         RSharpPrimitiveType::I64,
     };
-    requireType(expected);
-    requireType(found);
 
     // don't issue further errors if the type is unknown already
-    if (expected->semanticType->isErrorType() || found->semanticType->isErrorType())
+    if (expected->isErrorType() || found->isErrorType())
         return true;
 
-    switch (expected->semanticType->getType()) {
+    switch (expected->getType()) {
         default: {
             throw std::runtime_error("Unimplemented type used");
             break;
         }
         case AstNodeType::AstPrimitiveType: {
-            auto expected_type = std::static_pointer_cast<AstPrimitiveType>(expected->semanticType)->type;
-            auto found_type = std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type;
+            auto expected_type = std::static_pointer_cast<AstPrimitiveType>(expected)->type;
+            auto found_type = std::static_pointer_cast<AstPrimitiveType>(found)->type;
 
             if (expected_type == found_type)
                 return true;
@@ -214,35 +233,44 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
         }
 
         case AstNodeType::AstPointerType: {
-            auto expected_type = std::static_pointer_cast<AstPointerType>(expected->semanticType);
-            if (found->semanticType->getType() == AstNodeType::AstPrimitiveType) {
+            auto expected_type = std::static_pointer_cast<AstPointerType>(expected);
+            if (found->getType() == AstNodeType::AstPrimitiveType) {
                 // temporarily allow int to pointer conversions
                 // TODO: use ContainerTools::contains
                 const bool isValid = std::find(
                                          integerTypes.begin(),
                                          integerTypes.end(),
-                                         std::static_pointer_cast<AstPrimitiveType>(found->semanticType)->type
+                                         std::static_pointer_cast<AstPrimitiveType>(found)->type
                                      )
                                   != integerTypes.end();
                 if (isValid)
                     Warning("Performing integer to pointer conversion.");
                 return isValid;
             }
-            else if (found->semanticType->getType() == AstNodeType::AstPointerType) {
-                auto found_type = std::static_pointer_cast<AstPointerType>(found->semanticType);
-                if (isEqualTypeInSharedPointer(expected_type->subtype, found_type->subtype)) {
+            else if (found->getType() == AstNodeType::AstPointerType) {
+                auto found_type = std::static_pointer_cast<AstPointerType>(found);
+                if (areEquivalentTypes(expected_type->subtype, found_type->subtype)) {
                     return true;
                 }
+                // allow *any to *c_void
                 else if (expected_type->subtype->getType() == AstNodeType::AstPrimitiveType
                          && std::static_pointer_cast<AstPrimitiveType>(expected_type->subtype)->type
                                 == RSharpPrimitiveType::C_void) {
-                    // a *c_void is expected
                     return true;
                 }
+                // allow *c_void to *any
                 else if (found_type->subtype->getType() == AstNodeType::AstPrimitiveType
                          && std::static_pointer_cast<AstPrimitiveType>(found_type->subtype)->type
                                 == RSharpPrimitiveType::C_void) {
                     // a *c_void is found
+                    return true;
+                }
+            }
+            // allow [any] to *c_void decay
+            else if (found->getType() == AstNodeType::AstArrayType) {
+                if (expected_type->subtype->getType() == AstNodeType::AstPrimitiveType
+                    && std::static_pointer_cast<AstPrimitiveType>(expected_type->subtype)->type
+                           == RSharpPrimitiveType::C_void) {
                     return true;
                 }
             }
@@ -251,11 +279,12 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
             }
         }
         case AstNodeType::AstArrayType: {
-            auto expected_type = std::static_pointer_cast<AstArrayType>(expected->semanticType);
-            if (found->semanticType->getType() != AstNodeType::AstArrayType) {
+            auto expected_type = std::static_pointer_cast<AstArrayType>(expected);
+
+            if (found->getType() != AstNodeType::AstArrayType) {
                 return false;
             }
-            auto found_type = std::static_pointer_cast<AstArrayType>(found->semanticType);
+            auto found_type = std::static_pointer_cast<AstArrayType>(found);
             if (!isEqualTypeInSharedPointer(expected_type->subtype, found_type->subtype)) {
                 return false;
             }
@@ -279,7 +308,7 @@ bool SemanticValidator::areEquivalentTypes(std::shared_ptr<AstNode> expected, st
 }
 
 bool SemanticValidator::requireEquivalentTypes(std::shared_ptr<AstNode> expected, std::shared_ptr<AstNode> found, std::string msg) {
-    if (!areEquivalentTypes(expected, found)) {
+    if (!areEquivalentTypesInSharedPtr(expected, found)) {
         hasError = true;
         Error(
             msg,
@@ -469,7 +498,7 @@ void SemanticValidator::visit(std::shared_ptr<AstBinary> node) {
     if (!isEqualTypeInSharedPointer(node->left->semanticType, node->right->semanticType)) {
         if (node->left->semanticType->getType() != AstNodeType::AstPointerType
             && node->right->semanticType->getType() != AstNodeType::AstPointerType) {
-            // apply an automaic type conversion
+            // apply an automatic type conversion
             node->right = std::make_shared<AstTypeConversion>(node->right, node->left->semanticType);
         }
         else {
@@ -677,6 +706,24 @@ void SemanticValidator::visit(std::shared_ptr<AstVariableDeclaration> node) {
         if (requireEquivalentTypes(node, node->value, "value assigned to variable of different semantical type")) {
             node->semanticType = std::make_shared<AstPrimitiveType>(RSharpPrimitiveType::ErrorType);
         }
+        if (node->semanticType->getType() == AstNodeType::AstArrayType
+            && node->value->semanticType->getType() == AstNodeType::AstArrayType) {
+            const auto self = std::dynamic_pointer_cast<AstArrayType>(node->semanticType);
+            const auto value = std::dynamic_pointer_cast<AstArrayType>(node->value->semanticType);
+
+            // allow assigning sized arrays to unsized ones
+            if (!self->size.has_value() && value->size.has_value()) {
+                self->size = value->size;
+            }
+
+            if (!self->size.has_value()) {
+                hasError = true;
+                Error("Unsized arrays must be assigned an array literal.");
+                printErrorToken(node->token, source);
+                return;
+            }
+        }
+
         if (!isEqualTypeInSharedPointer(node->semanticType, node->value->semanticType)) {
             // apply an automaic type conversion
             node->value = std::make_shared<AstTypeConversion>(node->value, node->semanticType);
@@ -844,11 +891,5 @@ void SemanticValidator::visit(std::shared_ptr<AstArrayType> node) {
             printErrorToken(node->size.value()->token, source);
             return;
         }
-    }
-    else {
-        hasError = true;
-        Error("Unsized arrays must be assigned an array literal.");
-        printErrorToken(node->token, source);
-        return;
     }
 }
